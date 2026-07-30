@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MARU MUSIC LIVE GAME</string>
+    <string name="channel_name">MARU MUSIC LIVE 재생</string>
+    <string name="channel_description">음악을 백그라운드에서 재생합니다.</string>
+    <string name="auto_greeting_channel_name">MARU 곡 사이 통합 안내</string>
+    <string name="auto_greeting_channel_description">노래가 끝난 뒤 다음 곡 전에 한국어·영어·중국어·일본어·러시아어 다섯 안내를 모두 연속 재생합니다.</string>
+    <string name="screen_ocr_channel_name">MARU BIGO 이벤트 감지</string>
+    <string name="screen_ocr_channel_description">사용자가 허용한 화면을 기기 안에서 OCR로 확인합니다.</string>
+    <string name="accessibility_service_description">이전 저장소 파일 호환용입니다. V3.1.2는 접근성 서비스를 사용하지 않습니다.</string>
+</resources>

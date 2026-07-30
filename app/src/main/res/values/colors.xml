@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="maru_bg">#101018</color>
+    <color name="maru_panel">#1D1D2A</color>
+    <color name="maru_text">#FFFFFF</color>
+    <color name="maru_subtext">#C8C8D8</color>
+    <color name="maru_accent">#B66CFF</color>
+    <color name="maru_navy">#1A1A2E</color>
+    <color name="black">#000000</color>
+</resources>

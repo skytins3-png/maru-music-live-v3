@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""Run 1,000 deterministic source-integrity validation cycles.
+
+This is intentionally independent from Gradle. It checks the repository that is
+about to be built: version/workflow consistency, forbidden legacy files, direct
+raw-media hashes, Gradle/manifest essentials, XML validity, UTF-8 text files,
+and absence of generated build output in the upload package.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+import hashlib
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parents[1]
+APP = ROOT / "app"
+MAIN = APP / "src" / "main"
+WORKFLOW = ROOT / ".github" / "workflows" / "build-apk.yml"
+APP_GRADLE = APP / "build.gradle"
+ROOT_GRADLE = ROOT / "build.gradle"
+MANIFEST = MAIN / "AndroidManifest.xml"
+
+CYCLES = 1000
+EXPECTED_VERSION_CODE = "3012"
+EXPECTED_VERSION_NAME = "3.1.2"
+EXPECTED_MEDIA = {
+    MAIN / "res" / "raw" / "actual_music.mp3":
+        "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
+    MAIN / "res" / "raw" / "actual_lyrics.lrc":
+        "dc11c908183a232e5c00e691da9f8895ac1022279cd07dc04e157ab1d8950564",
+}
+FORBIDDEN_EXACT = {
+    MAIN / "res" / "raw" / "default_male_greeting.mp3",
+    MAIN / "res" / "raw" / "default_male_greeting_en.mp3",
+    MAIN / "res" / "raw" / "default_male_greeting_zh.mp3",
+    MAIN / "res" / "xml" / "accessibility_service_config.xml",
+    MAIN / "java" / "com" / "maru" / "musiclive" / "BigoAccessibilityService.java",
+    MAIN / "java" / "com" / "maru" / "musiclive" / "AccessibilityEventRelay.java",
+    MAIN / "java" / "com" / "maru" / "musiclive" / "AutoHostAccessibilityService.java",
+    MAIN / "java" / "com" / "maru" / "musiclive" / "GreetingAudioResolver.java",
+    MAIN / "java" / "com" / "maru" / "musiclive" / "NodeTextCollector.java",
+    ROOT / "required_media",
+    ROOT / "scripts" / "media_payload",
+    ROOT / "scripts" / "restore_required_media.py",
+}
+REQUIRED_WORKFLOW_TOKENS = (
+    "name: Build MARU MUSIC LIVE V3.1.2 APK",
+    "gradle-version: '8.13'",
+    "java-version: '17'",
+    "python3 scripts/check_required_media.py",
+    "python3 scripts/check_maru_clean.py",
+    "find . -maxdepth 1 -type f -name '*.java' -print -delete",
+    "rm -rf build",
+    "python3 scripts/run_source_integrity_1000.py",
+    "bash scripts/run_core_self_test.sh",
+    ":app:testDebugUnitTest",
+    ":app:lintDebug",
+    ":app:assembleDebug",
+    ":app:assembleRelease",
+    "apksigner\" verify --verbose",
+    "python3 scripts/check_built_apk.py",
+    "MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk",
+)
+TEXT_SUFFIXES = {
+    ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
+    ".py", ".sh", ".md", ".txt", ".lrc", ".pro",
+}
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def balanced(text: str, opening: str, closing: str) -> bool:
+    level = 0
+    quote = None
+    escaped = False
+    for char in text:
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if quote:
+            if char == quote:
+                quote = None
+            continue
+        if char in ("'", '"'):
+            quote = char
+            continue
+        if char == opening:
+            level += 1
+        elif char == closing:
+            level -= 1
+            if level < 0:
+                return False
+    return level == 0 and quote is None
+
+
+def validate_static_once() -> list[str]:
+    errors: list[str] = []
+
+    for path in (WORKFLOW, APP_GRADLE, ROOT_GRADLE, MANIFEST):
+        if not path.is_file():
+            errors.append(f"missing required file: {path.relative_to(ROOT)}")
+
+    if errors:
+        return errors
+
+    app_gradle = APP_GRADLE.read_text(encoding="utf-8")
+    root_gradle = ROOT_GRADLE.read_text(encoding="utf-8")
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    manifest = MANIFEST.read_text(encoding="utf-8")
+
+    version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
+    version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
+    if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
+        errors.append("app/build.gradle versionCode is not 3012")
+    if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
+        errors.append("app/build.gradle versionName is not 3.1.2")
+
+    gradle_tokens = (
+        "compileSdk 36", "minSdk 26", "targetSdk 36",
+        "sourceCompatibility JavaVersion.VERSION_17",
+        "targetCompatibility JavaVersion.VERSION_17",
+        "signingConfig signingConfigs.debug",
+    )
+    for token in gradle_tokens:
+        if token not in app_gradle:
+            errors.append(f"missing app Gradle token: {token}")
+    if "version '8.10.1'" not in root_gradle:
+        errors.append("Android Gradle Plugin is not pinned to 8.10.1")
+    if not balanced(app_gradle, "{", "}") or not balanced(root_gradle, "{", "}"):
+        errors.append("unbalanced Gradle braces or quotes")
+
+    for token in REQUIRED_WORKFLOW_TOKENS:
+        if token not in workflow:
+            errors.append(f"missing workflow token: {token}")
+    if 'purge_repository_leftovers.py' in workflow:
+        errors.append('workflow depends on obsolete purge helper')
+
+    # Presence alone is not enough. Cleanup must happen before the project and
+    # 1,000-cycle integrity checks; otherwise stale tracked files fail CI first.
+    source_check_pos = workflow.find('run: python3 scripts/check_maru_clean.py')
+    integrity_check_pos = workflow.find(
+        'run: python3 scripts/run_source_integrity_1000.py'
+    )
+    cleanup_tokens = (
+        "find . -maxdepth 1 -type f -name '*.java' -print -delete",
+        'rm -rf build',
+    )
+    for token in cleanup_tokens:
+        pos = workflow.find(token)
+        if pos < 0:
+            continue
+        if source_check_pos < 0 or integrity_check_pos < 0:
+            errors.append('workflow project/integrity check step is missing')
+            break
+        if pos >= source_check_pos or pos >= integrity_check_pos:
+            errors.append(
+                f'workflow cleanup occurs too late: {token} must be before checks'
+            )
+
+    first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
+    if first_line != "name: Build MARU MUSIC LIVE V3.1.2 APK":
+        errors.append(f"wrong workflow name: {first_line!r}")
+    if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
+        errors.append("stale V3.1.1 workflow/APK token remains")
+
+    self_test = (ROOT / "scripts" / "run_core_self_test.sh").read_text(encoding="utf-8")
+    for token in (
+        'SRC_DIR="build/core-self-test-src"',
+        '-sourcepath "$SRC_DIR"',
+        '@"$SRC_DIR/sources.txt"',
+    ):
+        if token not in self_test:
+            errors.append(f"core self-test is not source-isolated: missing {token}")
+
+    for path in FORBIDDEN_EXACT:
+        if path.exists():
+            errors.append(f"forbidden legacy path exists: {path.relative_to(ROOT)}")
+    for path in sorted(ROOT.glob("*.java")):
+        if path.is_file():
+            errors.append(f"forbidden repository-root Java source exists: {path.name}")
+    raw_dir = MAIN / "res" / "raw"
+    if raw_dir.is_dir():
+        for path in raw_dir.glob("default_male_greeting*.mp3"):
+            errors.append(f"forbidden legacy raw exists: {path.relative_to(ROOT)}")
+
+    for path, expected in EXPECTED_MEDIA.items():
+        if not path.is_file():
+            errors.append(f"missing direct raw resource: {path.relative_to(ROOT)}")
+        else:
+            actual = sha256(path)
+            if actual != expected:
+                errors.append(
+                    f"raw hash mismatch: {path.relative_to(ROOT)} ({actual})"
+                )
+
+    if "BIND_ACCESSIBILITY_SERVICE" in manifest or "AccessibilityService" in manifest:
+        errors.append("legacy Android accessibility service remains in manifest")
+    if "FOREGROUND_SERVICE_MEDIA_PROJECTION" not in manifest:
+        errors.append("media-projection foreground permission missing")
+    if 'android:name=".ScreenOcrGreetingService"' not in manifest:
+        errors.append("screen OCR greeting service missing")
+    try:
+        ET.fromstring(manifest)
+    except Exception as exc:
+        errors.append(f"manifest XML invalid: {exc}")
+
+    for path in sorted((MAIN / "res").rglob("*.xml")):
+        try:
+            ET.parse(path)
+        except Exception as exc:
+            errors.append(f"resource XML invalid: {path.relative_to(ROOT)}: {exc}")
+
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(ROOT)
+        if rel.parts and rel.parts[0] in {".git", "build"}:
+            continue
+        if path.suffix.lower() in TEXT_SUFFIXES or path.name in {"gradlew", "gradlew.bat"}:
+            try:
+                path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                errors.append(f"non-UTF-8 text file: {rel}: {exc}")
+
+    generated_roots = [ROOT / "build", APP / "build", ROOT / ".gradle"]
+    for path in generated_roots:
+        if path.exists():
+            errors.append(f"generated directory included in source package: {path.relative_to(ROOT)}")
+
+    return errors
+
+
+def source_fingerprint() -> str:
+    digest = hashlib.sha256()
+    ignored_roots = {".git", "build", ".gradle"}
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(ROOT)
+        if rel.parts and rel.parts[0] in ignored_roots:
+            continue
+        if len(rel.parts) >= 2 and rel.parts[:2] == ("app", "build"):
+            continue
+        digest.update(rel.as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def main() -> None:
+    baseline = source_fingerprint()
+    for cycle in range(1, CYCLES + 1):
+        errors = validate_static_once()
+        current = source_fingerprint()
+        if current != baseline:
+            errors.append(
+                f"source mutated during validation cycle {cycle}: "
+                f"{baseline} -> {current}"
+            )
+        if errors:
+            print(f"SOURCE-INTEGRITY-1000: FAIL at cycle {cycle}")
+            for error in errors:
+                print(" -", error)
+            raise SystemExit(1)
+    print(f"SOURCE-INTEGRITY-1000: PASS ({CYCLES}/{CYCLES})")
+    print("SOURCE-FINGERPRINT-SHA256:", baseline)
+
+
+if __name__ == "__main__":
+    main()

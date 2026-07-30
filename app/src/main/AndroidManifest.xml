@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='utf-8'?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <queries>
+        <package android:name="sg.bigo.live" />
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+    <application android:allowAudioPlaybackCapture="true" android:appCategory="game" android:isGame="true" android:icon="@drawable/ic_launcher" android:label="@string/app_name" android:roundIcon="@drawable/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.MaruMusicLive">
+        <activity android:name=".OcrTestActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".YouTubePlayerActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize" android:exported="true" android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".AutoGreetingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".ScreenOcrGreetingService" android:exported="false" android:foregroundServiceType="mediaProjection|mediaPlayback" />
+    </application>
+</manifest>
