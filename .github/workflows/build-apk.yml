@@ -1,0 +1,102 @@
+name: Build MARU MUSIC LIVE V3.1.2 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout complete source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Verify committed raw media before tests
+        run: |
+          python3 scripts/check_required_media.py
+          echo "---- committed app/src/main/res/raw ----"
+          find app/src/main/res/raw -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+          sha256sum app/src/main/res/raw/actual_music.mp3 app/src/main/res/raw/actual_lyrics.lrc
+
+      - name: Source separation and version consistency check
+        run: python3 scripts/check_maru_clean.py
+
+      - name: Java import check
+        run: python3 scripts/check_java_imports.py
+
+      - name: Core and stress self-tests
+        run: bash scripts/run_core_self_test.sh
+
+      - name: Adaptive AI checked-exception compile test
+        run: bash scripts/run_adaptive_store_checked_compile.sh
+
+      - name: Song title resolver checked-exception compile test
+        run: bash scripts/run_song_title_resolver_checked_compile.sh
+
+      - name: Playback and intermission TTS compile test
+        run: bash scripts/run_playback_tts_checked_compile.sh
+
+      - name: Android unit tests
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Android lint
+        run: gradle --no-daemon --stacktrace :app:lintDebug
+
+      - name: Verify raw media immediately before assembly
+        run: python3 scripts/check_required_media.py
+
+      - name: Build installable debug and release APKs
+        run: gradle --no-daemon --stacktrace clean :app:assembleDebug :app:assembleRelease
+
+      - name: Verify, sign-check, and rename APKs
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          test -f app/build/outputs/apk/release/app-release.apk
+          unzip -t app/build/outputs/apk/debug/app-debug.apk
+          unzip -t app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk
+          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk
+
+      - name: Inspect actual built APK contents
+        run: |
+          echo "---- Debug APK raw resources ----"
+          unzip -l MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          echo "---- Release APK raw resources ----"
+          unzip -l MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk
+
+      - name: Upload APK files
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-MUSIC-LIVE-V3.1.2-APK
+          path: |
+            MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk
+            MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk
+          if-no-files-found: error
