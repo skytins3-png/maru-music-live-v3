@@ -23,8 +23,8 @@ ROOT_GRADLE = ROOT / "build.gradle"
 MANIFEST = MAIN / "AndroidManifest.xml"
 
 CYCLES = 1000
-EXPECTED_VERSION_CODE = "3012"
-EXPECTED_VERSION_NAME = "3.1.2"
+EXPECTED_VERSION_CODE = "3016"
+EXPECTED_VERSION_NAME = "3.1.6"
 EXPECTED_MEDIA = {
     MAIN / "res" / "raw" / "actual_music.mp3":
         "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
@@ -46,11 +46,12 @@ FORBIDDEN_EXACT = {
     ROOT / "scripts" / "restore_required_media.py",
 }
 REQUIRED_WORKFLOW_TOKENS = (
-    "name: Build MARU MUSIC LIVE V3.1.2 APK",
+    "name: Build MARU MUSIC LIVE V3.1.6 APK",
     "gradle-version: '8.13'",
     "java-version: '17'",
     "python3 scripts/check_required_media.py",
     "python3 scripts/check_maru_clean.py",
+    "python3 scripts/check_voice_policy.py",
     "find . -maxdepth 1 -type f -name '*.java' -print -delete",
     "rm -rf build",
     "python3 scripts/run_source_integrity_1000.py",
@@ -61,8 +62,8 @@ REQUIRED_WORKFLOW_TOKENS = (
     ":app:assembleRelease",
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
-    "MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk",
-    "MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk",
+    "MARU-MUSIC-LIVE-V3.1.6-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.1.6-GAME-RELEASE.apk",
 )
 TEXT_SUFFIXES = {
     ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
@@ -119,9 +120,45 @@ def validate_static_once() -> list[str]:
     version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
     version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
     if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
-        errors.append("app/build.gradle versionCode is not 3012")
+        errors.append("app/build.gradle versionCode is not 3016")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
-        errors.append("app/build.gradle versionName is not 3.1.2")
+        errors.append("app/build.gradle versionName is not 3.1.6")
+
+    main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
+    one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
+    if not main_activity.is_file() or not one_click_plan.is_file():
+        errors.append("one-click BIGO source files are missing")
+    else:
+        main_text = main_activity.read_text(encoding="utf-8")
+        plan_text = one_click_plan.read_text(encoding="utf-8")
+        for token in (
+            "원클릭 BIGO 방송 시작",
+            "startOneClickBigoBroadcast",
+            "OneClickBroadcastPlan.BIGO_PACKAGE",
+            "pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING",
+            "screenCaptureLauncher.launch(manager.createScreenCaptureIntent())",
+            "startMusicForBroadcast();",
+            "startBroadcast();",
+            "openBigoChat();",
+        ):
+            if token not in main_text:
+                errors.append(f"missing one-click source token: {token}")
+        for token in (
+            'BIGO_PACKAGE = "sg.bigo.live"',
+            'BROADCAST_MODE = BroadcastMode.PORTRAIT_9_16',
+            'REQUIRES_SCREEN_CAPTURE_CONSENT = true',
+            'CONTROLS_EXTERNAL_APP_UI = false',
+        ):
+            if token not in plan_text:
+                errors.append(f"missing one-click plan token: {token}")
+        for forbidden in (
+            'BIND_ACCESSIBILITY_SERVICE',
+            'dispatchGesture',
+            'UiAutomator',
+            'InstrumentationRegistry',
+        ):
+            if forbidden in main_text or forbidden in plan_text or forbidden in manifest:
+                errors.append(f"forbidden external UI automation token: {forbidden}")
 
     gradle_tokens = (
         "compileSdk 36", "minSdk 26", "targetSdk 36",
@@ -166,7 +203,7 @@ def validate_static_once() -> list[str]:
             )
 
     first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
-    if first_line != "name: Build MARU MUSIC LIVE V3.1.2 APK":
+    if first_line != "name: Build MARU MUSIC LIVE V3.1.6 APK":
         errors.append(f"wrong workflow name: {first_line!r}")
     if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
         errors.append("stale V3.1.1 workflow/APK token remains")
@@ -234,6 +271,37 @@ def validate_static_once() -> list[str]:
     for path in generated_roots:
         if path.exists():
             errors.append(f"generated directory included in source package: {path.relative_to(ROOT)}")
+
+    voice_policy_path = MAIN / "java" / "com" / "maru" / "musiclive" / "BroadcastVoicePolicy.java"
+    voice_test_path = ROOT / "tools" / "VoicePolicyStressSelfTest.java"
+    voice_script_path = ROOT / "scripts" / "check_voice_policy.py"
+    if not voice_policy_path.is_file():
+        errors.append("central broadcast voice policy missing")
+    else:
+        voice_policy_text = voice_policy_path.read_text(encoding="utf-8")
+        for token in (
+            "GreetingLanguage.KOREAN", "GreetingLanguage.ENGLISH",
+            "GreetingLanguage.CHINESE", "GreetingLanguage.JAPANESE",
+            "GreetingLanguage.RUSSIAN", "FORCE_GENDER = false",
+            "SPEAK_COMMENTS = false", "SPEAK_EVENTS_DURING_SONG = false",
+            "SPEECH_RATE = 0.94f", "PITCH = 1.00f", "VOLUME = 1.00f",
+        ):
+            if token not in voice_policy_text:
+                errors.append(f"missing voice policy token: {token}")
+    if not voice_test_path.is_file():
+        errors.append("voice policy stress test missing")
+    if not voice_script_path.is_file():
+        errors.append("voice policy checker missing")
+
+    conversation_text = (MAIN / "java" / "com" / "maru" / "musiclive" / "ConversationEngine.java").read_text(encoding="utf-8")
+    adaptive_text = (MAIN / "java" / "com" / "maru" / "musiclive" / "AdaptiveAiStore.java").read_text(encoding="utf-8")
+    ocr_text = (MAIN / "java" / "com" / "maru" / "musiclive" / "ScreenOcrGreetingService.java").read_text(encoding="utf-8")
+    if "songRequestRefusal" not in conversation_text or "신청곡은 받지 않습니다" not in conversation_text:
+        errors.append("adaptive original-song request refusal missing")
+    if "recordSongRequest" not in adaptive_text or "isLearnedSongRequest" not in adaptive_text:
+        errors.append("song request learning store missing")
+    if "intent == ConversationIntent.SONG_REQUEST || learnedSongRequest" not in ocr_text:
+        errors.append("fixed request refusal flow missing")
 
     return errors
 

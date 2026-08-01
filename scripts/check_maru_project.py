@@ -16,7 +16,11 @@ required = [
     'app/build.gradle', 'app/src/main/AndroidManifest.xml',
     'app/src/main/java/com/maru/musiclive/MainActivity.java',
     'app/src/main/java/com/maru/musiclive/BroadcastVisualProfile.java',
+    'app/src/main/java/com/maru/musiclive/BroadcastVoicePolicy.java',
     'app/src/main/java/com/maru/musiclive/PlaybackService.java',
+    'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java',
+    'app/src/main/java/com/maru/musiclive/ConversationEngine.java',
+    'app/src/main/java/com/maru/musiclive/AdaptiveAiStore.java',
     'app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java',
     'app/src/main/java/com/maru/musiclive/AutoGreetingService.java',
     'app/src/main/java/com/maru/musiclive/ScreenOcrGreetingService.java',
@@ -30,8 +34,12 @@ required = [
     'tools/IntermissionStressSelfTest.java',
     'tools/VisualCompatibilityStressSelfTest.java', 'tools/RandomPlaybackStressSelfTest.java',
     'tools/UiAiClosingStressSelfTest.java',
+    'tools/OneClickBroadcastStressSelfTest.java',
+    'tools/SongRequestPolicyStressSelfTest.java',
+    'tools/VoicePolicyStressSelfTest.java',
     'scripts/check_v275_reference.py',
     'scripts/check_required_media.py',
+    'scripts/check_voice_policy.py',
     'scripts/run_source_integrity_1000.py',
     '.github/workflows/cleanup-stale-repository.yml',
     'app/src/main/res/raw/actual_music.mp3',
@@ -71,11 +79,11 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3012')
-check('version name', version_name == '3.1.2')
+check('version code', version_code == '3016')
+check('version name', version_name == '3.1.6')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
-# a stale workflow such as V3.0.9 paired with app version 3.1.2.
+# a stale workflow such as V3.0.9 paired with app version 3.1.6.
 check('workflow version', bool(workflow_tag) and workflow_tag in workflow_text)
 check('workflow 1000 source integrity',
       'python3 scripts/run_source_integrity_1000.py' in workflow_text)
@@ -115,6 +123,26 @@ check('core self-test isolated sourcepath',
       and '-sourcepath "$SRC_DIR"' in self_test_text
       and '@"$SRC_DIR/sources.txt"' in self_test_text
       and 'find "$SRC_DIR"' in self_test_text)
+one_click_plan_text = (
+    root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java'
+).read_text(encoding='utf-8')
+check('safe one-click BIGO broadcast preparation',
+      '원클릭 BIGO 방송 시작' in main
+      and 'startOneClickBigoBroadcast' in main
+      and 'OneClickBroadcastPlan.BIGO_PACKAGE' in main
+      and 'OneClickBroadcastPlan.BROADCAST_MODE' in main
+      and 'pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING' in main
+      and 'screenCaptureLauncher.launch(manager.createScreenCaptureIntent())' in main
+      and 'startMusicForBroadcast();' in main
+      and 'startBroadcast();' in main
+      and 'openBigoChat();' in main
+      and 'REQUIRES_SCREEN_CAPTURE_CONSENT = true' in one_click_plan_text
+      and 'CONTROLS_EXTERNAL_APP_UI = false' in one_click_plan_text
+      and 'BIND_ACCESSIBILITY_SERVICE' not in manifest
+      and 'dispatchGesture' not in all_text
+      and 'UiAutomator' not in all_text
+      and (root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java').is_file()
+      and (root / 'app/src/test/java/com/maru/musiclive/OneClickBroadcastPlanTest.java').is_file())
 check('game category', 'android:appCategory="game"' in manifest and 'android:isGame="true"' in manifest)
 check('release signed', 'signingConfig signingConfigs.debug' in gradle)
 check('direct raw resources only',
@@ -128,6 +156,30 @@ check('voice gender not forced',
       '한국어 음성' in voice and '영어 음성' in voice
       and '한국어 여성' not in voice and '영어 여성' not in voice
       and '여성 TTS' not in ocr_test and '남성 TTS' not in ocr_test)
+voice_policy = (root / 'app/src/main/java/com/maru/musiclive/BroadcastVoicePolicy.java').read_text(encoding='utf-8')
+check('central five-language voice policy',
+      all(token in voice_policy for token in (
+          'GreetingLanguage.KOREAN', 'GreetingLanguage.ENGLISH',
+          'GreetingLanguage.CHINESE', 'GreetingLanguage.JAPANESE',
+          'GreetingLanguage.RUSSIAN'))
+      and 'BroadcastVoicePolicy.orderedLanguages()' in auto
+      and 'BroadcastVoicePolicy.orderedLanguages()' in intermission)
+check('voice comments remain visual only',
+      'SPEAK_COMMENTS = false' in voice_policy
+      and 'SPEAK_EVENTS_DURING_SONG = false' in voice_policy
+      and 'AutoGreetingService.speakDialogue' not in ocr)
+check('voice tuning centralized',
+      'SPEECH_RATE = 0.94f' in voice_policy
+      and 'PITCH = 1.00f' in voice_policy
+      and 'VOLUME = 1.00f' in voice_policy
+      and 'BroadcastVoicePolicy.SPEECH_RATE' in auto
+      and 'BroadcastVoicePolicy.PITCH' in auto
+      and 'BroadcastVoicePolicy.VOLUME' in auto)
+check('voice policy stress test',
+      'expected 1000 checks' in (root / 'tools/VoicePolicyStressSelfTest.java').read_text(encoding='utf-8')
+      and 'VoicePolicyStressSelfTest.java' in self_test_text)
+check('workflow voice policy check',
+      'python3 scripts/check_voice_policy.py' in workflow_text)
 check('no accessibility', 'BIND_ACCESSIBILITY_SERVICE' not in manifest and 'AccessibilityService' not in manifest)
 check('media projection', 'FOREGROUND_SERVICE_MEDIA_PROJECTION' in manifest and 'createScreenCaptureIntent()' in main)
 check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_GAME' in playback)
@@ -169,10 +221,11 @@ check('TTS failure resumes song',
       and 'advanceLanguage(false)' in auto)
 
 check('five languages every intermission',
-      all(code in intermission for code in (
+      all(code in voice_policy for code in (
           'GreetingLanguage.KOREAN', 'GreetingLanguage.ENGLISH',
           'GreetingLanguage.CHINESE', 'GreetingLanguage.JAPANESE',
           'GreetingLanguage.RUSSIAN'))
+      and 'BroadcastVoicePolicy.orderedLanguages()' in intermission
       and 'announcementLanguages' in store
       and 'orderedLanguages' in intermission
       and 'nextLanguage' not in store
@@ -211,6 +264,17 @@ check('events text only during song',
       'IntermissionStore.recordEvent(this, event);' in ocr
       and 'AutoGreetingService.announceEvent(this, event);' not in ocr
       and '곡 재생 중에는 어떤 이벤트도 TTS로 읽지 않고' in ocr)
+conversation = (root / 'app/src/main/java/com/maru/musiclive/ConversationEngine.java').read_text(encoding='utf-8')
+adaptive = (root / 'app/src/main/java/com/maru/musiclive/AdaptiveAiStore.java').read_text(encoding='utf-8')
+check('adaptive original-song request refusal',
+      'songRequestRefusal' in conversation
+      and '신청곡은 받지 않습니다' in conversation
+      and '자작곡' in conversation
+      and 'recordSongRequest' in adaptive
+      and 'isLearnedSongRequest' in adaptive
+      and 'songRequests' in adaptive
+      and '거절 정책은 학습으로 바뀌지 않습니다' in main
+      and 'intent == ConversationIntent.SONG_REQUEST || learnedSongRequest' in ocr)
 check('safe adaptive conversation',
       'handleSafeChatMessages' in ocr
       and 'LiveOverlayController.showDialogue' in ocr
@@ -267,6 +331,8 @@ check('1000 visual compatibility stress',
       'expected 1000 checks' in (root / 'tools/VisualCompatibilityStressSelfTest.java').read_text(encoding='utf-8'))
 check('1000 UI AI closing stress',
       'expected 1000 checks' in (root / 'tools/UiAiClosingStressSelfTest.java').read_text(encoding='utf-8'))
+check('1000 one-click broadcast stress',
+      'expected 1000 checks' in (root / 'tools/OneClickBroadcastStressSelfTest.java').read_text(encoding='utf-8'))
 check('intermission junit',
       (root / 'app/src/test/java/com/maru/musiclive/IntermissionAnnouncementTextTest.java').is_file())
 check('no merge markers', not any(x in all_text for x in ('<<<<<<<', '=======', '>>>>>>>')))

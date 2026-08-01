@@ -13,7 +13,7 @@ GitHub 웹에서 새 파일을 덮어 올려도 기존 파일은 자동으로 �
 1. 이 전체 수정본을 GitHub에 올립니다.
 2. **Actions** 탭에서 `Permanently remove stale repository files`를 선택합니다.
 3. `Run workflow`를 한 번 실행합니다.
-4. 완료 후 `Build MARU MUSIC LIVE V3.1.2 APK`를 실행합니다.
+4. 완료 후 `Build MARU MUSIC LIVE V3.1.3 APK`를 실행합니다.
 
 첫 번째 워크플로는 남은 파일을 실제 Git 커밋에서 삭제합니다. 두 번째 빌드
 워크플로도 시작 즉시 같은 파일을 한 번 더 제거하고 검사하므로 재발을 막습니다.

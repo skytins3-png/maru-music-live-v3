@@ -1,0 +1,18 @@
+MARU MUSIC LIVE V3.1.6 원클릭 적용 안내
+
+가장 안전한 방법
+1. 이 FULL-SOURCE ZIP을 PC에서 압축 해제합니다.
+2. GitHub 저장소의 기존 파일을 이 압축의 동일 경로 파일로 교체합니다.
+3. .github/workflows/build-apk.yml도 V3.1.6 파일로 교체합니다.
+4. 커밋 후 새로 시작된 'Build MARU MUSIC LIVE V3.1.6 APK' 작업을 확인합니다.
+5. 예전 실패 작업의 Re-run은 누르지 않습니다.
+
+완성 후 사용
+1. MARU 실행
+2. '원클릭 BIGO 방송 시작' 누르기
+3. BIGO에서 게임 LIVE 선택
+4. 게임 목록에서 MARU MUSIC LIVE 선택
+5. 화면 공유 허용 및 방송 시작
+
+원클릭 버튼은 Android 화면 공유 동의를 받은 뒤 OCR·이벤트 글·AI 화면 답변·음악·가사·이미지를 함께 준비합니다.
+BIGO의 게임 LIVE 선택, 화면 공유 허용, 실제 방송 시작은 자동으로 대신 누르지 않습니다.

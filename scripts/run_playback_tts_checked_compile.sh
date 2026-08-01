@@ -136,6 +136,7 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/EventType.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/LiveEvent.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/GreetingLanguage.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/BroadcastVoicePolicy.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/SongTitleFormatter.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/TtsAnnouncementText.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/IntermissionAnnouncementText.java" \

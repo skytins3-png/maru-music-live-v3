@@ -13,6 +13,9 @@ mkdir -p "$OUT_DIR" "$SRC_DIR/com/maru/musiclive"
 # excluded, and javac is pointed only at the isolated staging source tree.
 APP_SOURCES=(
   BroadcastVisualProfile.java
+  BroadcastMode.java
+  BroadcastVoicePolicy.java
+  OneClickBroadcastPlan.java
   EventType.java
   LiveEvent.java
   EventOverlayText.java
@@ -46,6 +49,9 @@ TOOL_SOURCES=(
   VisualCompatibilityStressSelfTest.java
   RandomPlaybackStressSelfTest.java
   UiAiClosingStressSelfTest.java
+  OneClickBroadcastStressSelfTest.java
+  SongRequestPolicyStressSelfTest.java
+  VoicePolicyStressSelfTest.java
 )
 
 for name in "${APP_SOURCES[@]}"; do
@@ -78,3 +84,6 @@ java -cp "$OUT_DIR" IntermissionStressSelfTest
 java -cp "$OUT_DIR" VisualCompatibilityStressSelfTest
 java -cp "$OUT_DIR" RandomPlaybackStressSelfTest
 java -cp "$OUT_DIR" UiAiClosingStressSelfTest
+java -cp "$OUT_DIR" OneClickBroadcastStressSelfTest
+java -cp "$OUT_DIR" SongRequestPolicyStressSelfTest
+java -cp "$OUT_DIR" VoicePolicyStressSelfTest

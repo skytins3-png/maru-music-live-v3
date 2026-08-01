@@ -129,6 +129,20 @@ public final class CoreSelfTest {
                 "John", "hello", "en").shouldSpeak(), "conversation known");
         ok(!ConversationEngine.reply(
                 "John", "zxqv 123", "en").shouldSpeak(), "conversation unknown safe");
+        ConversationEngine.Reply requestKo = ConversationEngine.reply(
+                "민지", "신청곡 틀어 주세요", "ko");
+        ok(requestKo.intent == ConversationIntent.SONG_REQUEST,
+                "song request classified");
+        ok(requestKo.text.contains("자작곡")
+                        && requestKo.text.contains("신청곡은 받지 않습니다"),
+                "song request original-only refusal");
+        ok(ConversationEngine.songRequestRefusal(
+                "민지", "ko", 2).text.contains("앞서 안내드린 것처럼"),
+                "song request repeat-aware refusal");
+        String requestEn = ConversationEngine.reply(
+                "John", "please play my song request", "en").text.toLowerCase(Locale.ROOT);
+        ok(requestEn.contains("original songs") && requestEn.contains("not accepted"),
+                "song request english refusal");
         LiveEventCooldown cooldown = new LiveEventCooldown();
         LiveEvent like = new LiveEvent(
                 EventType.LIKE, "A", "", "", "en", 1L);
@@ -162,6 +176,22 @@ public final class CoreSelfTest {
                 && !interZh.contains("\n") && !interJa.contains("\n")
                 && !interRu.contains("\n"),
                 "intermission single line");
+        ok(OneClickBroadcastPlan.canStart(1, true, false),
+                "one-click ready");
+        ok(!OneClickBroadcastPlan.canStart(0, true, false),
+                "one-click blocks empty queue");
+        ok(!OneClickBroadcastPlan.canStart(1, false, false),
+                "one-click blocks missing BIGO");
+        ok(!OneClickBroadcastPlan.canStart(1, true, true),
+                "one-click blocks double tap");
+        ok("sg.bigo.live".equals(OneClickBroadcastPlan.BIGO_PACKAGE),
+                "one-click BIGO package");
+        ok(OneClickBroadcastPlan.BROADCAST_MODE == BroadcastMode.PORTRAIT_9_16,
+                "one-click portrait mode");
+        ok(OneClickBroadcastPlan.REQUIRES_SCREEN_CAPTURE_CONSENT,
+                "one-click requires Android consent");
+        ok(!OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI,
+                "one-click does not automate BIGO UI");
         System.out.println("CORE-SELF-TEST: " + checks + "/" + checks);
     }
 }
