@@ -5,6 +5,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,6 +18,48 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
+
+      # 반드시 모든 project-check보다 먼저 실행한다.
+      - name: Remove obsolete repository leftovers before every check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # GitHub 웹 업로드가 기존 추적 파일을 삭제하지 않는 경우를 방어한다.
+          # 모든 저장소 루트 Java 잔재를 제거한다. 정상 Java는 app/ 또는 tools/에만 있다.
+          find . -maxdepth 1 -type f -name '*.java' -print -delete
+          rm -rf build app/build .gradle
+
+          # V3.1.1 구형 음성·접근성 리소스와 기타 알려진 잔재를 제거한다.
+          rm -f app/src/main/res/raw/default_male_greeting*.mp3
+          rm -f app/src/main/res/xml/accessibility_service_config.xml
+          rm -f app/src/main/java/com/maru/musiclive/BigoAccessibilityService.java
+          rm -f app/src/main/java/com/maru/musiclive/AccessibilityEventRelay.java
+          rm -f app/src/main/java/com/maru/musiclive/AutoHostAccessibilityService.java
+          rm -f app/src/main/java/com/maru/musiclive/GreetingAudioResolver.java
+          rm -f app/src/main/java/com/maru/musiclive/NodeTextCollector.java
+          rm -rf required_media scripts/media_payload
+          rm -f scripts/restore_required_media.py
+
+          # 이 단계가 실패하면 뒤의 검사를 시작하지 않는다.
+          test -z "$(find . -maxdepth 1 -type f -name '*.java' -print -quit)"
+          test ! -e build
+          test ! -e app/build
+          test ! -e .gradle
+          test ! -e app/src/main/res/xml/accessibility_service_config.xml
+          test -z "$(find app/src/main/res/raw -maxdepth 1 -type f -name 'default_male_greeting*.mp3' -print -quit)"
+          test ! -e required_media
+          test ! -e scripts/media_payload
+          test ! -e scripts/restore_required_media.py
+          test ! -e app/src/main/java/com/maru/musiclive/BigoAccessibilityService.java
+          test ! -e app/src/main/java/com/maru/musiclive/AccessibilityEventRelay.java
+          test ! -e app/src/main/java/com/maru/musiclive/AutoHostAccessibilityService.java
+          test ! -e app/src/main/java/com/maru/musiclive/GreetingAudioResolver.java
+          test ! -e app/src/main/java/com/maru/musiclive/NodeTextCollector.java
+
+          echo "---- repository root after pre-check cleanup ----"
+          find . -maxdepth 1 -mindepth 1 -printf '%f\n' | sort
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -45,6 +90,9 @@ jobs:
       - name: Source separation and version consistency check
         run: python3 scripts/check_maru_clean.py
 
+      - name: Repeat source integrity validation 1,000 times
+        run: python3 scripts/run_source_integrity_1000.py
+
       - name: Java import check
         run: python3 scripts/check_java_imports.py
 
@@ -66,6 +114,14 @@ jobs:
       - name: Android lint
         run: gradle --no-daemon --stacktrace :app:lintDebug
 
+      # JVM 셀프 테스트가 만든 루트 build/만 정리한다.
+      - name: Post-test cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf build
+          test -z "$(find . -maxdepth 1 -type f -name '*.java' -print -quit)"
+
       - name: Verify raw media immediately before assembly
         run: python3 scripts/check_required_media.py
 
@@ -73,7 +129,9 @@ jobs:
         run: gradle --no-daemon --stacktrace clean :app:assembleDebug :app:assembleRelease
 
       - name: Verify, sign-check, and rename APKs
+        shell: bash
         run: |
+          set -euo pipefail
           test -f app/build/outputs/apk/debug/app-debug.apk
           test -f app/build/outputs/apk/release/app-release.apk
           unzip -t app/build/outputs/apk/debug/app-debug.apk
@@ -100,3 +158,4 @@ jobs:
             MARU-MUSIC-LIVE-V3.1.2-DEBUG.apk
             MARU-MUSIC-LIVE-V3.1.2-GAME-RELEASE.apk
           if-no-files-found: error
+
