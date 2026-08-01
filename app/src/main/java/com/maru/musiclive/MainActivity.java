@@ -71,6 +71,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private static final long IMAGE_CHANGE_MS = 12_000L;
     private static final long HOST_SPEECH_AUTO_RESTORE_MS = 45_000L;
     private static final int MAX_EVENT_OVERLAY_QUEUE = 12;
+    private static final long ONE_CLICK_GUIDE_MS = 8_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<String> songs = new ArrayList<>();
@@ -85,6 +86,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean broadcastVisible;
     private boolean localTestMode;
     private boolean pendingAutoMusicStart;
+    private boolean oneClickStarting;
     private boolean eventOverlayShowing;
     private int overlayGeneration;
     private int imageIndex;
@@ -385,7 +387,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.1.2 · 상단 이미지 꽉 채움 · 습득·진화 AI 화면 답변 · 무키보드 종료 · 랜덤 20분 차단",
+                "V3.1.6 · 안전 원클릭 BIGO 방송 · OCR·AI 화면 답변 · 무키보드 종료 · 랜덤 20분 차단",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -393,7 +395,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         TextView coreNotice = text(
                 "노래가 재생되는 동안에는 노래 소리만 나옵니다. "
-                        + "입장·좋아요·선물·팔로우는 14sp 작은 글로 표시하고, 음성 안내는 곡과 곡 사이에만 나옵니다.",
+                        + "입장·좋아요·선물·팔로우와 AI 댓글 답변은 글로만 표시합니다. "
+                        + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이와 종료 안내에만 나옵니다.",
                 15,
                 true);
         coreNotice.setBackgroundColor(0x6651246B);
@@ -401,7 +404,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         TextView limitNotice = text(
                 "곡 사이 통합 안내는 매번 한국어→영어→중국어→일본어→러시아어 다섯 언어를 모두 연속 재생합니다. "
-                        + "대화형 AI는 켠 경우에만 인사·감사·신청곡 같은 안전 문구를 학습하고 작은 화면 답변만 표시합니다. “게임 좋아하세요?” 같은 미학습 질문은 자동 답변하지 않습니다. 키보드 자동 입력과 곡 중 TTS는 사용하지 않습니다.",
+                        + "대화형 AI는 인사·감사·자작곡 칭찬과 시청자 언어를 학습합니다. 신청곡 요청이 들어오면 진행자의 자작곡만 들려주는 방송임을 설명하고 글로 정중히 거절하며, 같은 시청자의 반복 요청과 요청 문구도 안전하게 기억합니다. 거절 정책은 학습으로 바뀌지 않습니다. “게임 좋아하세요?” 같은 미학습 질문은 자동 답변하지 않고, 키보드 자동 입력과 곡 중 TTS도 사용하지 않습니다.",
                 14,
                 false);
         limitNotice.setBackgroundColor(0x553D7A46);
@@ -410,6 +413,31 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         autoGreetingStatusView = text("AI·OCR 상태 확인 중", 14, false);
         autoGreetingStatusView.setBackgroundColor(0x553D7A46);
         column.addView(autoGreetingStatusView);
+
+        Button oneClick = button(
+                "원클릭 BIGO 방송 시작",
+                v -> startOneClickBigoBroadcast());
+        oneClick.setTextSize(20f);
+        oneClick.setTextColor(Color.WHITE);
+        GradientDrawable oneClickBackground = new GradientDrawable();
+        oneClickBackground.setCornerRadius(dp(16));
+        oneClickBackground.setColor(0xFFCC176A);
+        oneClick.setBackground(oneClickBackground);
+        LinearLayout.LayoutParams oneClickParams =
+                (LinearLayout.LayoutParams) oneClick.getLayoutParams();
+        oneClickParams.height = dp(68);
+        oneClickParams.topMargin = dp(16);
+        oneClick.setLayoutParams(oneClickParams);
+        column.addView(oneClick);
+
+        TextView oneClickGuide = text(
+                "한 번 누르면 Android 화면 공유 동의창을 열고, 허용 후 OCR·이벤트 글·AI 화면 답변·"
+                        + "음악·가사·이미지를 준비한 다음 BIGO를 엽니다. "
+                        + "BIGO의 게임 LIVE 선택, 화면 공유 허용, 실제 방송 시작은 직접 누르세요.",
+                14,
+                true);
+        oneClickGuide.setBackgroundColor(0x6651246B);
+        column.addView(oneClickGuide);
 
         column.addView(button(
                 "1. OCR 입장 로컬 테스트 · BIGO 미실행",
@@ -548,6 +576,49 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         setContentView(appRoot);
     }
 
+    private void startOneClickBigoBroadcast() {
+        boolean bigoInstalled = getPackageManager()
+                .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE) != null;
+        if (!OneClickBroadcastPlan.canStart(
+                songs.size(),
+                bigoInstalled,
+                oneClickStarting)) {
+            if (songs.isEmpty()) {
+                toast("방송할 노래가 없습니다. 노래를 먼저 추가하세요.");
+            } else if (!bigoInstalled) {
+                toast("BIGO LIVE를 찾지 못했습니다.");
+            } else {
+                toast("원클릭 방송을 준비하고 있습니다.");
+            }
+            return;
+        }
+
+        MediaProjectionManager manager =
+                (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+        if (manager == null) {
+            toast("화면 공유 기능을 사용할 수 없습니다.");
+            return;
+        }
+
+        oneClickStarting = true;
+        localTestMode = false;
+        selectedMode = OneClickBroadcastPlan.BROADCAST_MODE;
+        AppStorage.setBroadcastMode(this, selectedMode.name());
+
+        ScreenOcrGreetingService.stop(this);
+        AutoGreetingService.cancel(this);
+        IntermissionStore.resetSession(this);
+        pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING;
+        AutoGreetingStore.setRunningMode(this, "");
+        AutoGreetingStore.setStatus(
+                this,
+                "원클릭 방송 · Android 전체 화면 공유 허용 대기");
+        refreshAutoGreetingStatus();
+
+        toast("다음 창에서 전체 화면을 선택하고 허용하세요.");
+        screenCaptureLauncher.launch(manager.createScreenCaptureIntent());
+    }
+
     private void requestScreenCapture(String mode) {
         pendingCaptureMode = mode;
         MediaProjectionManager manager =
@@ -570,7 +641,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void handleScreenCaptureResult(ActivityResult result) {
         Intent data = result.getData();
+        boolean oneClickRequest = oneClickStarting;
         if (result.getResultCode() != Activity.RESULT_OK || data == null) {
+            oneClickStarting = false;
+            AutoGreetingStore.setRunningMode(this, "");
             AutoGreetingStore.setStatus(this, "화면 공유가 취소되었습니다.");
             refreshAutoGreetingStatus();
             toast("화면 공유가 취소되었습니다.");
@@ -592,14 +666,34 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 startMusicForBroadcast();
             }
 
+            if (oneClickRequest && !broadcastVisible) {
+                startBroadcast();
+            }
+
+            if (oneClickRequest) {
+                AutoGreetingStore.setStatus(
+                        this,
+                        "원클릭 방송 준비 완료 · OCR·이벤트 글·AI 화면 답변·음악 실행 중");
+                refreshAutoGreetingStatus();
+                showTemporaryTestOverlay(
+                        "BIGO에서 게임 LIVE → MARU MUSIC LIVE 선택 → 화면 공유 허용 → 방송 시작",
+                        ONE_CLICK_GUIDE_MS);
+            }
+
             handler.postDelayed(() -> {
                 if (ScreenOcrGreetingService.MODE_LOCAL_TEST.equals(requestedMode)) {
                     startActivity(new Intent(this, OcrTestActivity.class));
                 } else {
                     openBigoChat();
                 }
-            }, 650L);
+                if (oneClickRequest) {
+                    oneClickStarting = false;
+                }
+            }, oneClickRequest
+                    ? OneClickBroadcastPlan.BIGO_OPEN_DELAY_MS
+                    : 650L);
         } catch (RuntimeException error) {
+            oneClickStarting = false;
             AutoGreetingStore.setStatus(this, "입장 감지 시작 실패: " + error.getMessage());
             refreshAutoGreetingStatus();
             toast("입장 감지를 시작하지 못했습니다.");
@@ -979,6 +1073,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         boolean wasLocalTest = localTestMode;
         broadcastVisible = false;
         localTestMode = false;
+        oneClickStarting = false;
 
         handler.removeCallbacks(updateProgress);
         handler.removeCallbacks(rotateImage);
@@ -1732,7 +1827,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             toast("로컬 테스트에서는 BIGO LIVE를 열지 않습니다.");
             return;
         }
-        Intent launch = getPackageManager().getLaunchIntentForPackage("sg.bigo.live");
+        Intent launch = getPackageManager()
+                .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (launch == null) {
             toast("BIGO LIVE를 찾지 못했습니다.");
             return;

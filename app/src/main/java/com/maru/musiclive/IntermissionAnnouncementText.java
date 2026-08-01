@@ -8,18 +8,10 @@ import java.util.List;
  * 노래 재생 중에는 이 문구를 호출하지 않는다.
  */
 public final class IntermissionAnnouncementText {
-    private static final String[] ORDERED_LANGUAGES = {
-            GreetingLanguage.KOREAN,
-            GreetingLanguage.ENGLISH,
-            GreetingLanguage.CHINESE,
-            GreetingLanguage.JAPANESE,
-            GreetingLanguage.RUSSIAN
-    };
-
     private IntermissionAnnouncementText() {}
 
     public static String[] orderedLanguages() {
-        return ORDERED_LANGUAGES.clone();
+        return BroadcastVoicePolicy.orderedLanguages();
     }
 
     public static String build(

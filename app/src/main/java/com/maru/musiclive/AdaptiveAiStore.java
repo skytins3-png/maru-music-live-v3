@@ -20,6 +20,7 @@ public final class AdaptiveAiStore {
     private static final String KEY_RULES = "event_rules";
     private static final String KEY_REPLIES = "custom_replies";
     private static final String KEY_CANDIDATES = "candidates";
+    private static final String KEY_SONG_REQUEST_PATTERNS = "song_request_patterns";
     private static final String KEY_LAST_CHAT_NAME = "last_chat_name";
     private static final String KEY_LAST_CHAT_TEXT = "last_chat_text";
     private static final String KEY_LAST_CHAT_LANGUAGE = "last_chat_language";
@@ -29,6 +30,7 @@ public final class AdaptiveAiStore {
     private static final int MAX_RULES = 100;
     private static final int MAX_REPLIES = 100;
     private static final int MAX_CANDIDATES = 80;
+    private static final int MAX_SONG_REQUEST_PATTERNS = 120;
 
     private AdaptiveAiStore() {}
 
@@ -314,6 +316,93 @@ public final class AdaptiveAiStore {
         return "";
     }
 
+    /**
+     * Learns only safe metadata about a song request: viewer language,
+     * repetition count and the exact normalized request phrase. The refusal
+     * policy itself is fixed and can never be trained into accepting requests.
+     */
+    public static synchronized int recordSongRequest(
+            Context context,
+            String nickname,
+            String message,
+            String language) {
+        String clean = cleanPhrase(message).toLowerCase(Locale.ROOT);
+        String key = profileKey(nickname);
+        JSONObject profiles = profiles(context);
+        JSONObject profile = profiles.optJSONObject(key);
+        if (profile == null) profile = new JSONObject();
+        int count = 1;
+        try {
+            count = profile.optInt("songRequests", 0) + 1;
+            profile.put("name", nickname == null ? "" : nickname.trim());
+            profile.put("language", GreetingLanguage.normalize(language));
+            profile.put("confidence", Math.max(2, profile.optInt("confidence", 0)));
+            profile.put("lastSeen", System.currentTimeMillis());
+            profile.put("songRequests", count);
+            profiles.put(key, profile);
+            trimObject(profiles, MAX_PROFILES);
+            saveJson(context, KEY_PROFILES, profiles);
+        } catch (JSONException ignored) {}
+
+        if (clean.length() >= 2) {
+            JSONArray patterns = array(context, KEY_SONG_REQUEST_PATTERNS);
+            JSONArray out = new JSONArray();
+            boolean updated = false;
+            try {
+                for (int i = 0; i < patterns.length() && out.length() < MAX_SONG_REQUEST_PATTERNS; i++) {
+                    JSONObject item = patterns.optJSONObject(i);
+                    if (item == null) continue;
+                    if (!updated && clean.equals(item.optString("phrase", ""))) {
+                        item.put("hits", item.optInt("hits", 0) + 1);
+                        item.put("lastSeen", System.currentTimeMillis());
+                        item.put("language", GreetingLanguage.normalize(language));
+                        out.put(item);
+                        updated = true;
+                    } else {
+                        out.put(item);
+                    }
+                }
+                if (!updated) {
+                    JSONObject newest = new JSONObject();
+                    newest.put("phrase", clean);
+                    newest.put("language", GreetingLanguage.normalize(language));
+                    newest.put("hits", 1);
+                    newest.put("created", System.currentTimeMillis());
+                    JSONArray merged = new JSONArray();
+                    merged.put(newest);
+                    for (int i = 0; i < out.length() && merged.length() < MAX_SONG_REQUEST_PATTERNS; i++) {
+                        merged.put(out.optJSONObject(i));
+                    }
+                    out = merged;
+                }
+                saveArray(context, KEY_SONG_REQUEST_PATTERNS, out);
+            } catch (JSONException ignored) {}
+        }
+        return count;
+    }
+
+    /** Exact learned-pattern matching avoids guessing and false refusals. */
+    public static synchronized boolean isLearnedSongRequest(
+            Context context,
+            String message) {
+        String clean = cleanPhrase(message).toLowerCase(Locale.ROOT);
+        if (clean.length() < 2) return false;
+        JSONArray patterns = array(context, KEY_SONG_REQUEST_PATTERNS);
+        for (int i = 0; i < patterns.length(); i++) {
+            JSONObject item = patterns.optJSONObject(i);
+            if (item == null) continue;
+            if (clean.equals(item.optString("phrase", ""))) return true;
+        }
+        return false;
+    }
+
+    public static synchronized int songRequestCount(
+            Context context,
+            String nickname) {
+        JSONObject profile = profiles(context).optJSONObject(profileKey(nickname));
+        return profile == null ? 0 : profile.optInt("songRequests", 0);
+    }
+
     public static synchronized void recordCandidate(
             Context context,
             String nickname,
@@ -321,6 +410,7 @@ public final class AdaptiveAiStore {
             String language) {
         if (message == null || message.trim().isEmpty()) return;
         JSONArray candidates = array(context, KEY_CANDIDATES);
+        JSONArray requestPatterns = array(context, KEY_SONG_REQUEST_PATTERNS);
         JSONArray out = new JSONArray();
         try {
             JSONObject newest = new JSONObject();
@@ -367,6 +457,7 @@ public final class AdaptiveAiStore {
         int gifts = 0;
         int follows = 0;
         int chats = 0;
+        int songRequests = 0;
         JSONArray names = profiles.names();
         if (names != null) {
             for (int i = 0; i < names.length(); i++) {
@@ -377,6 +468,7 @@ public final class AdaptiveAiStore {
                 gifts += profile.optInt("gifts", 0);
                 follows += profile.optInt("follows", 0);
                 chats += profile.optInt("chats", 0);
+                songRequests += profile.optInt("songRequests", 0);
             }
         }
         return "기억한 청취자 " + profiles.length() + "명\n"
@@ -398,6 +490,7 @@ public final class AdaptiveAiStore {
             root.put("eventRules", array(context, KEY_RULES));
             root.put("customReplies", array(context, KEY_REPLIES));
             root.put("candidates", array(context, KEY_CANDIDATES));
+            root.put("songRequestPatterns", array(context, KEY_SONG_REQUEST_PATTERNS));
 
             // Android org.json.JSONObject.toString(int) declares
             // JSONException. Keep the pretty-print operation inside the
@@ -428,6 +521,9 @@ public final class AdaptiveAiStore {
                             ? "[]" : root.optJSONArray("customReplies").toString())
                     .putString(KEY_CANDIDATES, root.optJSONArray("candidates") == null
                             ? "[]" : root.optJSONArray("candidates").toString())
+                    .putString(KEY_SONG_REQUEST_PATTERNS,
+                            root.optJSONArray("songRequestPatterns") == null
+                                    ? "[]" : root.optJSONArray("songRequestPatterns").toString())
                     .apply();
             return true;
         } catch (JSONException ignored) {

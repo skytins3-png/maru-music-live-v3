@@ -456,6 +456,8 @@ public final class ScreenOcrGreetingService extends Service {
     /**
      * Safe adaptive conversational AI. It learns from chat and shows a small visual reply only.
      * It never types into BIGO and never speaks over a song, so keyboard and TTS loops are avoided.
+     * Song requests are learned as phrases but always receive a fixed, polite
+     * original-songs-only refusal; learning can never turn acceptance on.
      */
     private boolean handleSafeChatMessages(String text, long now) {
         boolean handled = false;
@@ -468,11 +470,23 @@ public final class ScreenOcrGreetingService extends Service {
             AdaptiveAiStore.observeChat(this, chat);
             String language = AdaptiveAiStore.resolveChatLanguage(
                     this, chat.nickname, chat.message);
-            String answer = AdaptiveAiStore.customReply(this, chat.message, language);
-            if (answer.isEmpty()) {
-                ConversationEngine.Reply reply = ConversationEngine.reply(
-                        chat.nickname, chat.message, language);
-                if (reply.shouldSpeak()) answer = reply.text;
+            ConversationIntent intent = ConversationEngine.classify(
+                    chat.message, language);
+            boolean learnedSongRequest = intent == ConversationIntent.UNKNOWN
+                    && AdaptiveAiStore.isLearnedSongRequest(this, chat.message);
+            String answer;
+            if (intent == ConversationIntent.SONG_REQUEST || learnedSongRequest) {
+                int requestCount = AdaptiveAiStore.recordSongRequest(
+                        this, chat.nickname, chat.message, language);
+                answer = ConversationEngine.songRequestRefusal(
+                        chat.nickname, language, requestCount).text;
+            } else {
+                answer = AdaptiveAiStore.customReply(this, chat.message, language);
+                if (answer.isEmpty()) {
+                    ConversationEngine.Reply reply = ConversationEngine.reply(
+                            chat.nickname, chat.message, language);
+                    if (reply.shouldSpeak()) answer = reply.text;
+                }
             }
             if (answer.isEmpty()) {
                 AdaptiveAiStore.recordCandidate(

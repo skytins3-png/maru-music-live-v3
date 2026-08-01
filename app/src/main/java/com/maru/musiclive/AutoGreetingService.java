@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * V3.1.2: TTS는 곡 사이 안내와 사용자가 누른 방송 종료 안내에서만 재생한다.
+ * V3.1.6: TTS는 곡 사이 안내와 사용자가 누른 방송 종료 안내에서만 재생한다.
  * 곡 재생 중 입장/좋아요/선물/팔로우 이벤트는 음성으로 읽지 않는다.
  */
 public final class AutoGreetingService extends Service {
@@ -53,7 +53,7 @@ public final class AutoGreetingService extends Service {
     private static final String EXTRA_RESUME_INDEX = "resume_index";
     private static final long SPEAK_TIMEOUT_MS = 35_000L;
     private static final String[] INTERMISSION_LANGUAGES =
-            IntermissionAnnouncementText.orderedLanguages();
+            BroadcastVoicePolicy.orderedLanguages();
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Queue<AnnouncementRequest> queue = new ArrayDeque<>();
@@ -199,8 +199,8 @@ public final class AutoGreetingService extends Service {
 
             ttsReady = true;
             ttsFailed = false;
-            tts.setSpeechRate(0.94f);
-            tts.setPitch(1.00f);
+            tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
+            tts.setPitch(BroadcastVoicePolicy.PITCH);
 
             AudioAttributes.Builder attributes = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
@@ -381,7 +381,9 @@ public final class AutoGreetingService extends Service {
         startForeground(NOTIFICATION_ID, notification(status));
 
         Bundle params = new Bundle();
-        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f);
+        params.putFloat(
+                TextToSpeech.Engine.KEY_PARAM_VOLUME,
+                BroadcastVoicePolicy.VOLUME);
         int result = tts.speak(
                 message,
                 TextToSpeech.QUEUE_FLUSH,
