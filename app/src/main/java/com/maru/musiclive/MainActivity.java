@@ -29,6 +29,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.database.Cursor;
 import android.view.Gravity;
@@ -387,7 +388,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.1.6 · 안전 원클릭 BIGO 방송 · OCR·AI 화면 답변 · 무키보드 종료 · 랜덤 20분 차단",
+                "V3.1.7 · BIGO 네이티브 댓글 도구막대 · 음악 송출 유지 · 하단 조작영역 확보 · 무키보드 종료",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -431,22 +432,26 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(oneClick);
 
         TextView oneClickGuide = text(
-                "한 번 누르면 Android 화면 공유 동의창을 열고, 허용 후 OCR·이벤트 글·AI 화면 답변·"
-                        + "음악·가사·이미지를 준비한 다음 BIGO를 엽니다. "
-                        + "BIGO의 게임 LIVE 선택, 화면 공유 허용, 실제 방송 시작은 직접 누르세요.",
+                "한 번 누르면 음악·가사·이미지 방송 화면을 먼저 준비하고 BIGO를 엽니다. "
+                        + "BIGO에서 게임 LIVE를 시작하면 댓글·입장·선물·팔로우와 하단 마이크·상점·소통 버튼은 "
+                        + "BIGO의 플로팅 도구막대로 표시됩니다. 처음 한 번은 아래 권한 설정을 확인하세요.",
                 14,
                 true);
         oneClickGuide.setBackgroundColor(0x6651246B);
         column.addView(oneClickGuide);
 
         column.addView(button(
+                "처음 1회 · BIGO 플로팅 도구막대 권한 설정",
+                v -> openBigoOverlaySettings()));
+
+        column.addView(button(
                 "1. OCR 입장 로컬 테스트 · BIGO 미실행",
                 v -> requestScreenCapture(ScreenOcrGreetingService.MODE_LOCAL_TEST)));
         column.addView(button(
-                "2. BIGO 이벤트 글 알림만 · 음성 없음",
+                "2. OCR 단독 검사 · 게임 LIVE와 동시 사용 안 함",
                 v -> requestScreenCapture(ScreenOcrGreetingService.MODE_DETECT_ONLY)));
         column.addView(button(
-                "3. 이벤트 글 + 습득·진화 AI 화면 답변 + 음악 + 곡 사이 5개 언어",
+                "3. OCR·AI 단독 검사 · 게임 LIVE와 동시 사용 안 함",
                 v -> requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
         column.addView(button(
                 "4. BIGO 게임 LIVE 음악 송출 우선 시작",
@@ -593,30 +598,52 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             return;
         }
 
-        MediaProjectionManager manager =
-                (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
-        if (manager == null) {
-            toast("화면 공유 기능을 사용할 수 없습니다.");
-            return;
-        }
-
         oneClickStarting = true;
         localTestMode = false;
         selectedMode = OneClickBroadcastPlan.BROADCAST_MODE;
         AppStorage.setBroadcastMode(this, selectedMode.name());
 
+        // BIGO 게임 LIVE가 자체 화면 공유(MediaProjection)를 시작하면
+        // MARU의 별도 OCR 화면 공유는 시스템에서 중지된다.
+        // 원클릭 실방송에서는 충돌하는 MARU OCR을 시작하지 않고,
+        // BIGO의 네이티브 댓글/입장/선물/팔로우 도구막대를 그대로 사용한다.
         ScreenOcrGreetingService.stop(this);
         AutoGreetingService.cancel(this);
         IntermissionStore.resetSession(this);
-        pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING;
-        AutoGreetingStore.setRunningMode(this, "");
+        AutoGreetingStore.setRunningMode(this, "bigo_native_toolbar");
         AutoGreetingStore.setStatus(
                 this,
-                "원클릭 방송 · Android 전체 화면 공유 허용 대기");
-        refreshAutoGreetingStatus();
+                "원클릭 방송 · 음악 실행 · BIGO 네이티브 댓글 도구막대 사용");
 
-        toast("다음 창에서 전체 화면을 선택하고 허용하세요.");
-        screenCaptureLauncher.launch(manager.createScreenCaptureIntent());
+        startMusicForBroadcast();
+        if (!broadcastVisible) startBroadcast();
+        refreshAutoGreetingStatus();
+        showTemporaryTestOverlay(
+                "BIGO에서 게임 LIVE를 시작한 뒤 플로팅 도구막대를 펼치세요",
+                ONE_CLICK_GUIDE_MS);
+
+        handler.postDelayed(() -> {
+            openBigoChat();
+            oneClickStarting = false;
+        }, OneClickBroadcastPlan.BIGO_OPEN_DELAY_MS);
+    }
+
+    private void openBigoOverlaySettings() {
+        Intent overlay = new Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + OneClickBroadcastPlan.BIGO_PACKAGE));
+        try {
+            startActivity(overlay);
+        } catch (RuntimeException first) {
+            Intent details = new Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + OneClickBroadcastPlan.BIGO_PACKAGE));
+            try {
+                startActivity(details);
+            } catch (RuntimeException ignored) {
+                toast("BIGO 설정을 열지 못했습니다.");
+            }
+        }
     }
 
     private void requestScreenCapture(String mode) {
@@ -871,8 +898,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        hideSystemBars();
+        if (localTestMode) {
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            hideSystemBars();
+        } else {
+            // BIGO의 플로팅 댓글/상점/마이크 도구막대가 안정적으로 보이도록
+            // 실방송에서는 강제 몰입 전체화면을 사용하지 않는다.
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+            showSystemBars();
+        }
 
         broadcastScreen = new FrameLayout(this);
         broadcastScreen.setBackgroundColor(Color.BLACK);
@@ -962,52 +996,38 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         timeParams.bottomMargin = dp(BroadcastVisualProfile.TIME_BOTTOM_MARGIN_DP);
         broadcastScreen.addView(timeView, timeParams);
 
-        controls = new LinearLayout(this);
-        controls.setGravity(Gravity.CENTER);
-        controls.setOrientation(LinearLayout.HORIZONTAL);
-        controls.setBackgroundColor(0xDD101018);
-
-        controls.addView(smallButton("이전", v -> {
-            if (playback != null) playback.previous();
-        }));
-        playButton = smallButton("재생", v -> {
-            if (playback != null) playback.toggle();
-        });
-        controls.addView(playButton);
-        controls.addView(smallButton("다음", v -> {
-            if (playback != null) playback.next();
-        }));
-
         if (localTestMode) {
+            controls = new LinearLayout(this);
+            controls.setGravity(Gravity.CENTER);
+            controls.setOrientation(LinearLayout.HORIZONTAL);
+            controls.setBackgroundColor(0xDD101018);
+
+            controls.addView(smallButton("이전", v -> {
+                if (playback != null) playback.previous();
+            }));
+            playButton = smallButton("재생", v -> {
+                if (playback != null) playback.toggle();
+            });
+            controls.addView(playButton);
+            controls.addView(smallButton("다음", v -> {
+                if (playback != null) playback.next();
+            }));
             controls.addView(smallButton("가짜 이벤트", v ->
                     showFakeEventDialog()));
-            controls.addView(smallButton("안내음성", v ->
-                    runGreetingVoiceTest()));
-            controls.addView(smallButton("이미지", v ->
-                    showNextImageNow()));
-            controls.addView(smallButton("가사", v ->
-                    runLyricsDisplayTest()));
             controls.addView(smallButton("테스트 끝", v ->
                     finishBroadcast()));
-        } else {
-            controls.addView(smallButton("답변", v ->
-                    showQuickReplyDialog()));
-            controls.addView(smallButton("말하기", v ->
-                    beginHostSpeechDuck()));
-            controls.addView(smallButton("복귀", v ->
-                    endHostSpeechDuck()));
-            controls.addView(smallButton("BIGO", v ->
-                    openBigoChat()));
-            controls.addView(smallButton("종료", v ->
-                    showBroadcastEndMenu()));
-        }
 
-        FrameLayout.LayoutParams controlsParams =
-                new FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        dp(64),
-                        Gravity.BOTTOM);
-        broadcastScreen.addView(controls, controlsParams);
+            FrameLayout.LayoutParams controlsParams =
+                    new FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            dp(64),
+                            Gravity.BOTTOM);
+            broadcastScreen.addView(controls, controlsParams);
+        } else {
+            // 실방송 하단은 BIGO의 네이티브 댓글 입력·마이크·카메라·소통·상점 버튼용이다.
+            controls = null;
+            playButton = null;
+        }
 
         broadcastScreen.setOnClickListener(v ->
                 showControlsTemporarily());
