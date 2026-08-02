@@ -194,8 +194,12 @@ public final class CoreSelfTest {
                 "BIGO screen capture keeps user consent");
         ok(OneClickBroadcastPlan.USES_BIGO_NATIVE_TOOLBAR,
                 "BIGO native toolbar enabled");
-        ok(!OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI,
-                "one-click does not automate BIGO UI");
+        ok(OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI,
+                "BIGO broadcast-screen navigation enabled");
+        ok(OneClickBroadcastPlan.USES_USER_ENABLED_ACCESSIBILITY_NAVIGATOR,
+                "user-enabled accessibility navigator required");
+        ok(OneClickBroadcastPlan.STOPS_BEFORE_FINAL_BROADCAST_START,
+                "navigator stops before final broadcast start");
         System.out.println("CORE-SELF-TEST: " + checks + "/" + checks);
     }
 }

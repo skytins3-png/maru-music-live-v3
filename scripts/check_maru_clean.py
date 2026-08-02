@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove stale repository leftovers, then validate MARU V3.2.4.
+"""Remove stale repository leftovers, then validate MARU V3.2.5.
 
 This file is deliberately self-contained so CI cannot fail because a separate
 cleanup helper was omitted during GitHub web upload.
@@ -15,7 +15,6 @@ MAIN = ROOT / "app" / "src" / "main"
 SCRIPTS = ROOT / "scripts"
 
 KNOWN_FILES = {
-    MAIN / "res" / "xml" / "accessibility_service_config.xml",
     MAIN / "java" / "com" / "maru" / "musiclive" / "BigoAccessibilityService.java",
     MAIN / "java" / "com" / "maru" / "musiclive" / "AccessibilityEventRelay.java",
     MAIN / "java" / "com" / "maru" / "musiclive" / "AutoHostAccessibilityService.java",

@@ -16,6 +16,7 @@ APP_SOURCES=(
   BroadcastMode.java
   BroadcastVoicePolicy.java
   OneClickBroadcastPlan.java
+  BigoNavigationPolicy.java
   EventType.java
   LiveEvent.java
   EventOverlayText.java
@@ -51,6 +52,7 @@ TOOL_SOURCES=(
   RandomPlaybackStressSelfTest.java
   UiAiClosingStressSelfTest.java
   OneClickBroadcastStressSelfTest.java
+  BigoNavigationPolicyStressSelfTest.java
   SongRequestPolicyStressSelfTest.java
   VoicePolicyStressSelfTest.java
   AutoReplyPolicyStressSelfTest.java
@@ -87,6 +89,7 @@ java -cp "$OUT_DIR" VisualCompatibilityStressSelfTest
 java -cp "$OUT_DIR" RandomPlaybackStressSelfTest
 java -cp "$OUT_DIR" UiAiClosingStressSelfTest
 java -cp "$OUT_DIR" OneClickBroadcastStressSelfTest
+java -cp "$OUT_DIR" BigoNavigationPolicyStressSelfTest
 java -cp "$OUT_DIR" SongRequestPolicyStressSelfTest
 java -cp "$OUT_DIR" VoicePolicyStressSelfTest
 java -cp "$OUT_DIR" AutoReplyPolicyStressSelfTest

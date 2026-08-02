@@ -19,6 +19,9 @@ required = [
     'app/src/main/java/com/maru/musiclive/BroadcastVoicePolicy.java',
     'app/src/main/java/com/maru/musiclive/PlaybackService.java',
     'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java',
+    'app/src/main/java/com/maru/musiclive/BigoBroadcastNavigatorService.java',
+    'app/src/main/java/com/maru/musiclive/BigoNavigationPolicy.java',
+    'app/src/main/res/xml/accessibility_service_config.xml',
     'app/src/main/java/com/maru/musiclive/ConversationEngine.java',
     'app/src/main/java/com/maru/musiclive/AutoReplyPolicy.java',
     'app/src/main/java/com/maru/musiclive/AdaptiveAiStore.java',
@@ -44,6 +47,8 @@ required = [
     'tools/AutoReplyPolicyStressSelfTest.java',
     'tools/AutoReplyPolicyContractTest.java',
     'app/src/test/java/com/maru/musiclive/AutoReplyPolicyTest.java',
+    'app/src/test/java/com/maru/musiclive/BigoNavigationPolicyTest.java',
+    'tools/BigoNavigationPolicyStressSelfTest.java',
     'scripts/check_v275_reference.py',
     'scripts/check_required_media.py',
     'scripts/check_voice_policy.py',
@@ -88,8 +93,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3024')
-check('version name', version_name == '3.2.4')
+check('version code', version_code == '3025')
+check('version name', version_name == '3.2.5')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.
@@ -139,17 +144,19 @@ check('core self-test isolated sourcepath',
 one_click_plan_text = (
     root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java'
 ).read_text(encoding='utf-8')
-check('community live with existing playback core',
+check('community live with BIGO preparation-screen navigation',
       '일반 LIVE 음악방송 시작' in main
       and '오디오 LIVE 음악방송 시작' in main
       and 'startCommunityLive' in main
       and 'startMusicForBroadcast();' in main
+      and 'BigoBroadcastNavigatorService.arm(this, liveMode);' in main
       and 'openBigoChat();' in main
-      and 'BIGO의 방송하기 버튼은 직접 눌러야 합니다' in main
+      and '실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다' in main
       and 'ACTION_PREPARE_FOR_BROADCAST' not in playback
       and 'scheduleOneClickPlaybackRecovery' not in main
-      and 'BIND_ACCESSIBILITY_SERVICE' not in manifest
-      and 'dispatchGesture' not in all_text
+      and 'android.permission.BIND_ACCESSIBILITY_SERVICE' in manifest
+      and 'BigoBroadcastNavigatorService' in manifest
+      and 'dispatchGesture' in all_text
       and 'UiAutomator' not in all_text)
 auto_reply_test_text = (
     root / 'app/src/test/java/com/maru/musiclive/AutoReplyPolicyTest.java'
@@ -238,7 +245,10 @@ check('workflow playback UI regression check',
       'python3 scripts/check_playback_ui_regression.py' in workflow_text)
 check('workflow home player UI stress check',
       'python3 scripts/test_home_player_ui_1000.py' in workflow_text)
-check('no accessibility', 'BIND_ACCESSIBILITY_SERVICE' not in manifest and 'AccessibilityService' not in manifest)
+check('user-enabled BIGO navigator accessibility service',
+      'android.permission.BIND_ACCESSIBILITY_SERVICE' in manifest
+      and 'android.accessibilityservice.AccessibilityService' in manifest
+      and 'BigoBroadcastNavigatorService' in manifest)
 check('media projection', 'FOREGROUND_SERVICE_MEDIA_PROJECTION' in manifest and 'createScreenCaptureIntent()' in main)
 check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_GAME' in playback)
 
@@ -362,9 +372,9 @@ check('compact mobile event visual profile',
       and (root / 'scripts/check_v275_reference.py').is_file())
 check('session reset', 'IntermissionStore.resetSession(this);' in main)
 check('UI explains community live behavior',
-      '기존 청취자가 쉽게 찾아오는 일반 LIVE 또는 오디오 LIVE를 사용합니다' in main
-      and 'MARU는 뒤에서 자작곡을 재생' in main
-      and 'BIGO의 방송하기 버튼은 직접 눌러야 합니다' in main)
+      '일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO의 방송 준비 화면까지 자동으로 이동합니다' in main
+      and '처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다' in main
+      and '실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다' in main)
 check('keyboard free closing',
       'showBroadcastEndMenu' in main
       and 'beginPresetBroadcastClosing' in main
@@ -398,7 +408,6 @@ check('no merge markers', not any(x in all_text for x in ('<<<<<<<', '=======', 
 stale_paths = [
     root / 'app/src/main/java/com/maru/musiclive/GreetingAudioResolver.java',
     root / 'app/src/main/java/com/maru/musiclive/NodeTextCollector.java',
-    root / 'app/src/main/res/xml/accessibility_service_config.xml',
 ]
 stale_greeting_audio = list(
     (root / 'app/src/main/res/raw').glob('default_male_greeting*.mp3')

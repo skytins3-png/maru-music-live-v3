@@ -1,0 +1,28 @@
+MARU MUSIC LIVE V3.2.5 검증 보고서
+
+수정 목표
+- MARU에서 일반 LIVE 또는 오디오 LIVE를 선택했을 때 BIGO 홈 화면만 여는 문제 수정
+- BIGO LIVE 메뉴와 선택한 방송 종류를 찾아 방송 준비 화면까지 이동
+- 실제 공개 방송 시작 버튼은 자동으로 누르지 않음
+
+추가 파일
+- BigoBroadcastNavigatorService.java
+- BigoNavigationPolicy.java
+- accessibility_service_config.xml
+- BigoNavigationPolicyTest.java
+- BigoNavigationPolicyStressSelfTest.java
+
+정적·JVM 검사 결과
+- PROJECT-CHECK: 134/134 PASS
+- SOURCE-INTEGRITY-1000: 1000/1000 PASS
+- BIGO-NAVIGATION-POLICY-STRESS: 1000/1000 PASS
+- ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS
+- HOME-PLAYER-UI: 1000/1000 PASS
+- BUILT-APK-TEXT-MATCHING: 1000/1000 PASS
+- VOICE-POLICY-CHECK: 14/14 PASS
+- Android API 최소 스텁을 사용한 신규 내비게이터 Java 구문 컴파일 PASS
+- GitHub Actions YAML 파싱 PASS
+
+중요
+- 이 환경에서는 Android SDK/Maven 네트워크 빌드를 실행하지 못했습니다.
+- 실제 APK 생성, 서명 검사, 울트라 26 설치 및 현재 BIGO 버전의 실화면 이동은 포함된 GitHub Actions와 휴대폰 시험으로 최종 확인해야 합니다.

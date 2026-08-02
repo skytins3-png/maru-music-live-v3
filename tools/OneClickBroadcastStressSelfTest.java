@@ -33,9 +33,15 @@ public final class OneClickBroadcastStressSelfTest {
         if (!OneClickBroadcastPlan.USES_EXISTING_PLAYBACK_UI) {
             throw new AssertionError("V3.1.6 existing playback controls must remain enabled");
         }
-        if (OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI) {
-            throw new AssertionError("external app UI automation must remain disabled");
+        if (!OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI) {
+            throw new AssertionError("BIGO broadcast-screen navigation must be enabled");
         }
-        System.out.println("ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS + BIGO TOOLBAR + V3.1.6 PLAYBACK UI PASS");
+        if (!OneClickBroadcastPlan.USES_USER_ENABLED_ACCESSIBILITY_NAVIGATOR) {
+            throw new AssertionError("user-enabled accessibility navigator must be required");
+        }
+        if (!OneClickBroadcastPlan.STOPS_BEFORE_FINAL_BROADCAST_START) {
+            throw new AssertionError("navigator must stop before the final public-broadcast action");
+        }
+        System.out.println("ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS + BIGO PREPARATION-SCREEN NAVIGATION PASS");
     }
 }
