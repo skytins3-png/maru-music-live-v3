@@ -3,6 +3,7 @@ package com.maru.musiclive;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -13,6 +14,7 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -395,7 +397,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.3 · 전체화면 이미지 플레이어 · 재생 버튼 항상 표시 · 입장 자동답변 제외",
+                "V3.2.4 · BIGO 시작 충돌 방지 · 음악 재생 안정화 · 입장 자동답변 제외",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -508,31 +510,41 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void startCommunityLive(String liveMode) {
-        boolean bigoInstalled = getPackageManager()
-                .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE) != null;
+        Intent bigoLaunch = getPackageManager()
+                .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (songs.isEmpty()) {
             toast("방송할 노래가 없습니다. 노래를 먼저 추가하세요.");
             return;
         }
-        if (!bigoInstalled) {
+        if (bigoLaunch == null) {
             toast("BIGO LIVE를 찾지 못했습니다.");
             return;
         }
+        if (!canReadBroadcastSong()) return;
 
-        ScreenOcrGreetingService.stop(this);
-        AutoGreetingService.cancel(this);
-        IntermissionStore.resetSession(this);
-        AutoGreetingStore.setRunningMode(this, "community_live");
-        AutoGreetingStore.setStatus(
-                this,
-                liveMode + " 준비 완료 · MARU 음악 백그라운드 재생");
+        try {
+            // 실행 중인 서비스만 중지한다. 중지 명령 때문에 새 서비스를 만들지 않는다.
+            ScreenOcrGreetingService.stop(this);
+            AutoGreetingService.cancel(this);
+            IntermissionStore.resetSession(this);
+            AutoGreetingStore.setRunningMode(this, "community_live");
+            AutoGreetingStore.setStatus(
+                    this,
+                    liveMode + " 준비 완료 · MARU 음악 백그라운드 재생");
 
-        startMusicForBroadcast();
-        refreshAutoGreetingStatus();
-        showTemporaryTestOverlay(
-                "BIGO에서 " + liveMode + "를 선택하고 방송하기를 누르세요",
-                ONE_CLICK_GUIDE_MS);
-        handler.postDelayed(this::openBigoChat, 650L);
+            startMusicForBroadcast();
+            refreshAutoGreetingStatus();
+            showTemporaryTestOverlay(
+                    "BIGO에서 " + liveMode + "를 선택하고 방송하기를 누르세요",
+                    ONE_CLICK_GUIDE_MS);
+            handler.postDelayed(this::openBigoChat, 650L);
+        } catch (RuntimeException error) {
+            AutoGreetingStore.setRunningMode(this, "");
+            AutoGreetingStore.setStatus(
+                    this,
+                    "BIGO 방송 준비 실패 · " + safeErrorMessage(error));
+            toast("방송 준비 오류를 막았습니다. 노래를 다시 추가한 뒤 시도하세요.");
+        }
     }
 
     private void showHomePlayer() {
@@ -1817,6 +1829,25 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         lyricView.setVisibility(View.GONE);
     }
 
+    private boolean canReadBroadcastSong() {
+        if (songs.isEmpty()) return false;
+        int index = playback == null ? 0 : playback.currentIndex();
+        if (index < 0 || index >= songs.size()) index = 0;
+        Uri songUri = Uri.parse(songs.get(index));
+        try (AssetFileDescriptor descriptor =
+                     getContentResolver().openAssetFileDescriptor(songUri, "r")) {
+            if (descriptor != null) return true;
+        } catch (SecurityException error) {
+            toast("노래 파일 권한이 만료되었습니다. 설정에서 삭제 후 다시 추가하세요.");
+            return false;
+        } catch (Exception error) {
+            toast("노래 파일을 열 수 없습니다. 설정에서 다시 추가하세요.");
+            return false;
+        }
+        toast("노래 파일을 열 수 없습니다. 설정에서 다시 추가하세요.");
+        return false;
+    }
+
     private void startMusicForBroadcast() {
         if (songs.isEmpty()) {
             pendingAutoMusicStart = false;
@@ -1827,8 +1858,17 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         pendingAutoMusicStart = true;
         if (playback == null) return;
 
-        playback.setQueue(songs);
-        playback.prepareForBroadcast();
+        try {
+            playback.setQueue(songs);
+            playback.prepareForBroadcast();
+        } catch (RuntimeException error) {
+            pendingAutoMusicStart = false;
+            AutoGreetingStore.setStatus(
+                    this,
+                    "음악 재생 시작 실패 · " + safeErrorMessage(error));
+            toast("음악 재생 오류를 막았습니다. 노래를 다시 추가하세요.");
+            return;
+        }
         pendingAutoMusicStart = false;
     }
 
@@ -1900,8 +1940,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void startAndBindPlayback() {
         Intent intent = new Intent(this, PlaybackService.class);
-        ContextCompat.startForegroundService(this, intent);
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        try {
+            ContextCompat.startForegroundService(this, intent);
+            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+        } catch (RuntimeException error) {
+            AutoGreetingStore.setStatus(
+                    this,
+                    "음악 서비스 시작 실패 · " + safeErrorMessage(error));
+            toast("음악 서비스를 시작하지 못했습니다. 앱을 다시 열어 주세요.");
+        }
     }
 
 
@@ -1968,7 +2015,20 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             toast("BIGO LIVE를 찾지 못했습니다.");
             return;
         }
-        startActivity(launch);
+        try {
+            launch.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            startActivity(launch);
+        } catch (ActivityNotFoundException | SecurityException error) {
+            AutoGreetingStore.setStatus(
+                    this,
+                    "BIGO 실행 차단 · " + safeErrorMessage(error));
+            toast("BIGO LIVE를 열 수 없습니다. BIGO 앱을 업데이트해 주세요.");
+        } catch (RuntimeException error) {
+            AutoGreetingStore.setStatus(
+                    this,
+                    "BIGO 실행 오류 방지 · " + safeErrorMessage(error));
+            toast("BIGO 실행 오류를 막았습니다. MARU 음악은 계속 재생됩니다.");
+        }
     }
 
 
@@ -1976,9 +2036,23 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             AudioManager manager = getSystemService(AudioManager.class);
             if (manager != null) {
-                manager.setAllowedCapturePolicy(android.media.AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+                try {
+                    manager.setAllowedCapturePolicy(
+                            android.media.AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+                } catch (RuntimeException ignored) {
+                    // 제조사별 오디오 정책 오류가 있어도 앱은 계속 실행한다.
+                }
             }
         }
+    }
+
+    private String safeErrorMessage(Throwable error) {
+        if (error == null) return "알 수 없는 오류";
+        String message = error.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            return error.getClass().getSimpleName();
+        }
+        return message.trim();
     }
 
     private void requestNotificationPermission() {

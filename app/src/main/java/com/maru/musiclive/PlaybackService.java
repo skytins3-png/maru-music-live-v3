@@ -171,11 +171,9 @@ public final class PlaybackService extends Service {
         }
 
         if (player == null) {
-            if (currentIndex < 0 && AppStorage.songTitleTts(this)) {
-                startIntermissionBefore(0);
-            } else {
-                play(currentIndex < 0 ? 0 : currentIndex);
-            }
+            // 방송 시작 직후에는 TTS 서비스를 새로 띄우지 않고 첫 곡을 바로 재생한다.
+            // 제목·감사 안내는 실제 곡과 곡 사이에서만 실행한다.
+            play(currentIndex < 0 ? 0 : currentIndex);
             return;
         }
 
@@ -216,19 +214,31 @@ public final class PlaybackService extends Service {
         next.setAudioAttributes(musicAttributes());
         next.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK);
         next.setOnPreparedListener(mp -> {
-            synchronized (PlaybackService.this) {
-                preparing = false;
-                applyVolume();
-                mp.start();
-                randomGuard.markStarted(
-                        trackKeyAt(currentIndex),
-                        System.currentTimeMillis());
-                saveRandomPlaybackState();
+            try {
+                synchronized (PlaybackService.this) {
+                    preparing = false;
+                    applyVolume();
+                    mp.start();
+                    randomGuard.markStarted(
+                            trackKeyAt(currentIndex),
+                            System.currentTimeMillis());
+                    saveRandomPlaybackState();
+                }
+                notifyTrack();
+                notifyState(true);
+                startForeground(
+                        NOTIFICATION_ID,
+                        notification("게임 오디오 음악만 재생 중"));
+                // 중요: 제목/인사 TTS는 곡이 시작된 뒤 절대 재생하지 않는다.
+            } catch (RuntimeException error) {
+                synchronized (PlaybackService.this) {
+                    preparing = false;
+                    if (player == mp) player = null;
+                    try { mp.release(); } catch (RuntimeException ignored) {}
+                }
+                notifyState(false);
+                error("노래 재생 시작 실패: " + safeMessage(error));
             }
-            notifyTrack();
-            notifyState(true);
-            startForeground(NOTIFICATION_ID, notification("게임 오디오 음악만 재생 중"));
-            // 중요: 제목/인사 TTS는 곡이 시작된 뒤 절대 재생하지 않는다.
         });
         next.setOnCompletionListener(mp -> {
             synchronized (PlaybackService.this) {
@@ -248,12 +258,31 @@ public final class PlaybackService extends Service {
             player = next;
             next.setDataSource(this, Uri.parse(queue.get(currentIndex)));
             next.prepareAsync();
-        } catch (IOException | IllegalArgumentException error) {
+        } catch (SecurityException error) {
             preparing = false;
-            player = null;
-            next.release();
-            error("파일을 열 수 없습니다: " + error.getMessage());
+            if (player == next) player = null;
+            try { next.release(); } catch (RuntimeException ignored) {}
+            error("노래 파일 권한이 만료되었습니다. 설정에서 삭제 후 다시 추가하세요.");
+        } catch (IOException | IllegalArgumentException | IllegalStateException error) {
+            preparing = false;
+            if (player == next) player = null;
+            try { next.release(); } catch (RuntimeException ignored) {}
+            error("파일을 열 수 없습니다: " + safeMessage(error));
+        } catch (RuntimeException error) {
+            preparing = false;
+            if (player == next) player = null;
+            try { next.release(); } catch (RuntimeException ignored) {}
+            error("재생 준비 오류: " + safeMessage(error));
         }
+    }
+
+    private String safeMessage(Throwable error) {
+        if (error == null) return "알 수 없는 오류";
+        String message = error.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            return error.getClass().getSimpleName();
+        }
+        return message.trim();
     }
 
     private void transitionToNext() {
@@ -378,7 +407,11 @@ public final class PlaybackService extends Service {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
         AudioManager manager = getSystemService(AudioManager.class);
         if (manager != null) {
-            manager.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+            try {
+                manager.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+            } catch (RuntimeException ignored) {
+                // 제조사별 오디오 정책 오류가 있어도 재생 서비스는 계속 시작한다.
+            }
         }
     }
 

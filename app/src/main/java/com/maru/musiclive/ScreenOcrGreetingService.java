@@ -94,13 +94,14 @@ public final class ScreenOcrGreetingService extends Service {
     }
 
     public static void stop(Context context) {
-        Intent intent = new Intent(context, ScreenOcrGreetingService.class)
-                .setAction(ACTION_STOP);
+        if (context == null) return;
+        // 중지 버튼 때문에 새 OCR 서비스를 만들지 않는다.
         try {
-            context.startService(intent);
-        } catch (RuntimeException ignored) {
             context.stopService(new Intent(context, ScreenOcrGreetingService.class));
+        } catch (RuntimeException ignored) {
+            // 이미 종료된 상태라면 할 일이 없다.
         }
+        AutoGreetingStore.setRunningMode(context, "");
     }
 
     @Override public void onCreate() {

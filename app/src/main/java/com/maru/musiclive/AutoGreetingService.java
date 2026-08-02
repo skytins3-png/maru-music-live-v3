@@ -157,8 +157,13 @@ public final class AutoGreetingService extends Service {
 
     public static void cancel(Context context) {
         if (context == null) return;
-        safeStart(context, new Intent(context, AutoGreetingService.class)
-                .setAction(ACTION_CANCEL));
+        // 취소를 위해 새 포그라운드 서비스를 시작하면 최신 Android에서
+        // 방송 시작 순간 서비스 제한 오류가 날 수 있다. 실행 중인 서비스만 중지한다.
+        try {
+            context.stopService(new Intent(context, AutoGreetingService.class));
+        } catch (RuntimeException ignored) {
+            // 이미 종료된 상태라면 할 일이 없다.
+        }
     }
 
     private static boolean safeStart(Context context, Intent intent) {
