@@ -388,7 +388,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.1 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
+                "V3.2.2 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -570,7 +570,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
 
-    // V3.2.1 COMPATIBILITY POLICY:
+    // V3.2.2 COMPATIBILITY POLICY:
     // - 기존 V3.1.6 PlaybackService를 변경하지 않는다.
     // - 기존 이전/재생/다음/답변/말하기/복귀/BIGO/종료 버튼을 유지한다.
     // - 원클릭은 startMusicForBroadcast -> startBroadcast -> openBigoChat 순서다.
