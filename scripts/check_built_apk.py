@@ -26,7 +26,7 @@ FORBIDDEN_DEX_STRINGS = {
 # fragments of one longer Java string. javac folds adjacent literals, so DEX
 # contains the whole guide string rather than each fragment as a separate entry.
 REQUIRED_EXACT_DEX_STRINGS = {
-    "V3.2.3 · 전체화면 이미지 플레이어 · 재생 버튼 항상 표시 · 입장 자동답변 제외",
+    "V3.2.4 · BIGO 시작 충돌 방지 · 음악 재생 안정화 · 입장 자동답변 제외",
     "일반 LIVE 음악방송 시작",
     "오디오 LIVE 음악방송 시작",
     "곡 사이 5개 언어 통합 안내",
@@ -196,7 +196,7 @@ def main():
 
         if missing_strings:
             failures.append(
-                "missing V3.2.3 player strings: "
+                "missing V3.2.4 player strings: "
                 + " | ".join(missing_strings)
             )
 

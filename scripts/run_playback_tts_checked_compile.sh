@@ -34,6 +34,7 @@ public class Context {
  public static final int MODE_PRIVATE=0;
  public SharedPreferences getSharedPreferences(String n,int m){return null;}
  public Intent startForegroundService(Intent i){return i;} public Intent startService(Intent i){return i;}
+ public boolean stopService(Intent i){return true;}
  public <T> T getSystemService(Class<T> c){return null;} public String getString(int id){return "";}
  public void sendBroadcast(Intent i){} public String getPackageName(){return "com.maru.musiclive";}
 }

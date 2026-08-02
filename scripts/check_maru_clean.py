@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove stale repository leftovers, then validate MARU V3.1.6.
+"""Remove stale repository leftovers, then validate MARU V3.2.4.
 
 This file is deliberately self-contained so CI cannot fail because a separate
 cleanup helper was omitted during GitHub web upload.

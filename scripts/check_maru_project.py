@@ -88,8 +88,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3023')
-check('version name', version_name == '3.2.3')
+check('version code', version_code == '3024')
+check('version name', version_name == '3.2.4')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.
