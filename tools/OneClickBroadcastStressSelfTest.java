@@ -21,12 +21,18 @@ public final class OneClickBroadcastStressSelfTest {
         if (checks != 1000) {
             throw new AssertionError("expected 1000 checks, got " + checks);
         }
-        if (!OneClickBroadcastPlan.REQUIRES_SCREEN_CAPTURE_CONSENT) {
-            throw new AssertionError("screen capture consent must remain required");
+        if (OneClickBroadcastPlan.REQUIRES_MARU_SCREEN_CAPTURE) {
+            throw new AssertionError("MARU OCR projection must stay off during BIGO Game Live");
+        }
+        if (!OneClickBroadcastPlan.REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT) {
+            throw new AssertionError("BIGO screen capture consent must remain required");
+        }
+        if (!OneClickBroadcastPlan.USES_BIGO_NATIVE_TOOLBAR) {
+            throw new AssertionError("BIGO native toolbar must remain enabled");
         }
         if (OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI) {
             throw new AssertionError("external app UI automation must remain disabled");
         }
-        System.out.println("ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS + SAFE POLICY PASS");
+        System.out.println("ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS + BIGO NATIVE TOOLBAR POLICY PASS");
     }
 }

@@ -188,8 +188,12 @@ public final class CoreSelfTest {
                 "one-click BIGO package");
         ok(OneClickBroadcastPlan.BROADCAST_MODE == BroadcastMode.PORTRAIT_9_16,
                 "one-click portrait mode");
-        ok(OneClickBroadcastPlan.REQUIRES_SCREEN_CAPTURE_CONSENT,
-                "one-click requires Android consent");
+        ok(!OneClickBroadcastPlan.REQUIRES_MARU_SCREEN_CAPTURE,
+                "one-click does not start competing MARU capture");
+        ok(OneClickBroadcastPlan.REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT,
+                "BIGO screen capture keeps user consent");
+        ok(OneClickBroadcastPlan.USES_BIGO_NATIVE_TOOLBAR,
+                "BIGO native toolbar enabled");
         ok(!OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI,
                 "one-click does not automate BIGO UI");
         System.out.println("CORE-SELF-TEST: " + checks + "/" + checks);

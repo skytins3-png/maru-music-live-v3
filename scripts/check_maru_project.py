@@ -79,8 +79,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3016')
-check('version name', version_name == '3.1.6')
+check('version code', version_code == '3017')
+check('version name', version_name == '3.1.7')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.
@@ -126,23 +126,29 @@ check('core self-test isolated sourcepath',
 one_click_plan_text = (
     root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java'
 ).read_text(encoding='utf-8')
-check('safe one-click BIGO broadcast preparation',
+check('safe one-click BIGO native toolbar preparation',
       '원클릭 BIGO 방송 시작' in main
       and 'startOneClickBigoBroadcast' in main
       and 'OneClickBroadcastPlan.BIGO_PACKAGE' in main
       and 'OneClickBroadcastPlan.BROADCAST_MODE' in main
-      and 'pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING' in main
-      and 'screenCaptureLauncher.launch(manager.createScreenCaptureIntent())' in main
+      and 'openBigoOverlaySettings' in main
       and 'startMusicForBroadcast();' in main
       and 'startBroadcast();' in main
       and 'openBigoChat();' in main
-      and 'REQUIRES_SCREEN_CAPTURE_CONSENT = true' in one_click_plan_text
-      and 'CONTROLS_EXTERNAL_APP_UI = false' in one_click_plan_text
+      and 'REQUIRES_MARU_SCREEN_CAPTURE = false' in one_click_plan_text
+      and 'REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT = true' in one_click_plan_text
+      and 'USES_BIGO_NATIVE_TOOLBAR = true' in one_click_plan_text
+      and 'pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING' not in main[main.find('private void startOneClickBigoBroadcast'):main.find('private void requestScreenCapture')]
       and 'BIND_ACCESSIBILITY_SERVICE' not in manifest
       and 'dispatchGesture' not in all_text
       and 'UiAutomator' not in all_text
       and (root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java').is_file()
       and (root / 'app/src/test/java/com/maru/musiclive/OneClickBroadcastPlanTest.java').is_file())
+check('BIGO native toolbar bottom safe area',
+      'BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP = 220' in visual
+      and 'LYRIC_BOTTOM_MARGIN_DP = 250' in visual
+      and '실방송 하단은 BIGO의 네이티브 댓글 입력·마이크·카메라·소통·상점 버튼용이다.' in main
+      and 'controls = null;' in main)
 check('game category', 'android:appCategory="game"' in manifest and 'android:isGame="true"' in manifest)
 check('release signed', 'signingConfig signingConfigs.debug' in gradle)
 check('direct raw resources only',

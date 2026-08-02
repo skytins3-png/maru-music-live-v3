@@ -22,11 +22,12 @@ FORBIDDEN_DEX_STRINGS = {
 }
 
 REQUIRED_DEX_STRINGS = {
-    "V3.1.6 · 안전 원클릭 BIGO 방송 · OCR·AI 화면 답변 · 무키보드 종료 · 랜덤 20분 차단",
+    "V3.1.7 · BIGO 네이티브 댓글 도구막대 · 음악 송출 유지 · 하단 조작영역 확보 · 무키보드 종료",
     "원클릭 BIGO 방송 시작",
-    "BIGO에서 게임 LIVE → MARU MUSIC LIVE 선택 → 화면 공유 허용 → 방송 시작",
+    "처음 1회 · BIGO 플로팅 도구막대 권한 설정",
+    "BIGO에서 게임 LIVE를 시작한 뒤 플로팅 도구막대를 펼치세요",
     "5개 언어 연속 통합 안내 테스트",
-    "3. 이벤트 글 + 습득·진화 AI 화면 답변 + 음악 + 곡 사이 5개 언어",
+    "3. OCR·AI 단독 검사 · 게임 LIVE와 동시 사용 안 함",
     "랜덤 재생 · 같은 곡 20분 절대 중복 차단",
     "상단 분할 화면 이미지 좌우 여백 없이 꽉 채우기",
     "습득·진화 대화형 AI · 작은 화면 답변 · 키보드 없음",
@@ -169,7 +170,7 @@ def main():
 
         if missing_strings:
             failures.append(
-                "missing V3.1.6 strings: "
+                "missing V3.1.7 strings: "
                 + " | ".join(missing_strings)
             )
 
