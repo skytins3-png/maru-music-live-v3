@@ -23,8 +23,8 @@ ROOT_GRADLE = ROOT / "build.gradle"
 MANIFEST = MAIN / "AndroidManifest.xml"
 
 CYCLES = 1000
-EXPECTED_VERSION_CODE = "3021"
-EXPECTED_VERSION_NAME = "3.2.1"
+EXPECTED_VERSION_CODE = "3022"
+EXPECTED_VERSION_NAME = "3.2.2"
 EXPECTED_MEDIA = {
     MAIN / "res" / "raw" / "actual_music.mp3":
         "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
@@ -46,7 +46,7 @@ FORBIDDEN_EXACT = {
     ROOT / "scripts" / "restore_required_media.py",
 }
 REQUIRED_WORKFLOW_TOKENS = (
-    "name: Build MARU MUSIC LIVE V3.2.1 APK",
+    "name: Build MARU MUSIC LIVE V3.2.2 APK",
     "gradle-version: '8.13'",
     "java-version: '17'",
     "python3 scripts/check_required_media.py",
@@ -57,14 +57,15 @@ REQUIRED_WORKFLOW_TOKENS = (
     "rm -rf build",
     "python3 scripts/run_source_integrity_1000.py",
     "bash scripts/run_core_self_test.sh",
+    "bash scripts/run_auto_reply_policy_checked_compile.sh",
     ":app:testDebugUnitTest",
     ":app:lintDebug",
     ":app:assembleDebug",
     ":app:assembleRelease",
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
-    "MARU-MUSIC-LIVE-V3.2.1-DEBUG.apk",
-    "MARU-MUSIC-LIVE-V3.2.1-MUSIC-RELEASE.apk",
+    "MARU-MUSIC-LIVE-V3.2.2-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.2.2-MUSIC-RELEASE.apk",
 )
 TEXT_SUFFIXES = {
     ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
@@ -121,9 +122,9 @@ def validate_static_once() -> list[str]:
     version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
     version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
     if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
-        errors.append("app/build.gradle versionCode is not 3021")
+        errors.append("app/build.gradle versionCode is not 3022")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
-        errors.append("app/build.gradle versionName is not 3.2.1")
+        errors.append("app/build.gradle versionName is not 3.2.2")
 
     main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
     one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
@@ -174,6 +175,10 @@ def validate_static_once() -> list[str]:
             errors.append("V3.1.8 repeated playback recovery remains")
         if "PLAYBACK_CONTROL_BOTTOM_MARGIN_DP" in visual_text:
             errors.append("V3.1.8 oversized custom control placement remains")
+        if 'column.addView(button("완전 종료", v -> stopAllBroadcastNow()));' not in main_text:
+            errors.append("complete stop button is not connected to stopAllBroadcastNow")
+        if "performImmediateFullStop()" in main_text:
+            errors.append("undefined performImmediateFullStop call remains")
 
         for forbidden in (
             'BIND_ACCESSIBILITY_SERVICE',
@@ -227,7 +232,7 @@ def validate_static_once() -> list[str]:
             )
 
     first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
-    if first_line != "name: Build MARU MUSIC LIVE V3.2.1 APK":
+    if first_line != "name: Build MARU MUSIC LIVE V3.2.2 APK":
         errors.append(f"wrong workflow name: {first_line!r}")
     if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
         errors.append("stale V3.1.1 workflow/APK token remains")
@@ -313,6 +318,19 @@ def validate_static_once() -> list[str]:
             errors.append("CHAT overlay does not use the two-second policy")
         if "if (!AutoReplyPolicy.shouldAutoReply(chat)) continue;" not in ocr_text:
             errors.append("join notifications are not explicitly excluded from AI replies")
+        auto_reply_test_path = ROOT / "app" / "src" / "test" / "java" / "com" / "maru" / "musiclive" / "AutoReplyPolicyTest.java"
+        if not auto_reply_test_path.is_file():
+            errors.append("AutoReplyPolicyTest.java is missing")
+        else:
+            auto_reply_test_text = auto_reply_test_path.read_text(encoding="utf-8")
+            if 'assertTrue("English join must be recognized as a join notification"' not in auto_reply_test_text:
+                errors.append("English join detector test has the wrong expected value")
+            if 'assertFalse(AutoReplyPolicy.containsJoinNotification("Blue Moon joined the live"))' in auto_reply_test_text:
+                errors.append("stale false expectation remains for English join detector")
+        contract_script = ROOT / "scripts" / "run_auto_reply_policy_checked_compile.sh"
+        contract_tool = ROOT / "tools" / "AutoReplyPolicyContractTest.java"
+        if not contract_script.is_file() or not contract_tool.is_file():
+            errors.append("auto-reply contract compile files are missing")
         if "방송에 오신 분들 모두 환영합니다" not in intermission_text or "다음 노래는" not in intermission_text:
             errors.append("between-song welcome or next-song guide was removed")
 

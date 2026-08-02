@@ -31,7 +31,9 @@ required = [
     'app/src/main/java/com/maru/musiclive/BroadcastClosingText.java',
     'app/src/main/java/com/maru/musiclive/EventOverlayText.java',
     'app/src/main/java/com/maru/musiclive/SongMediaStore.java',
-    'scripts/run_core_self_test.sh', 'scripts/run_playback_tts_checked_compile.sh', 'scripts/check_built_apk.py',
+    'scripts/run_core_self_test.sh',
+    'scripts/run_auto_reply_policy_checked_compile.sh',
+    'scripts/run_playback_tts_checked_compile.sh', 'scripts/check_built_apk.py',
     'tools/IntermissionStressSelfTest.java',
     'tools/VisualCompatibilityStressSelfTest.java', 'tools/RandomPlaybackStressSelfTest.java',
     'tools/UiAiClosingStressSelfTest.java',
@@ -39,6 +41,8 @@ required = [
     'tools/SongRequestPolicyStressSelfTest.java',
     'tools/VoicePolicyStressSelfTest.java',
     'tools/AutoReplyPolicyStressSelfTest.java',
+    'tools/AutoReplyPolicyContractTest.java',
+    'app/src/test/java/com/maru/musiclive/AutoReplyPolicyTest.java',
     'scripts/check_v275_reference.py',
     'scripts/check_required_media.py',
     'scripts/check_voice_policy.py',
@@ -82,14 +86,16 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3021')
-check('version name', version_name == '3.2.1')
+check('version code', version_code == '3022')
+check('version name', version_name == '3.2.2')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.
 check('workflow version', bool(workflow_tag) and workflow_tag in workflow_text)
 check('workflow 1000 source integrity',
       'python3 scripts/run_source_integrity_1000.py' in workflow_text)
+check('workflow auto-reply contract compile',
+      'bash scripts/run_auto_reply_policy_checked_compile.sh' in workflow_text)
 check('workflow has no missing purge-helper dependency',
       'purge_repository_leftovers.py' not in workflow_text)
 cleanup_tokens = (
@@ -141,6 +147,21 @@ check('community live with existing playback core',
       and 'BIND_ACCESSIBILITY_SERVICE' not in manifest
       and 'dispatchGesture' not in all_text
       and 'UiAutomator' not in all_text)
+auto_reply_test_text = (
+    root / 'app/src/test/java/com/maru/musiclive/AutoReplyPolicyTest.java'
+).read_text(encoding='utf-8')
+check('auto-reply test uses correct join-detector semantics',
+      'assertTrue("English join must be recognized as a join notification"' in auto_reply_test_text
+      and 'assertFalse("Korean join must not auto-reply"' in auto_reply_test_text
+      and 'assertFalse(AutoReplyPolicy.containsJoinNotification("Blue Moon joined the live"))' not in auto_reply_test_text)
+check('complete stop button calls existing method',
+      'column.addView(button("완전 종료", v -> stopAllBroadcastNow()));' in main
+      and 'performImmediateFullStop()' not in main)
+check('auto-reply checked compile uses real policy sources',
+      'AutoReplyPolicyContractTest.java' in (root / 'scripts/run_auto_reply_policy_checked_compile.sh').read_text(encoding='utf-8')
+      and 'src="app/src/main/java/com/maru/musiclive/$name"' in (root / 'scripts/run_auto_reply_policy_checked_compile.sh').read_text(encoding='utf-8')
+      and 'AutoReplyPolicy.java' in (root / 'scripts/run_auto_reply_policy_checked_compile.sh').read_text(encoding='utf-8'))
+
 check('existing functional playback controls restored',
       'smallButton("이전"' in main
       and 'smallButton("재생"' in main

@@ -1,0 +1,13 @@
+MARU MUSIC LIVE V3.2.2 변경사항
+
+1. AutoReplyPolicyTest의 잘못된 영어 입장 판정 기대값 수정
+   - containsJoinNotification("Blue Moon joined the live")는 true가 정상
+   - shouldAutoReply(입장 알림)는 false가 정상
+2. 한국어·영어·중국어·일본어·러시아어 입장 알림 회귀 테스트 추가
+3. 일반 댓글을 입장 알림으로 잘못 분류하지 않는 테스트 추가
+4. 자동응답 화면 표시 2초 제한 유지
+5. 곡 사이 5개 언어 환영 인사와 다음 곡 안내 유지
+6. 이전 CI 수정 통합
+   - MainActivity 완전 종료 버튼을 stopAllBroadcastNow()에 연결
+   - 독립 컴파일 스크립트의 AutoReplyPolicy 의존성 보완
+7. AutoReplyPolicy 실제 소스를 컴파일하는 전용 계약 검사 추가

@@ -22,7 +22,7 @@ FORBIDDEN_DEX_STRINGS = {
 }
 
 REQUIRED_DEX_STRINGS = {
-    "V3.2.1 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
+    "V3.2.2 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
     "일반 LIVE 음악방송 시작",
     "입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다.",
     "오디오 LIVE 음악방송 시작",
@@ -168,7 +168,7 @@ def main():
 
         if missing_strings:
             failures.append(
-                "missing V3.2.1 community-live strings: "
+                "missing V3.2.2 community-live strings: "
                 + " | ".join(missing_strings)
             )
 
