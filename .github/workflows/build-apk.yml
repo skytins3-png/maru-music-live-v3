@@ -1,4 +1,4 @@
-name: Build MARU MUSIC LIVE V3.1.7 APK
+name: Build MARU MUSIC LIVE V3.1.8 APK
 
 on:
   workflow_dispatch:
@@ -141,23 +141,23 @@ jobs:
           unzip -t app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.1.7-DEBUG.apk
-          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.1.7-GAME-RELEASE.apk
+          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.1.8-DEBUG.apk
+          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.1.8-GAME-RELEASE.apk
 
       - name: Inspect actual built APK contents
         run: |
           echo "---- Debug APK raw resources ----"
-          unzip -l MARU-MUSIC-LIVE-V3.1.7-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          unzip -l MARU-MUSIC-LIVE-V3.1.8-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
           echo "---- Release APK raw resources ----"
-          unzip -l MARU-MUSIC-LIVE-V3.1.7-GAME-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
-          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.1.7-DEBUG.apk
-          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.1.7-GAME-RELEASE.apk
+          unzip -l MARU-MUSIC-LIVE-V3.1.8-GAME-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.1.8-DEBUG.apk
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.1.8-GAME-RELEASE.apk
 
       - name: Upload APK files
         uses: actions/upload-artifact@v4
         with:
-          name: MARU-MUSIC-LIVE-V3.1.7-APK
+          name: MARU-MUSIC-LIVE-V3.1.8-APK
           path: |
-            MARU-MUSIC-LIVE-V3.1.7-DEBUG.apk
-            MARU-MUSIC-LIVE-V3.1.7-GAME-RELEASE.apk
+            MARU-MUSIC-LIVE-V3.1.8-DEBUG.apk
+            MARU-MUSIC-LIVE-V3.1.8-GAME-RELEASE.apk
           if-no-files-found: error
