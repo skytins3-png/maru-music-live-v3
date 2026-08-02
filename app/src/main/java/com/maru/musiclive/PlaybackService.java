@@ -47,6 +47,8 @@ public final class PlaybackService extends Service {
             "com.maru.musiclive.PLAY_AFTER_ANNOUNCEMENT";
     public static final String ACTION_TOGGLE =
             "com.maru.musiclive.PLAYBACK_TOGGLE";
+    public static final String ACTION_PREPARE_FOR_BROADCAST =
+            "com.maru.musiclive.PLAYBACK_PREPARE_FOR_BROADCAST";
     public static final String ACTION_NEXT =
             "com.maru.musiclive.PLAYBACK_NEXT";
     public static final String ACTION_STOP_ALL =
@@ -100,7 +102,16 @@ public final class PlaybackService extends Service {
         startForeground(NOTIFICATION_ID, notification("대기 중"));
 
         String action = intent == null ? null : intent.getAction();
-        if (ACTION_PLAY_AFTER_ANNOUNCEMENT.equals(action)) {
+        if (ACTION_PREPARE_FOR_BROADCAST.equals(action)) {
+            synchronized (this) {
+                if (queue.isEmpty()) {
+                    setQueue(AppStorage.loadSongs(this));
+                    setRepeatAll(AppStorage.repeatAll(this));
+                    setRandomMode(AppStorage.random(this));
+                }
+                prepareForBroadcast();
+            }
+        } else if (ACTION_PLAY_AFTER_ANNOUNCEMENT.equals(action)) {
             int index = intent.getIntExtra(EXTRA_TRACK_INDEX, -1);
             synchronized (this) {
                 intermissionPending = false;

@@ -20,5 +20,8 @@ public class OneClickBroadcastPlanTest {
         assertTrue(OneClickBroadcastPlan.REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT);
         assertTrue(OneClickBroadcastPlan.USES_BIGO_NATIVE_TOOLBAR);
         assertFalse(OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI);
+        assertTrue(OneClickBroadcastPlan.RESTORES_MARU_PLAYBACK_CONTROLS);
+        assertEquals(3, OneClickBroadcastPlan.PLAYBACK_START_RETRY_COUNT);
+        assertEquals(700L, OneClickBroadcastPlan.PLAYBACK_START_RETRY_DELAY_MS);
     }
 }

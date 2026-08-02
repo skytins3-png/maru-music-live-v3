@@ -186,11 +186,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             playback.setRepeatAll(AppStorage.repeatAll(MainActivity.this));
             playback.setRandomMode(AppStorage.random(MainActivity.this));
             bound = true;
+            String runningMode = AutoGreetingStore.runningMode(MainActivity.this);
             if (pendingAutoMusicStart
                     || (localTestMode && broadcastVisible)
-                    || ScreenOcrGreetingService.MODE_AUTO_GREETING.equals(
-                            AutoGreetingStore.runningMode(
-                                    MainActivity.this))) {
+                    || ScreenOcrGreetingService.MODE_AUTO_GREETING.equals(runningMode)
+                    || "bigo_native_toolbar".equals(runningMode)) {
                 pendingAutoMusicStart = false;
                 playback.prepareForBroadcast();
             }
@@ -388,7 +388,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.1.7 · BIGO 네이티브 댓글 도구막대 · 음악 송출 유지 · 하단 조작영역 확보 · 무키보드 종료",
+                "V3.1.8 · BIGO 네이티브 댓글 도구막대 · 재생 버튼 복구 · 음악 자동 재생 복구 · 무키보드 종료",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -616,6 +616,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 "원클릭 방송 · 음악 실행 · BIGO 네이티브 댓글 도구막대 사용");
 
         startMusicForBroadcast();
+        scheduleOneClickPlaybackRecovery(
+                OneClickBroadcastPlan.PLAYBACK_START_RETRY_COUNT);
         if (!broadcastVisible) startBroadcast();
         refreshAutoGreetingStatus();
         showTemporaryTestOverlay(
@@ -996,38 +998,45 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         timeParams.bottomMargin = dp(BroadcastVisualProfile.TIME_BOTTOM_MARGIN_DP);
         broadcastScreen.addView(timeView, timeParams);
 
-        if (localTestMode) {
-            controls = new LinearLayout(this);
-            controls.setGravity(Gravity.CENTER);
-            controls.setOrientation(LinearLayout.HORIZONTAL);
-            controls.setBackgroundColor(0xDD101018);
+        controls = new LinearLayout(this);
+        controls.setGravity(Gravity.CENTER);
+        controls.setOrientation(LinearLayout.HORIZONTAL);
+        controls.setBackgroundColor(0xCC101018);
 
-            controls.addView(smallButton("이전", v -> {
-                if (playback != null) playback.previous();
-            }));
-            playButton = smallButton("재생", v -> {
-                if (playback != null) playback.toggle();
-            });
-            controls.addView(playButton);
-            controls.addView(smallButton("다음", v -> {
-                if (playback != null) playback.next();
-            }));
+        controls.addView(smallButton("이전", v -> {
+            if (playback != null) playback.previous();
+            else startMusicForBroadcast();
+        }));
+        playButton = smallButton("재생", v -> {
+            if (playback != null) playback.toggle();
+            else startMusicForBroadcast();
+        });
+        controls.addView(playButton);
+        controls.addView(smallButton("다음", v -> {
+            if (playback != null) playback.next();
+            else startMusicForBroadcast();
+        }));
+
+        if (localTestMode) {
             controls.addView(smallButton("가짜 이벤트", v ->
                     showFakeEventDialog()));
             controls.addView(smallButton("테스트 끝", v ->
                     finishBroadcast()));
-
-            FrameLayout.LayoutParams controlsParams =
-                    new FrameLayout.LayoutParams(
-                            FrameLayout.LayoutParams.MATCH_PARENT,
-                            dp(64),
-                            Gravity.BOTTOM);
-            broadcastScreen.addView(controls, controlsParams);
-        } else {
-            // 실방송 하단은 BIGO의 네이티브 댓글 입력·마이크·카메라·소통·상점 버튼용이다.
-            controls = null;
-            playButton = null;
         }
+
+        FrameLayout.LayoutParams controlsParams =
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        dp(BroadcastVisualProfile.PLAYBACK_CONTROL_HEIGHT_DP),
+                        Gravity.BOTTOM);
+        if (!localTestMode) {
+            // BIGO의 실제 댓글 입력·마이크·카메라·소통·상점 버튼보다 위에 둔다.
+            controlsParams.leftMargin = dp(72);
+            controlsParams.rightMargin = dp(72);
+            controlsParams.bottomMargin = dp(
+                    BroadcastVisualProfile.PLAYBACK_CONTROL_BOTTOM_MARGIN_DP);
+        }
+        broadcastScreen.addView(controls, controlsParams);
 
         broadcastScreen.setOnClickListener(v ->
                 showControlsTemporarily());
@@ -1710,11 +1719,36 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         pendingAutoMusicStart = true;
+
+        // 바인더 연결 전에도 포그라운드 서비스가 저장된 재생목록을 직접 불러와
+        // 즉시 재생을 준비하도록 명령한다. BIGO로 화면이 넘어가도 이 명령은 유지된다.
+        Intent prepare = new Intent(this, PlaybackService.class)
+                .setAction(PlaybackService.ACTION_PREPARE_FOR_BROADCAST);
+        try {
+            ContextCompat.startForegroundService(this, prepare);
+        } catch (RuntimeException error) {
+            toast("음악 서비스를 시작하지 못했습니다.");
+        }
+
         if (playback == null) return;
 
         playback.setQueue(songs);
         playback.prepareForBroadcast();
         pendingAutoMusicStart = false;
+    }
+
+    private void scheduleOneClickPlaybackRecovery(int retriesRemaining) {
+        if (retriesRemaining < 0) return;
+        handler.postDelayed(() -> {
+            if (!"bigo_native_toolbar".equals(
+                    AutoGreetingStore.runningMode(MainActivity.this))) {
+                return;
+            }
+            if (playback == null || !playback.isPlaying()) {
+                startMusicForBroadcast();
+                scheduleOneClickPlaybackRecovery(retriesRemaining - 1);
+            }
+        }, OneClickBroadcastPlan.PLAYBACK_START_RETRY_DELAY_MS);
     }
 
     private void confirmDeleteSong(int position) {

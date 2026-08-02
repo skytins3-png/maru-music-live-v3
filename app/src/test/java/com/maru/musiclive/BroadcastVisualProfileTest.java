@@ -9,8 +9,11 @@ public class BroadcastVisualProfileTest {
         assertEquals(14f, BroadcastVisualProfile.EVENT_SP, 0f);
         assertEquals(17f, BroadcastVisualProfile.LYRIC_SP, 0f);
         assertTrue(BroadcastVisualProfile.BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP >= 200);
+        assertTrue(BroadcastVisualProfile.PLAYBACK_CONTROL_BOTTOM_MARGIN_DP
+                >= BroadcastVisualProfile.BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP);
         assertTrue(BroadcastVisualProfile.LYRIC_BOTTOM_MARGIN_DP
-                > BroadcastVisualProfile.BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP);
+                > BroadcastVisualProfile.PLAYBACK_CONTROL_BOTTOM_MARGIN_DP
+                + BroadcastVisualProfile.PLAYBACK_CONTROL_HEIGHT_DP);
     }
 
     @Test public void overlayNeverExceedsScreen() {
