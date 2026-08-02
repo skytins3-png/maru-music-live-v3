@@ -244,6 +244,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     @Override protected void onResume() {
         super.onResume();
+        refreshAutoGreetingStatus();
         if (!pendingBigoModeAfterAccessibility.isEmpty()
                 && BigoBroadcastNavigatorService.isEnabled(this)) {
             String mode = pendingBigoModeAfterAccessibility;
@@ -408,7 +409,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.5 · BIGO 방송 준비 화면 자동 이동 · 음악 재생 안정화",
+                "V3.2.6 · BIGO 방송 이동 · onResume 중복 컴파일 수정",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -2246,12 +2247,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     @Override public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        refreshAutoGreetingStatus();
     }
 
     @Override protected void onDestroy() {
