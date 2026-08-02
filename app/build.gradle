@@ -11,7 +11,7 @@ android {
         minSdk 26
         targetSdk 36
         versionCode 3024
-        versionName '3.2.4'
+        versionName '3.2.3'
     }
 
     buildTypes {
