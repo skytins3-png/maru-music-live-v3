@@ -23,7 +23,6 @@ jobs:
           find . -maxdepth 1 -type f -name '*.java' -print -delete
           rm -rf build app/build .gradle
           rm -f app/src/main/res/raw/default_male_greeting*.mp3
-          rm -f app/src/main/res/xml/accessibility_service_config.xml
           rm -f app/src/main/java/com/maru/musiclive/BigoAccessibilityService.java
           rm -f app/src/main/java/com/maru/musiclive/AccessibilityEventRelay.java
           rm -f app/src/main/java/com/maru/musiclive/AutoHostAccessibilityService.java
@@ -36,7 +35,6 @@ jobs:
           test ! -e build
           test ! -e app/build
           test ! -e .gradle
-          test ! -e app/src/main/res/xml/accessibility_service_config.xml
           test -z "$(find app/src/main/res/raw -maxdepth 1 -type f -name 'default_male_greeting*.mp3' -print -quit)"
 
       - name: Commit permanent deletion when needed
