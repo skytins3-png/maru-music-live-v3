@@ -1,4 +1,4 @@
-name: Build MARU MUSIC LIVE V3.2.1 APK
+name: Build MARU MUSIC LIVE V3.2.2 APK
 
 on:
   workflow_dispatch:
@@ -105,6 +105,9 @@ jobs:
       - name: Core and stress self-tests
         run: bash scripts/run_core_self_test.sh
 
+      - name: Auto-reply join contract compile test
+        run: bash scripts/run_auto_reply_policy_checked_compile.sh
+
       - name: Adaptive AI checked-exception compile test
         run: bash scripts/run_adaptive_store_checked_compile.sh
 
@@ -144,23 +147,23 @@ jobs:
           unzip -t app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.2.1-DEBUG.apk
-          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.2.1-MUSIC-RELEASE.apk
+          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.2.2-DEBUG.apk
+          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.2.2-MUSIC-RELEASE.apk
 
       - name: Inspect actual built APK contents
         run: |
           echo "---- Debug APK raw resources ----"
-          unzip -l MARU-MUSIC-LIVE-V3.2.1-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          unzip -l MARU-MUSIC-LIVE-V3.2.2-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
           echo "---- Release APK raw resources ----"
-          unzip -l MARU-MUSIC-LIVE-V3.2.1-MUSIC-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
-          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.1-DEBUG.apk
-          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.1-MUSIC-RELEASE.apk
+          unzip -l MARU-MUSIC-LIVE-V3.2.2-MUSIC-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.2-DEBUG.apk
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.2-MUSIC-RELEASE.apk
 
       - name: Upload APK files
         uses: actions/upload-artifact@v4
         with:
-          name: MARU-MUSIC-LIVE-V3.2.1-APK
+          name: MARU-MUSIC-LIVE-V3.2.2-APK
           path: |
-            MARU-MUSIC-LIVE-V3.2.1-DEBUG.apk
-            MARU-MUSIC-LIVE-V3.2.1-MUSIC-RELEASE.apk
+            MARU-MUSIC-LIVE-V3.2.2-DEBUG.apk
+            MARU-MUSIC-LIVE-V3.2.2-MUSIC-RELEASE.apk
           if-no-files-found: error
