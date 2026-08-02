@@ -86,6 +86,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean bound;
     private boolean broadcastVisible;
     private boolean localTestMode;
+    private boolean homePlayerMode;
     private boolean pendingAutoMusicStart;
     private boolean oneClickStarting;
     private boolean eventOverlayShowing;
@@ -155,7 +156,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     };
 
     private final Runnable hideControls = () -> {
-        if (localTestMode) return;
+        if (localTestMode || homePlayerMode) return;
         if (controls != null) controls.setVisibility(View.GONE);
         if (titleView != null) titleView.setVisibility(View.GONE);
         if (timeView != null) timeView.setVisibility(View.GONE);
@@ -223,11 +224,17 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         ensureDefaultMedia();
         buildSetupScreen();
         startAndBindPlayback();
+        showHomePlayer();
         requestNotificationPermission();
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
-                if (broadcastVisible) showBroadcastEndMenu();
-                else finish();
+                if (homePlayerMode) {
+                    showHomePlayerMenu();
+                } else if (broadcastVisible) {
+                    showBroadcastEndMenu();
+                } else {
+                    showHomePlayer();
+                }
             }
         });
     }
@@ -388,7 +395,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.2 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
+                "V3.2.3 · 전체화면 이미지 플레이어 · 재생 버튼 항상 표시 · 입장 자동답변 제외",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -402,6 +409,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 true);
         guide.setBackgroundColor(0x6651246B);
         column.addView(guide);
+
+        Button openPlayer = button(
+                "전체화면 이미지 플레이어 열기",
+                v -> showHomePlayer());
+        openPlayer.setTextSize(20f);
+        column.addView(openPlayer);
 
         Button regularLive = button(
                 "일반 LIVE 음악방송 시작",
@@ -522,6 +535,87 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         handler.postDelayed(this::openBigoChat, 650L);
     }
 
+    private void showHomePlayer() {
+        homePlayerMode = true;
+        localTestMode = false;
+        selectedMode = BroadcastMode.PORTRAIT_9_16;
+        AppStorage.setBroadcastMode(this, selectedMode.name());
+        startBroadcast();
+    }
+
+    private void showCommunityLiveModeDialog() {
+        String[] items = {
+                "일반 LIVE 음악방송 시작",
+                "오디오 LIVE 음악방송 시작"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO LIVE 시작")
+                .setItems(items, (dialog, which) -> {
+                    if (which == 0) {
+                        startCommunityLive("일반 LIVE");
+                    } else {
+                        startCommunityLive("오디오 LIVE");
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void openSetupFromPlayer() {
+        leavePlayerScreen(false);
+    }
+
+    private void showHomePlayerMenu() {
+        String[] items = {
+                "BIGO LIVE 시작",
+                "노래·이미지·설정 열기",
+                "완전 종료"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("MARU MUSIC LIVE")
+                .setItems(items, (dialog, which) -> {
+                    if (which == 0) {
+                        showCommunityLiveModeDialog();
+                    } else if (which == 1) {
+                        openSetupFromPlayer();
+                    } else {
+                        stopAllBroadcastNow();
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void leavePlayerScreen(boolean pauseMusic) {
+        broadcastVisible = false;
+        homePlayerMode = false;
+
+        handler.removeCallbacks(updateProgress);
+        handler.removeCallbacks(rotateImage);
+        handler.removeCallbacks(hideControls);
+        activeEventPriority = 0;
+        activeEventUntil = 0L;
+        eventOverlayQueue.clear();
+        eventOverlayShowing = false;
+
+        if (mediaVideo != null) {
+            try {
+                mediaVideo.stopPlayback();
+            } catch (RuntimeException ignored) {}
+        }
+
+        if (pauseMusic && playback != null) {
+            playback.pause();
+        }
+
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        showSystemBars();
+        refreshAutoGreetingStatus();
+        setContentView(appRoot);
+    }
+
     private void showAdvancedToolsDialog() {
         String[] items = {
                 "5개 언어 안내 음성 테스트",
@@ -570,9 +664,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
 
-    // V3.2.2 COMPATIBILITY POLICY:
+    // V3.2.3 PLAYER VISIBILITY POLICY:
     // - 기존 V3.1.6 PlaybackService를 변경하지 않는다.
-    // - 기존 이전/재생/다음/답변/말하기/복귀/BIGO/종료 버튼을 유지한다.
+    // - 앱을 열면 이미지와 이전/재생/다음/LIVE/설정 버튼을 즉시 표시한다.
     // - 원클릭은 startMusicForBroadcast -> startBroadcast -> openBigoChat 순서다.
     private void startOneClickBigoBroadcast() {
         boolean bigoInstalled = getPackageManager()
@@ -592,6 +686,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         oneClickStarting = true;
+        homePlayerMode = false;
         localTestMode = false;
         selectedMode = BroadcastMode.PORTRAIT_9_16;
         AppStorage.setBroadcastMode(this, selectedMode.name());
@@ -839,6 +934,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void startLocalTest() {
+        homePlayerMode = false;
         localTestMode = true;
         selectedMode =
                 BroadcastMode.PORTRAIT_9_16;
@@ -853,6 +949,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         "로컬 테스트에서 음악·이미지·가사·안내음성을 모두 확인했습니까?\n\n"
                                 + "실방송 화면에서는 청취자에게 소리와 화면이 전달될 수 있습니다.")
                 .setPositiveButton("확인 후 계속", (dialog, which) -> {
+                    homePlayerMode = false;
                     localTestMode = false;
                     showBroadcastModeDialog();
                 })
@@ -861,6 +958,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void showBroadcastModeDialog() {
+        homePlayerMode = false;
         localTestMode = false;
         String[] labels = {
                 BroadcastMode.PORTRAIT_9_16.label,
@@ -1000,7 +1098,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             if (playback != null) playback.next();
         }));
 
-        if (localTestMode) {
+        if (homePlayerMode) {
+            controls.addView(smallButton("LIVE", v ->
+                    showCommunityLiveModeDialog()));
+            controls.addView(smallButton("설정", v ->
+                    openSetupFromPlayer()));
+        } else if (localTestMode) {
             controls.addView(smallButton("가짜 이벤트", v ->
                     showFakeEventDialog()));
             controls.addView(smallButton("안내음성", v ->
@@ -1027,7 +1130,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         FrameLayout.LayoutParams controlsParams =
                 new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
-                        dp(64),
+                        dp(homePlayerMode ? 72 : 64),
                         Gravity.BOTTOM);
         broadcastScreen.addView(controls, controlsParams);
 
@@ -1095,6 +1198,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         boolean wasLocalTest = localTestMode;
         broadcastVisible = false;
         localTestMode = false;
+        homePlayerMode = false;
         oneClickStarting = false;
 
         handler.removeCallbacks(updateProgress);
@@ -1131,7 +1235,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         timeView.setVisibility(View.VISIBLE);
 
         handler.removeCallbacks(hideControls);
-        if (!localTestMode) {
+        if (!localTestMode && !homePlayerMode) {
             handler.postDelayed(
                     hideControls,
                     CONTROLS_HIDE_DELAY_MS);
@@ -1484,7 +1588,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void showActiveSongMedia() {
-        if (activeSongMedia.isEmpty()) return;
+        if (activeSongMedia.isEmpty()) {
+            activeSongMedia.add(resourceUri(R.drawable.actual_image_01));
+            activeSongMedia.add(resourceUri(R.drawable.actual_image_02));
+            mediaIndex = 0;
+        }
         mediaIndex = Math.max(0, Math.min(mediaIndex, activeSongMedia.size() - 1));
         showMediaUri(activeSongMedia.get(mediaIndex), false);
     }
@@ -1532,6 +1640,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         if (backgroundImage != null) backgroundImage.setVisibility(View.VISIBLE);
         if (foregroundImage != null) foregroundImage.setVisibility(View.VISIBLE);
         Bitmap bitmap = decodeBitmap(uri);
+        if (bitmap == null) {
+            bitmap = BitmapFactory.decodeResource(
+                    getResources(),
+                    R.drawable.actual_image_01);
+        }
         if (bitmap != null) {
             backgroundImage.setImageBitmap(bitmap);
             foregroundImage.setImageBitmap(bitmap);
