@@ -1,0 +1,30 @@
+MARU MUSIC LIVE V3.2.6 검증 보고서
+
+발견된 실제 오류
+- GitHub Actions Java 컴파일 오류: MainActivity.java에 onResume() 메서드가 두 번 선언됨.
+- 기존 선언 위치: 파일 앞부분의 접근성 권한 복귀 처리와 파일 끝부분의 자동인사 상태 갱신 처리.
+
+수정 내용
+1. 두 onResume()을 하나로 통합했습니다.
+2. 통합된 onResume()에서 super.onResume(), refreshAutoGreetingStatus(), BIGO 접근성 권한 복귀 후 방송 이동 재시도를 모두 실행합니다.
+3. 중복된 두 번째 onResume() 선언을 완전히 삭제했습니다.
+4. check_maru_project.py에 MainActivity 생명주기 메서드 중복 검사를 추가했습니다.
+5. run_source_integrity_1000.py에도 같은 중복 검사를 추가해 GitHub의 Gradle 단계 전에 발견하도록 했습니다.
+6. 버전 코드/버전명/워크플로/APK 이름을 3026 / 3.2.6 / V3.2.6으로 통일했습니다.
+
+로컬 소스 검사 결과
+- PROJECT-CHECK: 139/139 PASS
+- SOURCE-INTEGRITY: 1000/1000 PASS
+- CORE-SELF-TEST: 92/92 PASS
+- STRESS-SELF-TEST: 1000/1000 PASS
+- BIGO NAVIGATION POLICY: 1000/1000 PASS
+- ONE-CLICK BROADCAST: 1000/1000 PASS
+- AUTO-REPLY CONTRACT: 11/11 PASS
+- VOICE POLICY: 14/14 PASS
+- HOME PLAYER UI: 1000/1000 PASS
+- MainActivity onResume 선언 개수: 1개
+
+검증 한계
+- 이 실행 환경에는 Android Gradle/SDK가 없어 실제 :app:testDebugUnitTest 및 APK 빌드는 실행하지 못했습니다.
+- 따라서 GitHub Actions의 실제 Java/Android 컴파일 성공이 마지막 확인입니다.
+- 다만 이번 로그에서 지적된 중복 onResume() 컴파일 원인은 소스에서 직접 제거했고, 재발 방지 검사도 추가했습니다.

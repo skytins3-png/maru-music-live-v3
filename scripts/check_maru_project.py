@@ -93,8 +93,13 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3025')
-check('version name', version_name == '3.2.5')
+check('version code', version_code == '3026')
+check('version name', version_name == '3.2.6')
+for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
+    lifecycle_count = len(re.findall(
+        rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
+    ))
+    check(f'unique MainActivity lifecycle:{lifecycle_name}', lifecycle_count <= 1)
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.

@@ -1,4 +1,4 @@
-# MARU MUSIC LIVE V3.2.5
+# MARU MUSIC LIVE V3.2.6
 
 ## 핵심 수정
 

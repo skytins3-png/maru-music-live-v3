@@ -1,9 +1,9 @@
-MARU MUSIC LIVE V3.2.5 업로드 안내
+MARU MUSIC LIVE V3.2.6 업로드 안내
 
 1. FULL-SOURCE ZIP을 PC에서 압축 해제합니다.
 2. GitHub 저장소 최상단에 폴더 구조 그대로 덮어씁니다.
 3. 특히 app, scripts, .github/workflows 폴더를 모두 교체합니다.
-4. 커밋 후 'Build MARU MUSIC LIVE V3.2.5 APK' 작업을 확인합니다.
+4. 커밋 후 'Build MARU MUSIC LIVE V3.2.6 APK' 작업을 확인합니다.
 5. 예전 실패 작업의 Re-run이 아니라 새 커밋으로 시작된 작업을 사용합니다.
 
 필수 포함 파일

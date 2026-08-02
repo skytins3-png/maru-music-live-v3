@@ -1,0 +1,9 @@
+MARU MUSIC LIVE V3.2.6 변경사항
+
+1. MainActivity.java에 두 번 선언되어 GitHub Actions 컴파일을 막던 onResume()을 하나로 통합했습니다.
+2. 기존 자동인사 상태 갱신(refreshAutoGreetingStatus)과 BIGO 접근성 권한 복귀 처리를 같은 onResume()에서 모두 실행합니다.
+3. 프로젝트 검사에 MainActivity 생명주기 메서드 중복 검사를 추가했습니다.
+4. 1,000회 소스 무결성 검사에도 생명주기 메서드 중복 검사를 추가했습니다.
+5. 버전 코드 3026, 버전명 3.2.6, GitHub Actions 및 APK 파일명을 V3.2.6으로 통일했습니다.
+
+이 수정은 첨부 로그의 컴파일 오류 "method onResume() is already defined in class MainActivity"를 직접 해결합니다.
