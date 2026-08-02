@@ -383,147 +383,63 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.setPadding(dp(20), dp(24), dp(20), dp(40));
         setupScreen.addView(column);
 
-        TextView heading = text("MARU MUSIC LIVE GAME", 27, true);
+        TextView heading = text("MARU MUSIC LIVE", 28, true);
         heading.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
         column.addView(heading);
 
         TextView version = text(
-                "V3.1.8 · BIGO 네이티브 댓글 도구막대 · 재생 버튼 복구 · 음악 자동 재생 복구 · 무키보드 종료",
+                "V3.2.1 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
         column.addView(version);
 
-        TextView coreNotice = text(
-                "노래가 재생되는 동안에는 노래 소리만 나옵니다. "
-                        + "입장·좋아요·선물·팔로우와 AI 댓글 답변은 글로만 표시합니다. "
-                        + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이와 종료 안내에만 나옵니다.",
+        TextView guide = text(
+                "기존 청취자가 쉽게 찾아오는 일반 LIVE 또는 오디오 LIVE를 사용합니다. "
+                        + "MARU는 뒤에서 자작곡을 재생하고 BIGO 화면에서 댓글·입장·선물·팔로우를 직접 확인합니다. "
+                        + "BIGO의 방송하기 버튼은 직접 눌러야 합니다. 음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. 입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다.",
                 15,
                 true);
-        coreNotice.setBackgroundColor(0x6651246B);
-        column.addView(coreNotice);
+        guide.setBackgroundColor(0x6651246B);
+        column.addView(guide);
 
-        TextView limitNotice = text(
-                "곡 사이 통합 안내는 매번 한국어→영어→중국어→일본어→러시아어 다섯 언어를 모두 연속 재생합니다. "
-                        + "대화형 AI는 인사·감사·자작곡 칭찬과 시청자 언어를 학습합니다. 신청곡 요청이 들어오면 진행자의 자작곡만 들려주는 방송임을 설명하고 글로 정중히 거절하며, 같은 시청자의 반복 요청과 요청 문구도 안전하게 기억합니다. 거절 정책은 학습으로 바뀌지 않습니다. “게임 좋아하세요?” 같은 미학습 질문은 자동 답변하지 않고, 키보드 자동 입력과 곡 중 TTS도 사용하지 않습니다.",
-                14,
-                false);
-        limitNotice.setBackgroundColor(0x553D7A46);
-        column.addView(limitNotice);
+        Button regularLive = button(
+                "일반 LIVE 음악방송 시작",
+                v -> startCommunityLive("일반 LIVE"));
+        regularLive.setTextSize(21f);
+        regularLive.setTextColor(Color.WHITE);
+        GradientDrawable regularBg = new GradientDrawable();
+        regularBg.setCornerRadius(dp(16));
+        regularBg.setColor(0xFFCC176A);
+        regularLive.setBackground(regularBg);
+        LinearLayout.LayoutParams regularParams =
+                (LinearLayout.LayoutParams) regularLive.getLayoutParams();
+        regularParams.height = dp(70);
+        regularParams.topMargin = dp(18);
+        regularLive.setLayoutParams(regularParams);
+        column.addView(regularLive);
 
-        autoGreetingStatusView = text("AI·OCR 상태 확인 중", 14, false);
+        Button audioLive = button(
+                "오디오 LIVE 음악방송 시작",
+                v -> startCommunityLive("오디오 LIVE"));
+        audioLive.setTextSize(20f);
+        column.addView(audioLive);
+
+        autoGreetingStatusView = text("방송 상태 확인 중", 14, false);
         autoGreetingStatusView.setBackgroundColor(0x553D7A46);
         column.addView(autoGreetingStatusView);
-
-        Button oneClick = button(
-                "원클릭 BIGO 방송 시작",
-                v -> startOneClickBigoBroadcast());
-        oneClick.setTextSize(20f);
-        oneClick.setTextColor(Color.WHITE);
-        GradientDrawable oneClickBackground = new GradientDrawable();
-        oneClickBackground.setCornerRadius(dp(16));
-        oneClickBackground.setColor(0xFFCC176A);
-        oneClick.setBackground(oneClickBackground);
-        LinearLayout.LayoutParams oneClickParams =
-                (LinearLayout.LayoutParams) oneClick.getLayoutParams();
-        oneClickParams.height = dp(68);
-        oneClickParams.topMargin = dp(16);
-        oneClick.setLayoutParams(oneClickParams);
-        column.addView(oneClick);
-
-        TextView oneClickGuide = text(
-                "한 번 누르면 음악·가사·이미지 방송 화면을 먼저 준비하고 BIGO를 엽니다. "
-                        + "BIGO에서 게임 LIVE를 시작하면 댓글·입장·선물·팔로우와 하단 마이크·상점·소통 버튼은 "
-                        + "BIGO의 플로팅 도구막대로 표시됩니다. 처음 한 번은 아래 권한 설정을 확인하세요.",
-                14,
-                true);
-        oneClickGuide.setBackgroundColor(0x6651246B);
-        column.addView(oneClickGuide);
-
-        column.addView(button(
-                "처음 1회 · BIGO 플로팅 도구막대 권한 설정",
-                v -> openBigoOverlaySettings()));
-
-        column.addView(button(
-                "1. OCR 입장 로컬 테스트 · BIGO 미실행",
-                v -> requestScreenCapture(ScreenOcrGreetingService.MODE_LOCAL_TEST)));
-        column.addView(button(
-                "2. OCR 단독 검사 · 게임 LIVE와 동시 사용 안 함",
-                v -> requestScreenCapture(ScreenOcrGreetingService.MODE_DETECT_ONLY)));
-        column.addView(button(
-                "3. OCR·AI 단독 검사 · 게임 LIVE와 동시 사용 안 함",
-                v -> requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
-        column.addView(button(
-                "4. BIGO 게임 LIVE 음악 송출 우선 시작",
-                v -> startBigoMusicOnly()));
-        column.addView(button(
-                "5. OCR·곡 사이 안내 중지",
-                v -> {
-                    ScreenOcrGreetingService.stop(this);
-                    AutoGreetingService.cancel(this);
-                    AutoGreetingStore.setRunningMode(this, "");
-                    AutoGreetingStore.setStatus(this, "중지 요청 완료");
-                    refreshAutoGreetingStatus();
-                }));
-
-        column.addView(button(
-                "5개 언어 연속 통합 안내 테스트",
-                v -> runActualGreetingTest()));
-        column.addView(button(
-                "휴대폰 TTS 음성 설정",
-                v -> openTtsSettings()));
-
-        CheckBox adaptive = checkBox(
-                "AI 습득·청취자 언어 기억",
-                AdaptiveAiStore.enabled(this));
-        adaptive.setOnCheckedChangeListener((button, checked) -> {
-            AdaptiveAiStore.setEnabled(this, checked);
-            refreshAutoGreetingStatus();
-        });
-        column.addView(adaptive);
-
-        CheckBox conversation = checkBox(
-                "습득·진화 대화형 AI · 작은 화면 답변 · 키보드 없음",
-                AdaptiveAiStore.conversationEnabled(this));
-        conversation.setOnCheckedChangeListener((button, checked) -> {
-            AdaptiveAiStore.setConversationEnabled(this, checked);
-            toast(checked
-                    ? "대화형 AI 화면 답변을 켰습니다. 노래 중 음성은 나오지 않습니다."
-                    : "대화형 AI 화면 답변을 껐습니다.");
-            refreshAutoGreetingStatus();
-        });
-        column.addView(conversation);
-
-        column.addView(button(
-                "습득·진화 AI 학습·언어·백업 관리",
-                v -> showAiManagementDialog()));
-        column.addView(button(
-                "입장 감사 화면 설정",
-                v -> showEventVisualSettings()));
-        column.addView(button(
-                "선택 곡 이미지·MP4 연결",
-                v -> showSongMediaPickerDialog()));
-
-        column.addView(space(10));
-        column.addView(button(
-                "6. YouTube 공식 연결",
-                v -> startActivity(new Intent(this, YouTubePlayerActivity.class))));
-        column.addView(button(
-                "7. 화면·음악·입장인사 로컬 테스트",
-                v -> startLocalTest()));
-        column.addView(button(
-                "8. 실방송 화면 시작",
-                v -> showLiveBroadcastWarning()));
 
         column.addView(space(12));
         column.addView(button("노래 추가", v ->
                 audioPickerLauncher.launch(new String[]{"audio/*"})));
-        column.addView(button("노래 전체 삭제", v -> confirmDeleteAllSongs()));
         column.addView(button("공통 배경 이미지 추가", v ->
                 imagePickerLauncher.launch(new String[]{"image/*"})));
         column.addView(button("가사 추가 (LRC/TXT)", v ->
                 lyricsPickerLauncher.launch(
                         new String[]{"text/*", "application/octet-stream"})));
+        column.addView(button("선택 곡 이미지·MP4 연결", v ->
+                showSongMediaPickerDialog()));
+        column.addView(button("노래 전체 삭제", v -> confirmDeleteAllSongs()));
 
         CheckBox repeat = checkBox("전체 반복", AppStorage.repeatAll(this));
         repeat.setOnCheckedChangeListener((buttonView, checked) -> {
@@ -532,7 +448,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         });
         column.addView(repeat);
 
-        CheckBox random = checkBox("랜덤 재생 · 같은 곡 20분 절대 중복 차단", AppStorage.random(this));
+        CheckBox random = checkBox(
+                "랜덤 재생 · 같은 곡 20분 중복 방지",
+                AppStorage.random(this));
         random.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setRandom(this, checked);
             if (playback != null) playback.setRandomMode(checked);
@@ -546,17 +464,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 AppStorage.setSongTitleTts(this, checked));
         column.addView(songTitleTts);
 
-        CheckBox fillImage = checkBox(
-                "상단 분할 화면 이미지 좌우 여백 없이 꽉 채우기",
-                AppStorage.fillBroadcastImage(this));
-        fillImage.setOnCheckedChangeListener((buttonView, checked) -> {
-            AppStorage.setFillBroadcastImage(this, checked);
-            toast(checked ? "이미지를 화면 폭에 맞춰 꽉 채웁니다." : "이미지 전체 보기로 바꿨습니다.");
-        });
-        column.addView(fillImage);
+        column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
+        column.addView(button("오류검사·고급 기능", v -> showAdvancedToolsDialog()));
+        column.addView(button("완전 종료", v -> performImmediateFullStop()));
 
         TextView songGuide = text(
-                "노래 터치: 재생 · 길게: 삭제 · 곡별 이미지/MP4는 위 버튼에서 연결",
+                "노래 터치: 재생 · 길게: 삭제",
                 14,
                 false);
         songGuide.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -574,13 +487,93 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(songList, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(300)));
+
         refreshSongList();
         refreshAutoGreetingStatus();
-
         appRoot.addView(setupScreen);
         setContentView(appRoot);
     }
 
+    private void startCommunityLive(String liveMode) {
+        boolean bigoInstalled = getPackageManager()
+                .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE) != null;
+        if (songs.isEmpty()) {
+            toast("방송할 노래가 없습니다. 노래를 먼저 추가하세요.");
+            return;
+        }
+        if (!bigoInstalled) {
+            toast("BIGO LIVE를 찾지 못했습니다.");
+            return;
+        }
+
+        ScreenOcrGreetingService.stop(this);
+        AutoGreetingService.cancel(this);
+        IntermissionStore.resetSession(this);
+        AutoGreetingStore.setRunningMode(this, "community_live");
+        AutoGreetingStore.setStatus(
+                this,
+                liveMode + " 준비 완료 · MARU 음악 백그라운드 재생");
+
+        startMusicForBroadcast();
+        refreshAutoGreetingStatus();
+        showTemporaryTestOverlay(
+                "BIGO에서 " + liveMode + "를 선택하고 방송하기를 누르세요",
+                ONE_CLICK_GUIDE_MS);
+        handler.postDelayed(this::openBigoChat, 650L);
+    }
+
+    private void showAdvancedToolsDialog() {
+        String[] items = {
+                "5개 언어 안내 음성 테스트",
+                "OCR 입장 로컬 테스트",
+                "OCR 이벤트 글 검사",
+                "OCR·AI 화면 답변 검사",
+                "게임 LIVE 화면방송 보조 모드",
+                "AI 학습·언어·백업 관리",
+                "입장 감사 화면 설정",
+                "실방송 전체화면 미리보기"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("오류검사·고급 기능")
+                .setItems(items, (dialog, which) -> {
+                    switch (which) {
+                        case 0:
+                            runActualGreetingTest();
+                            break;
+                        case 1:
+                            requestScreenCapture(ScreenOcrGreetingService.MODE_LOCAL_TEST);
+                            break;
+                        case 2:
+                            requestScreenCapture(ScreenOcrGreetingService.MODE_DETECT_ONLY);
+                            break;
+                        case 3:
+                            requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING);
+                            break;
+                        case 4:
+                            startOneClickBigoBroadcast();
+                            break;
+                        case 5:
+                            showAiManagementDialog();
+                            break;
+                        case 6:
+                            showEventVisualSettings();
+                            break;
+                        case 7:
+                            showLiveBroadcastWarning();
+                            break;
+                        default:
+                            break;
+                    }
+                })
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
+
+    // V3.2.1 COMPATIBILITY POLICY:
+    // - 기존 V3.1.6 PlaybackService를 변경하지 않는다.
+    // - 기존 이전/재생/다음/답변/말하기/복귀/BIGO/종료 버튼을 유지한다.
+    // - 원클릭은 startMusicForBroadcast -> startBroadcast -> openBigoChat 순서다.
     private void startOneClickBigoBroadcast() {
         boolean bigoInstalled = getPackageManager()
                 .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE) != null;
@@ -600,28 +593,26 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         oneClickStarting = true;
         localTestMode = false;
-        selectedMode = OneClickBroadcastPlan.BROADCAST_MODE;
+        selectedMode = BroadcastMode.PORTRAIT_9_16;
         AppStorage.setBroadcastMode(this, selectedMode.name());
 
-        // BIGO 게임 LIVE가 자체 화면 공유(MediaProjection)를 시작하면
-        // MARU의 별도 OCR 화면 공유는 시스템에서 중지된다.
-        // 원클릭 실방송에서는 충돌하는 MARU OCR을 시작하지 않고,
-        // BIGO의 네이티브 댓글/입장/선물/팔로우 도구막대를 그대로 사용한다.
+        // V3.1.6에서 실제 기기 송출이 확인된 바인더 기반 음악 재생을 그대로 사용한다.
+        // BIGO 게임 LIVE의 화면 공유와 충돌하지 않도록 MARU OCR 캡처는 시작하지 않는다.
         ScreenOcrGreetingService.stop(this);
         AutoGreetingService.cancel(this);
         IntermissionStore.resetSession(this);
         AutoGreetingStore.setRunningMode(this, "bigo_native_toolbar");
         AutoGreetingStore.setStatus(
                 this,
-                "원클릭 방송 · 음악 실행 · BIGO 네이티브 댓글 도구막대 사용");
+                "원클릭 방송 · V3.1.6 음악 재생 구조 · BIGO 네이티브 댓글 도구막대");
 
         startMusicForBroadcast();
-        scheduleOneClickPlaybackRecovery(
-                OneClickBroadcastPlan.PLAYBACK_START_RETRY_COUNT);
-        if (!broadcastVisible) startBroadcast();
+        if (!broadcastVisible) {
+            startBroadcast();
+        }
         refreshAutoGreetingStatus();
         showTemporaryTestOverlay(
-                "BIGO에서 게임 LIVE를 시작한 뒤 플로팅 도구막대를 펼치세요",
+                "음악 재생 확인 후 BIGO에서 게임 LIVE를 시작하세요",
                 ONE_CLICK_GUIDE_MS);
 
         handler.postDelayed(() -> {
@@ -803,6 +794,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             mode = "로컬 OCR 입장 테스트 중";
         } else if ("music_only".equals(running)) {
             mode = "BIGO 게임 LIVE 음악만 재생 · 곡 사이 5개 언어 안내";
+        } else if ("bigo_native_toolbar".equals(running)) {
+            mode = "V3.1.6 음악 재생 구조 · BIGO 네이티브 댓글·상점 도구막대";
         } else {
             mode = "OCR 이벤트 감지 중지됨";
         }
@@ -900,15 +893,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if (localTestMode) {
-            WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-            hideSystemBars();
-        } else {
-            // BIGO의 플로팅 댓글/상점/마이크 도구막대가 안정적으로 보이도록
-            // 실방송에서는 강제 몰입 전체화면을 사용하지 않는다.
-            WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-            showSystemBars();
-        }
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        hideSystemBars();
 
         broadcastScreen = new FrameLayout(this);
         broadcastScreen.setBackgroundColor(Color.BLACK);
@@ -1001,41 +987,48 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         controls = new LinearLayout(this);
         controls.setGravity(Gravity.CENTER);
         controls.setOrientation(LinearLayout.HORIZONTAL);
-        controls.setBackgroundColor(0xCC101018);
+        controls.setBackgroundColor(0xDD101018);
 
         controls.addView(smallButton("이전", v -> {
             if (playback != null) playback.previous();
-            else startMusicForBroadcast();
         }));
         playButton = smallButton("재생", v -> {
             if (playback != null) playback.toggle();
-            else startMusicForBroadcast();
         });
         controls.addView(playButton);
         controls.addView(smallButton("다음", v -> {
             if (playback != null) playback.next();
-            else startMusicForBroadcast();
         }));
 
         if (localTestMode) {
             controls.addView(smallButton("가짜 이벤트", v ->
                     showFakeEventDialog()));
+            controls.addView(smallButton("안내음성", v ->
+                    runGreetingVoiceTest()));
+            controls.addView(smallButton("이미지", v ->
+                    showNextImageNow()));
+            controls.addView(smallButton("가사", v ->
+                    runLyricsDisplayTest()));
             controls.addView(smallButton("테스트 끝", v ->
                     finishBroadcast()));
+        } else {
+            controls.addView(smallButton("답변", v ->
+                    showQuickReplyDialog()));
+            controls.addView(smallButton("말하기", v ->
+                    beginHostSpeechDuck()));
+            controls.addView(smallButton("복귀", v ->
+                    endHostSpeechDuck()));
+            controls.addView(smallButton("BIGO", v ->
+                    openBigoChat()));
+            controls.addView(smallButton("종료", v ->
+                    showBroadcastEndMenu()));
         }
 
         FrameLayout.LayoutParams controlsParams =
                 new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
-                        dp(BroadcastVisualProfile.PLAYBACK_CONTROL_HEIGHT_DP),
+                        dp(64),
                         Gravity.BOTTOM);
-        if (!localTestMode) {
-            // BIGO의 실제 댓글 입력·마이크·카메라·소통·상점 버튼보다 위에 둔다.
-            controlsParams.leftMargin = dp(72);
-            controlsParams.rightMargin = dp(72);
-            controlsParams.bottomMargin = dp(
-                    BroadcastVisualProfile.PLAYBACK_CONTROL_BOTTOM_MARGIN_DP);
-        }
         broadcastScreen.addView(controls, controlsParams);
 
         broadcastScreen.setOnClickListener(v ->
@@ -1719,36 +1712,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         pendingAutoMusicStart = true;
-
-        // 바인더 연결 전에도 포그라운드 서비스가 저장된 재생목록을 직접 불러와
-        // 즉시 재생을 준비하도록 명령한다. BIGO로 화면이 넘어가도 이 명령은 유지된다.
-        Intent prepare = new Intent(this, PlaybackService.class)
-                .setAction(PlaybackService.ACTION_PREPARE_FOR_BROADCAST);
-        try {
-            ContextCompat.startForegroundService(this, prepare);
-        } catch (RuntimeException error) {
-            toast("음악 서비스를 시작하지 못했습니다.");
-        }
-
         if (playback == null) return;
 
         playback.setQueue(songs);
         playback.prepareForBroadcast();
         pendingAutoMusicStart = false;
-    }
-
-    private void scheduleOneClickPlaybackRecovery(int retriesRemaining) {
-        if (retriesRemaining < 0) return;
-        handler.postDelayed(() -> {
-            if (!"bigo_native_toolbar".equals(
-                    AutoGreetingStore.runningMode(MainActivity.this))) {
-                return;
-            }
-            if (playback == null || !playback.isPlaying()) {
-                startMusicForBroadcast();
-                scheduleOneClickPlaybackRecovery(retriesRemaining - 1);
-            }
-        }, OneClickBroadcastPlan.PLAYBACK_START_RETRY_DELAY_MS);
     }
 
     private void confirmDeleteSong(int position) {

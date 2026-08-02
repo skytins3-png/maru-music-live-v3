@@ -26,7 +26,7 @@ public class ConversationEngineTest {
     @Test public void repeatedSongRequestGetsReminder() {
         ConversationEngine.Reply reply = ConversationEngine.songRequestRefusal(
                 "민지", "ko", 2);
-        assertTrue(reply.text.contains("앞서 안내드린 것처럼"));
+        assertTrue(reply.text.contains("안내드린 대로"));
         assertTrue(reply.text.contains("자작곡"));
     }
 

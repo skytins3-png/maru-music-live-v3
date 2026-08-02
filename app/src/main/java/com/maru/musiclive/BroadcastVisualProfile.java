@@ -18,12 +18,9 @@ public final class BroadcastVisualProfile {
     public static final int EVENT_HEIGHT_DP = 42;
     public static final int EVENT_TOP_MARGIN_DP = 80;
     public static final int EVENT_CORNER_DP = 12;
-    public static final int BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP = 220;
-    public static final int PLAYBACK_CONTROL_HEIGHT_DP = 54;
-    public static final int PLAYBACK_CONTROL_BOTTOM_MARGIN_DP = 224;
-    public static final int LYRIC_BOTTOM_MARGIN_DP = 292;
+    public static final int LYRIC_BOTTOM_MARGIN_DP = 98;
     public static final int TIME_HEIGHT_DP = 34;
-    public static final int TIME_BOTTOM_MARGIN_DP = 278;
+    public static final int TIME_BOTTOM_MARGIN_DP = 60;
 
     private BroadcastVisualProfile() {}
 
@@ -39,10 +36,6 @@ public final class BroadcastVisualProfile {
                 && LYRIC_SP <= 17f
                 && TIME_SP <= 12f
                 && EVENT_HEIGHT_DP <= 42
-                && EVENT_WIDTH_RATIO <= 0.82f
-                && BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP >= 200
-                && PLAYBACK_CONTROL_BOTTOM_MARGIN_DP >= BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP
-                && LYRIC_BOTTOM_MARGIN_DP
-                > PLAYBACK_CONTROL_BOTTOM_MARGIN_DP + PLAYBACK_CONTROL_HEIGHT_DP;
+                && EVENT_WIDTH_RATIO <= 0.82f;
     }
 }

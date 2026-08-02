@@ -455,6 +455,8 @@ public final class ScreenOcrGreetingService extends Service {
 
     /**
      * Safe adaptive conversational AI. It learns from chat and shows a small visual reply only.
+     * Entry notifications never receive an AI reply; they remain event records for the
+     * between-song welcome and next-song voice announcement.
      * It never types into BIGO and never speaks over a song, so keyboard and TTS loops are avoided.
      * Song requests are learned as phrases but always receive a fixed, polite
      * original-songs-only refusal; learning can never turn acceptance on.
@@ -463,6 +465,8 @@ public final class ScreenOcrGreetingService extends Service {
         boolean handled = false;
         String host = AdaptiveAiStore.hostNickname(this).trim();
         for (ChatMessage chat : chatParser.parseAll(text)) {
+            // BIGO 입장 문구는 이벤트로만 기록한다. AI 댓글 답변·학습 대상에서 제외한다.
+            if (!AutoReplyPolicy.shouldAutoReply(chat)) continue;
             if (!host.isEmpty() && host.equalsIgnoreCase(chat.nickname.trim())) continue;
             if (!chatSeen.markIfNew(chat.fingerprint(), now, CHAT_REPLY_TTL_MS)) continue;
 

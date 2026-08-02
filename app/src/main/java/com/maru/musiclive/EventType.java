@@ -5,7 +5,7 @@ public enum EventType {
     LIKE("좋아요", 10, 2_500L),
     GIFT("선물", 100, 4_000L),
     FOLLOW("팔로우", 70, 3_000L),
-    CHAT("대화", 30, 5_000L),
+    CHAT("대화", 30, AutoReplyPolicy.MAX_VISUAL_REPLY_MS),
     UNKNOWN("알 수 없음", 0, 3_000L);
 
     public final String koreanLabel;

@@ -8,10 +8,8 @@ public final class OneClickBroadcastPlan {
     public static final boolean REQUIRES_MARU_SCREEN_CAPTURE = false;
     public static final boolean REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT = true;
     public static final boolean USES_BIGO_NATIVE_TOOLBAR = true;
+    public static final boolean USES_EXISTING_PLAYBACK_UI = true;
     public static final boolean CONTROLS_EXTERNAL_APP_UI = false;
-    public static final boolean RESTORES_MARU_PLAYBACK_CONTROLS = true;
-    public static final int PLAYBACK_START_RETRY_COUNT = 3;
-    public static final long PLAYBACK_START_RETRY_DELAY_MS = 700L;
 
     private OneClickBroadcastPlan() {}
 

@@ -84,14 +84,14 @@ public final class ConversationEngine {
         switch (lang) {
             case GreetingLanguage.KOREAN:
                 switch (intent) {
-                    case HELLO: return prefix + "님, 반가워요. 오늘도 편안하게 음악 듣고 가세요.";
-                    case HOW_ARE_YOU: return "저는 좋은 음악과 함께 잘 지내고 있어요. " + prefix + "님도 좋은 시간 보내세요.";
-                    case THANKS: return prefix + "님, 제가 더 고마워요.";
-                    case PRAISE: return prefix + "님, 노래를 좋아해 주셔서 감사합니다.";
+                    case HELLO: return prefix + "님, 반가워요. 편하게 음악 들어 주세요.";
+                    case HOW_ARE_YOU: return "저는 잘 지내고 있어요. " + prefix + "님도 좋은 시간 보내세요.";
+                    case THANKS: return prefix + "님, 감사합니다.";
+                    case PRAISE: return prefix + "님, 자작곡을 좋아해 주셔서 감사합니다.";
                     case SONG_REQUEST:
                         return requestCount > 1
-                                ? prefix + "님, 앞서 안내드린 것처럼 이 방송은 진행자가 직접 만든 자작곡만 소개해서 신청곡은 받지 않습니다. 이해해 주셔서 감사합니다."
-                                : prefix + "님, 신청해 주셔서 감사합니다. 이 방송은 진행자가 직접 만든 자작곡만 들려드리는 방송이라 신청곡은 받지 않습니다. 편하게 자작곡을 함께 들어 주세요.";
+                                ? prefix + "님, 안내드린 대로 자작곡 방송이라 신청곡은 받지 않습니다."
+                                : prefix + "님, 이 방송은 자작곡만 들려드립니다. 신청곡은 받지 않습니다.";
                     case GOODBYE: return prefix + "님, 함께해 주셔서 감사합니다. 다음에 또 만나요.";
                     default: return "";
                 }
