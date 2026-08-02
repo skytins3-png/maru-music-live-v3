@@ -30,15 +30,12 @@ public final class OneClickBroadcastStressSelfTest {
         if (!OneClickBroadcastPlan.USES_BIGO_NATIVE_TOOLBAR) {
             throw new AssertionError("BIGO native toolbar must remain enabled");
         }
+        if (!OneClickBroadcastPlan.USES_EXISTING_PLAYBACK_UI) {
+            throw new AssertionError("V3.1.6 existing playback controls must remain enabled");
+        }
         if (OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI) {
             throw new AssertionError("external app UI automation must remain disabled");
         }
-        if (!OneClickBroadcastPlan.RESTORES_MARU_PLAYBACK_CONTROLS) {
-            throw new AssertionError("MARU playback controls must be restored");
-        }
-        if (OneClickBroadcastPlan.PLAYBACK_START_RETRY_COUNT < 3) {
-            throw new AssertionError("playback recovery retries are insufficient");
-        }
-        System.out.println("ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS + BIGO TOOLBAR + PLAYBACK RECOVERY POLICY PASS");
+        System.out.println("ONE-CLICK-BROADCAST-STRESS: 1000/1000 PASS + BIGO TOOLBAR + V3.1.6 PLAYBACK UI PASS");
     }
 }

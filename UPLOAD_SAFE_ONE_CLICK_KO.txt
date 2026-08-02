@@ -1,10 +1,10 @@
-MARU MUSIC LIVE V3.1.8 원클릭 적용 안내
+MARU MUSIC LIVE V3.2.1 원클릭 적용 안내
 
 가장 안전한 방법
 1. 이 FULL-SOURCE ZIP을 PC에서 압축 해제합니다.
 2. GitHub 저장소의 기존 파일을 이 압축의 동일 경로 파일로 교체합니다.
-3. .github/workflows/build-apk.yml도 V3.1.8 파일로 교체합니다.
-4. 커밋 후 새로 시작된 'Build MARU MUSIC LIVE V3.1.8 APK' 작업을 확인합니다.
+3. .github/workflows/build-apk.yml도 V3.2.1 파일로 교체합니다.
+4. 커밋 후 새로 시작된 'Build MARU MUSIC LIVE V3.2.1 APK' 작업을 확인합니다.
 5. 예전 실패 작업의 Re-run은 누르지 않습니다.
 
 완성 후 사용
@@ -18,5 +18,11 @@ MARU MUSIC LIVE V3.1.8 원클릭 적용 안내
 BIGO의 게임 LIVE 선택, 화면 공유 허용, 실제 방송 시작은 자동으로 대신 누르지 않습니다.
 
 
-## V3.1.8 BIGO 네이티브 댓글 도구막대
+## V3.2.1 BIGO 네이티브 댓글 도구막대
 원클릭 실방송은 MARU OCR 화면 공유를 시작하지 않습니다. BIGO 게임 LIVE의 댓글·입장·선물·팔로우 및 하단 마이크·카메라·소통·상점 도구막대를 사용합니다. 처음 한 번 BIGO의 다른 앱 위에 표시 권한을 확인하세요. 실방송 하단 220dp는 BIGO 도구막대용으로 비워 둡니다.
+
+
+V3.2.1 AI 정책:
+- 입장 알림은 자동응답하지 않습니다.
+- 곡 사이 환영 인사와 다음 곡 안내는 기존대로 유지합니다.
+- 일반 댓글 자동응답 화면은 최대 2초입니다.

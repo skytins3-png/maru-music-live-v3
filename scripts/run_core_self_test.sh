@@ -24,6 +24,7 @@ APP_SOURCES=(
   LearnedEventMatcher.java
   ConversationIntent.java
   ConversationEngine.java
+  AutoReplyPolicy.java
   ChatMessage.java
   ChatMessageParser.java
   LiveEventCooldown.java
@@ -52,6 +53,7 @@ TOOL_SOURCES=(
   OneClickBroadcastStressSelfTest.java
   SongRequestPolicyStressSelfTest.java
   VoicePolicyStressSelfTest.java
+  AutoReplyPolicyStressSelfTest.java
 )
 
 for name in "${APP_SOURCES[@]}"; do
@@ -87,3 +89,4 @@ java -cp "$OUT_DIR" UiAiClosingStressSelfTest
 java -cp "$OUT_DIR" OneClickBroadcastStressSelfTest
 java -cp "$OUT_DIR" SongRequestPolicyStressSelfTest
 java -cp "$OUT_DIR" VoicePolicyStressSelfTest
+java -cp "$OUT_DIR" AutoReplyPolicyStressSelfTest

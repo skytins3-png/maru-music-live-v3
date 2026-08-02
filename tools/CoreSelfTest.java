@@ -137,7 +137,7 @@ public final class CoreSelfTest {
                         && requestKo.text.contains("신청곡은 받지 않습니다"),
                 "song request original-only refusal");
         ok(ConversationEngine.songRequestRefusal(
-                "민지", "ko", 2).text.contains("앞서 안내드린 것처럼"),
+                "민지", "ko", 2).text.contains("안내드린 대로"),
                 "song request repeat-aware refusal");
         String requestEn = ConversationEngine.reply(
                 "John", "please play my song request", "en").text.toLowerCase(Locale.ROOT);

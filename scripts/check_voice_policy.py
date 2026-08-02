@@ -26,7 +26,7 @@ checks = {
     "service uses centralized volume": "BroadcastVoicePolicy.VOLUME" in auto,
     "intermission uses centralized order": "BroadcastVoicePolicy.orderedLanguages()" in intermission,
     "UI explains device TTS": "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고" in main,
-    "UI explains visual-only replies": "AI 댓글 답변은 글로만 표시합니다" in main,
+    "UI explains visual-only replies": "AI 댓글 답변은 최대 2초 동안 글로만 표시합니다" in main,
 }
 failed = [name for name, ok in checks.items() if not ok]
 if failed:

@@ -27,7 +27,7 @@ public final class SongRequestPolicyStressSelfTest {
         }
         ConversationEngine.Reply repeated = ConversationEngine.songRequestRefusal(
                 "민지", "ko", 2);
-        require(repeated.text.contains("앞서 안내드린 것처럼"),
+        require(repeated.text.contains("안내드린 대로"),
                 "repeat-aware Korean reminder missing");
         System.out.println("SONG-REQUEST-POLICY-STRESS: " + passed + "/" + passed
                 + " + FIXED REFUSAL PASS");

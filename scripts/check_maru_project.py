@@ -20,6 +20,7 @@ required = [
     'app/src/main/java/com/maru/musiclive/PlaybackService.java',
     'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java',
     'app/src/main/java/com/maru/musiclive/ConversationEngine.java',
+    'app/src/main/java/com/maru/musiclive/AutoReplyPolicy.java',
     'app/src/main/java/com/maru/musiclive/AdaptiveAiStore.java',
     'app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java',
     'app/src/main/java/com/maru/musiclive/AutoGreetingService.java',
@@ -37,9 +38,11 @@ required = [
     'tools/OneClickBroadcastStressSelfTest.java',
     'tools/SongRequestPolicyStressSelfTest.java',
     'tools/VoicePolicyStressSelfTest.java',
+    'tools/AutoReplyPolicyStressSelfTest.java',
     'scripts/check_v275_reference.py',
     'scripts/check_required_media.py',
     'scripts/check_voice_policy.py',
+    'scripts/check_playback_ui_regression.py',
     'scripts/run_source_integrity_1000.py',
     '.github/workflows/cleanup-stale-repository.yml',
     'app/src/main/res/raw/actual_music.mp3',
@@ -79,8 +82,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3018')
-check('version name', version_name == '3.1.8')
+check('version code', version_code == '3021')
+check('version name', version_name == '3.2.1')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.
@@ -126,36 +129,30 @@ check('core self-test isolated sourcepath',
 one_click_plan_text = (
     root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java'
 ).read_text(encoding='utf-8')
-check('safe one-click BIGO native toolbar preparation',
-      '원클릭 BIGO 방송 시작' in main
-      and 'startOneClickBigoBroadcast' in main
-      and 'OneClickBroadcastPlan.BIGO_PACKAGE' in main
-      and 'OneClickBroadcastPlan.BROADCAST_MODE' in main
-      and 'openBigoOverlaySettings' in main
+check('community live with existing playback core',
+      '일반 LIVE 음악방송 시작' in main
+      and '오디오 LIVE 음악방송 시작' in main
+      and 'startCommunityLive' in main
       and 'startMusicForBroadcast();' in main
-      and 'startBroadcast();' in main
       and 'openBigoChat();' in main
-      and 'REQUIRES_MARU_SCREEN_CAPTURE = false' in one_click_plan_text
-      and 'REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT = true' in one_click_plan_text
-      and 'USES_BIGO_NATIVE_TOOLBAR = true' in one_click_plan_text
-      and 'RESTORES_MARU_PLAYBACK_CONTROLS = true' in one_click_plan_text
-      and 'ACTION_PREPARE_FOR_BROADCAST' in playback
-      and 'scheduleOneClickPlaybackRecovery' in main
-      and 'pendingCaptureMode = ScreenOcrGreetingService.MODE_AUTO_GREETING' not in main[main.find('private void startOneClickBigoBroadcast'):main.find('private void requestScreenCapture')]
+      and 'BIGO의 방송하기 버튼은 직접 눌러야 합니다' in main
+      and 'ACTION_PREPARE_FOR_BROADCAST' not in playback
+      and 'scheduleOneClickPlaybackRecovery' not in main
       and 'BIND_ACCESSIBILITY_SERVICE' not in manifest
       and 'dispatchGesture' not in all_text
-      and 'UiAutomator' not in all_text
-      and (root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java').is_file()
-      and (root / 'app/src/test/java/com/maru/musiclive/OneClickBroadcastPlanTest.java').is_file())
-check('BIGO native toolbar bottom safe area and MARU playback controls',
-      'BIGO_NATIVE_TOOLBAR_SAFE_BOTTOM_DP = 220' in visual
-      and 'PLAYBACK_CONTROL_BOTTOM_MARGIN_DP = 224' in visual
-      and 'LYRIC_BOTTOM_MARGIN_DP = 292' in visual
-      and 'BIGO의 실제 댓글 입력·마이크·카메라·소통·상점 버튼보다 위에 둔다.' in main
-      and 'controls = null;' not in main
-      and 'smallButton("이전"' in main
+      and 'UiAutomator' not in all_text)
+check('existing functional playback controls restored',
+      'smallButton("이전"' in main
       and 'smallButton("재생"' in main
-      and 'smallButton("다음"' in main)
+      and 'smallButton("다음"' in main
+      and 'smallButton("답변"' in main
+      and 'smallButton("말하기"' in main
+      and 'smallButton("복귀"' in main
+      and 'smallButton("BIGO"' in main
+      and 'smallButton("종료"' in main
+      and 'dp(64)' in main
+      and 'PLAYBACK_CONTROL_BOTTOM_MARGIN_DP' not in visual
+      and 'ACTION_PREPARE_FOR_BROADCAST' not in playback)
 check('game category', 'android:appCategory="game"' in manifest and 'android:isGame="true"' in manifest)
 check('release signed', 'signingConfig signingConfigs.debug' in gradle)
 check('direct raw resources only',
@@ -193,6 +190,8 @@ check('voice policy stress test',
       and 'VoicePolicyStressSelfTest.java' in self_test_text)
 check('workflow voice policy check',
       'python3 scripts/check_voice_policy.py' in workflow_text)
+check('workflow playback UI regression check',
+      'python3 scripts/check_playback_ui_regression.py' in workflow_text)
 check('no accessibility', 'BIND_ACCESSIBILITY_SERVICE' not in manifest and 'AccessibilityService' not in manifest)
 check('media projection', 'FOREGROUND_SERVICE_MEDIA_PROJECTION' in manifest and 'createScreenCaptureIntent()' in main)
 check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_GAME' in playback)
@@ -206,7 +205,7 @@ check('random 20 minute guard',
       and 'randomGuard.markStarted' in playback
       and 'randomGuard.chooseNext' in playback
       and 'saveRandomPlaybackState' in playback
-      and '같은 곡 20분 절대 중복 차단' in main
+      and '같은 곡 20분 중복 방지' in main
       and 'lastChoiceBlockedByCooldown' in (root / 'app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java').read_text(encoding='utf-8')
       and 'lastChoiceUsedFallback' not in (root / 'app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java').read_text(encoding='utf-8')
       and 'scheduleRandomRetry' in playback
@@ -286,15 +285,15 @@ check('adaptive original-song request refusal',
       and 'recordSongRequest' in adaptive
       and 'isLearnedSongRequest' in adaptive
       and 'songRequests' in adaptive
-      and '거절 정책은 학습으로 바뀌지 않습니다' in main
+      and '거절 정책은 학습으로 바뀌지 않습니다' in all_text
       and 'intent == ConversationIntent.SONG_REQUEST || learnedSongRequest' in ocr)
 check('safe adaptive conversation',
       'handleSafeChatMessages' in ocr
       and 'LiveOverlayController.showDialogue' in ocr
       and 'AutoGreetingService.speakDialogue' not in ocr
       and 'CHAT_REPLY_TTL_MS = 10L * 60L * 1000L' in ocr
-      and '습득·진화 대화형 AI · 작은 화면 답변 · 키보드 없음' in main
-      and '게임 좋아하세요?' in main
+      and '습득·진화 대화형 AI · 작은 화면 답변 · 키보드 없음' in all_text
+      and '게임 좋아하세요?' in all_text
       and 'migrateSafeConversationV311' in main
       and 'KEY_SAFE_CONVERSATION_V311' in (root / 'app/src/main/java/com/maru/musiclive/AdaptiveAiStore.java').read_text(encoding='utf-8'))
 check('mobile event typography',
@@ -309,17 +308,17 @@ check('mobile event typography',
 check('top split image fill',
       'fillBroadcastImage' in main
       and 'ImageView.ScaleType.CENTER_CROP' in main
-      and '상단 분할 화면 이미지 좌우 여백 없이 꽉 채우기' in main
+      and '상단 분할 화면 이미지 좌우 여백 없이 꽉 채우기' in all_text
       and 'KEY_FILL_BROADCAST_IMAGE' in (root / 'app/src/main/java/com/maru/musiclive/AppStorage.java').read_text(encoding='utf-8'))
 check('compact mobile event visual profile',
       'EVENT_WIDTH_RATIO = 0.82f' in visual
       and 'EVENT_HEIGHT_DP = 42' in visual
       and (root / 'scripts/check_v275_reference.py').is_file())
 check('session reset', 'IntermissionStore.resetSession(this);' in main)
-check('UI explains behavior',
-      '노래가 재생되는 동안에는 노래 소리만 나옵니다' in main
-      and '매번 한국어→영어→중국어→일본어→러시아어 다섯 언어를 모두 연속 재생' in main
-      and '무키보드 종료' in main)
+check('UI explains community live behavior',
+      '기존 청취자가 쉽게 찾아오는 일반 LIVE 또는 오디오 LIVE를 사용합니다' in main
+      and 'MARU는 뒤에서 자작곡을 재생' in main
+      and 'BIGO의 방송하기 버튼은 직접 눌러야 합니다' in main)
 check('keyboard free closing',
       'showBroadcastEndMenu' in main
       and 'beginPresetBroadcastClosing' in main
@@ -371,6 +370,24 @@ for path in list((root / 'app/src/main/res').rglob('*.xml')) + [root / 'app/src/
     except Exception:
         ok = False
     check('xml:' + str(path.relative_to(root)), ok)
+
+
+auto_reply = (root / 'app/src/main/java/com/maru/musiclive/AutoReplyPolicy.java').read_text(encoding='utf-8')
+event_type = (root / 'app/src/main/java/com/maru/musiclive/EventType.java').read_text(encoding='utf-8')
+conversation = (root / 'app/src/main/java/com/maru/musiclive/ConversationEngine.java').read_text(encoding='utf-8')
+check('join excluded from AI auto reply',
+      'if (!AutoReplyPolicy.shouldAutoReply(chat)) continue;' in ocr
+      and 'EventType.JOIN' in auto_reply
+      and 'containsJoinNotification' in auto_reply)
+check('AI visual reply limited to two seconds',
+      'MAX_VISUAL_REPLY_MS = 2_000L' in auto_reply
+      and 'AutoReplyPolicy.MAX_VISUAL_REPLY_MS' in event_type)
+check('between-song welcome and next-song voice retained',
+      '방송에 오신 분들 모두 환영합니다' in intermission
+      and '다음 노래는' in intermission
+      and 'AutoGreetingService.announceIntermission' in playback)
+check('concise original-song request refusal retained',
+      '이 방송은 자작곡만 들려드립니다. 신청곡은 받지 않습니다.' in conversation)
 
 failed = [name for name, ok in checks if not ok]
 if failed:
