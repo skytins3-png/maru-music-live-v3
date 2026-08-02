@@ -466,7 +466,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
         column.addView(button("오류검사·고급 기능", v -> showAdvancedToolsDialog()));
-        column.addView(button("완전 종료", v -> performImmediateFullStop()));
+        column.addView(button("완전 종료", v -> stopAllBroadcastNow()));
 
         TextView songGuide = text(
                 "노래 터치: 재생 · 길게: 삭제",
