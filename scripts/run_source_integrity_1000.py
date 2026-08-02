@@ -23,8 +23,8 @@ ROOT_GRADLE = ROOT / "build.gradle"
 MANIFEST = MAIN / "AndroidManifest.xml"
 
 CYCLES = 1000
-EXPECTED_VERSION_CODE = "3017"
-EXPECTED_VERSION_NAME = "3.1.7"
+EXPECTED_VERSION_CODE = "3018"
+EXPECTED_VERSION_NAME = "3.1.8"
 EXPECTED_MEDIA = {
     MAIN / "res" / "raw" / "actual_music.mp3":
         "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
@@ -46,7 +46,7 @@ FORBIDDEN_EXACT = {
     ROOT / "scripts" / "restore_required_media.py",
 }
 REQUIRED_WORKFLOW_TOKENS = (
-    "name: Build MARU MUSIC LIVE V3.1.7 APK",
+    "name: Build MARU MUSIC LIVE V3.1.8 APK",
     "gradle-version: '8.13'",
     "java-version: '17'",
     "python3 scripts/check_required_media.py",
@@ -62,8 +62,8 @@ REQUIRED_WORKFLOW_TOKENS = (
     ":app:assembleRelease",
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
-    "MARU-MUSIC-LIVE-V3.1.7-DEBUG.apk",
-    "MARU-MUSIC-LIVE-V3.1.7-GAME-RELEASE.apk",
+    "MARU-MUSIC-LIVE-V3.1.8-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.1.8-GAME-RELEASE.apk",
 )
 TEXT_SUFFIXES = {
     ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
@@ -120,9 +120,9 @@ def validate_static_once() -> list[str]:
     version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
     version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
     if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
-        errors.append("app/build.gradle versionCode is not 3017")
+        errors.append("app/build.gradle versionCode is not 3018")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
-        errors.append("app/build.gradle versionName is not 3.1.7")
+        errors.append("app/build.gradle versionName is not 3.1.8")
 
     main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
     one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
@@ -136,6 +136,9 @@ def validate_static_once() -> list[str]:
             "startOneClickBigoBroadcast",
             "OneClickBroadcastPlan.BIGO_PACKAGE",
             "openBigoOverlaySettings",
+    "ACTION_PREPARE_FOR_BROADCAST",
+    "scheduleOneClickPlaybackRecovery",
+    "PLAYBACK_CONTROL_BOTTOM_MARGIN_DP",
             "BIGO 네이티브 댓글 도구막대",
             "startMusicForBroadcast();",
             "startBroadcast();",
@@ -214,7 +217,7 @@ def validate_static_once() -> list[str]:
             )
 
     first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
-    if first_line != "name: Build MARU MUSIC LIVE V3.1.7 APK":
+    if first_line != "name: Build MARU MUSIC LIVE V3.1.8 APK":
         errors.append(f"wrong workflow name: {first_line!r}")
     if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
         errors.append("stale V3.1.1 workflow/APK token remains")

@@ -22,7 +22,7 @@ FORBIDDEN_DEX_STRINGS = {
 }
 
 REQUIRED_DEX_STRINGS = {
-    "V3.1.7 · BIGO 네이티브 댓글 도구막대 · 음악 송출 유지 · 하단 조작영역 확보 · 무키보드 종료",
+    "V3.1.8 · BIGO 네이티브 댓글 도구막대 · 재생 버튼 복구 · 음악 자동 재생 복구 · 무키보드 종료",
     "원클릭 BIGO 방송 시작",
     "처음 1회 · BIGO 플로팅 도구막대 권한 설정",
     "BIGO에서 게임 LIVE를 시작한 뒤 플로팅 도구막대를 펼치세요",
@@ -170,7 +170,7 @@ def main():
 
         if missing_strings:
             failures.append(
-                "missing V3.1.7 strings: "
+                "missing V3.1.8 strings: "
                 + " | ".join(missing_strings)
             )
 

@@ -1,6 +1,6 @@
-# MARU MUSIC LIVE GAME V3.1.7
+# MARU MUSIC LIVE GAME V3.1.8
 
-## V3.1.7 원클릭 BIGO 방송 준비
+## V3.1.8 원클릭 BIGO 방송 준비
 
 홈 화면의 `원클릭 BIGO 방송 시작`을 누르면 Android 화면 공유 동의창이 바로 열립니다. 사용자가 `전체 화면` 공유를 허용하면 MARU가 세로 9:16 화면, OCR·이벤트 글·AI 화면 답변, 음악·가사·이미지를 함께 시작하고 BIGO LIVE를 엽니다. BIGO의 `게임 LIVE` 선택, `MARU MUSIC LIVE` 선택, BIGO 화면 공유 허용, 실제 방송 시작은 자동으로 대신 누르지 않습니다.
 
@@ -39,11 +39,11 @@ app/src/main/res/raw/actual_lyrics.lrc
 복원 스크립트나 임시 placeholder를 사용하지 않습니다. GitHub Actions는 빌드 전과 APK 생성 후에 파일의 위치와 SHA-256을 검사합니다.
 
 ## GitHub 빌드
-이 압축 안의 파일을 저장소 최상단에 올린 뒤 Actions에서 `Build MARU MUSIC LIVE V3.1.7 APK`를 실행합니다. 이전 패치와 섞지 말고 이 전체 파일을 기준으로 사용합니다.
+이 압축 안의 파일을 저장소 최상단에 올린 뒤 Actions에서 `Build MARU MUSIC LIVE V3.1.8 APK`를 실행합니다. 이전 패치와 섞지 말고 이 전체 파일을 기준으로 사용합니다.
 
 생성 파일:
-- `MARU-MUSIC-LIVE-V3.1.7-DEBUG.apk`
-- `MARU-MUSIC-LIVE-V3.1.7-GAME-RELEASE.apk`
+- `MARU-MUSIC-LIVE-V3.1.8-DEBUG.apk`
+- `MARU-MUSIC-LIVE-V3.1.8-GAME-RELEASE.apk`
 
 ## 실제 기기 확인
 설치 후 `DEVICE_TEST_GUIDE_KO.md` 순서대로 울트라 26과 BIGO LIVE 화면공유에서 최종 확인합니다.
@@ -57,7 +57,7 @@ app/src/main/res/raw/actual_lyrics.lrc
 ## BIGO 사용 주의
 이 앱은 자작곡·이미지·가사·화면 안내의 자동 재생을 돕습니다. BIGO의 자리 비움 또는 무인 방송 정책을 우회하거나 노출 제한 해제를 보장하지 않습니다. 방송 운영은 BIGO의 현재 운영정책을 따라야 합니다.
 
-## V3.1.7 저장소 잔여 파일 오류를 먼저 정리하는 방법
+## V3.1.8 저장소 잔여 파일 오류를 먼저 정리하는 방법
 
 GitHub 웹 업로드는 기존 파일을 자동 삭제하지 않습니다. 저장소에 루트 Java 파일이나
 `build/`가 이미 커밋되어 있다면 Actions에서 **Permanently remove stale repository files**를
@@ -65,5 +65,5 @@ GitHub 웹 업로드는 기존 파일을 자동 삭제하지 않습니다. 저�
 `CLEAN_REPOSITORY_FIRST_KO.md`에 있습니다.
 
 
-## V3.1.7 BIGO 네이티브 댓글 도구막대
+## V3.1.8 BIGO 네이티브 댓글 도구막대
 원클릭 실방송은 MARU OCR 화면 공유를 시작하지 않습니다. BIGO 게임 LIVE의 댓글·입장·선물·팔로우 및 하단 마이크·카메라·소통·상점 도구막대를 사용합니다. 처음 한 번 BIGO의 다른 앱 위에 표시 권한을 확인하세요. 실방송 하단 220dp는 BIGO 도구막대용으로 비워 둡니다.
