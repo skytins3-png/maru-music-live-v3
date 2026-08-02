@@ -10,7 +10,18 @@ rm -rf "$OUT"
 mkdir -p \
   "$SRC/android/content" \
   "$SRC/org/json" \
+  "$SRC/com/maru/musiclive" \
   "$CLASSES"
+
+cat > "$SRC/com/maru/musiclive/AutoReplyPolicy.java" <<'JAVA'
+package com.maru.musiclive;
+
+/** Compile-only policy constant used by EventType. */
+public final class AutoReplyPolicy {
+    public static final long MAX_VISUAL_REPLY_MS = 2_000L;
+    private AutoReplyPolicy() {}
+}
+JAVA
 
 cat > "$SRC/android/content/Context.java" <<'JAVA'
 package android.content;
@@ -344,6 +355,7 @@ javac \
   "$SRC/org/json/JSONException.java" \
   "$SRC/org/json/JSONArray.java" \
   "$SRC/org/json/JSONObject.java" \
+  "$SRC/com/maru/musiclive/AutoReplyPolicy.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/EventType.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/LearnedRule.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/LiveEvent.java" \

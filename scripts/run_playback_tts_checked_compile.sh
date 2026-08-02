@@ -9,6 +9,16 @@ mkdir -p "$SRC/android/app" "$SRC/android/content" "$SRC/android/media" \
   "$SRC/android/net" "$SRC/android/os" "$SRC/android/speech/tts" \
   "$SRC/androidx/core/app" "$SRC/com/maru/musiclive" "$CLS"
 
+cat > "$SRC/com/maru/musiclive/AutoReplyPolicy.java" <<'JAVA'
+package com.maru.musiclive;
+
+/** Compile-only policy constant used by EventType. */
+public final class AutoReplyPolicy {
+    public static final long MAX_VISUAL_REPLY_MS = 2_000L;
+    private AutoReplyPolicy() {}
+}
+JAVA
+
 cat > "$SRC/android/content/SharedPreferences.java" <<'JAVA'
 package android.content;
 public interface SharedPreferences {
