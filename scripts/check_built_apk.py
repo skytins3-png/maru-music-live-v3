@@ -26,13 +26,16 @@ FORBIDDEN_DEX_STRINGS = {
 # fragments of one longer Java string. javac folds adjacent literals, so DEX
 # contains the whole guide string rather than each fragment as a separate entry.
 REQUIRED_EXACT_DEX_STRINGS = {
-    "V3.2.2 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
+    "V3.2.3 · 전체화면 이미지 플레이어 · 재생 버튼 항상 표시 · 입장 자동답변 제외",
     "일반 LIVE 음악방송 시작",
     "오디오 LIVE 음악방송 시작",
     "곡 사이 5개 언어 통합 안내",
     "랜덤 재생 · 같은 곡 20분 중복 방지",
     "오류검사·고급 기능",
     "완전 종료",
+    "전체화면 이미지 플레이어 열기",
+    "LIVE",
+    "설정",
 }
 
 REQUIRED_DEX_TEXT_FRAGMENTS = {
@@ -193,7 +196,7 @@ def main():
 
         if missing_strings:
             failures.append(
-                "missing V3.2.2 community-live strings: "
+                "missing V3.2.3 player strings: "
                 + " | ".join(missing_strings)
             )
 

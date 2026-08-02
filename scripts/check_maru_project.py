@@ -48,6 +48,7 @@ required = [
     'scripts/check_required_media.py',
     'scripts/check_voice_policy.py',
     'scripts/check_playback_ui_regression.py',
+    'scripts/test_home_player_ui_1000.py',
     'scripts/run_source_integrity_1000.py',
     '.github/workflows/cleanup-stale-repository.yml',
     'app/src/main/res/raw/actual_music.mp3',
@@ -87,8 +88,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3022')
-check('version name', version_name == '3.2.2')
+check('version code', version_code == '3023')
+check('version name', version_name == '3.2.3')
 # Keep the workflow check tied to app/build.gradle rather than a second hard-coded
 # version. This prevents a false failure after a version bump while still catching
 # a stale workflow such as V3.0.9 paired with app version 3.1.6.
@@ -182,9 +183,20 @@ check('existing functional playback controls restored',
       and 'smallButton("복귀"' in main
       and 'smallButton("BIGO"' in main
       and 'smallButton("종료"' in main
-      and 'dp(64)' in main
+      and 'dp(homePlayerMode ? 72 : 64)' in main
       and 'PLAYBACK_CONTROL_BOTTOM_MARGIN_DP' not in visual
       and 'ACTION_PREPARE_FOR_BROADCAST' not in playback)
+check('default full-screen image player visible',
+      'showHomePlayer();' in main
+      and 'private boolean homePlayerMode;' in main
+      and 'private void showHomePlayer()' in main
+      and 'loadActiveSongMedia();' in main
+      and 'showActiveSongMedia();' in main
+      and 'BitmapFactory.decodeResource' in main
+      and 'smallButton("LIVE"' in main
+      and 'smallButton("설정"' in main
+      and 'if (!localTestMode && !homePlayerMode)' in main
+      and '전체화면 이미지 플레이어 열기' in main)
 check('game category', 'android:appCategory="game"' in manifest and 'android:isGame="true"' in manifest)
 check('release signed', 'signingConfig signingConfigs.debug' in gradle)
 check('direct raw resources only',
@@ -224,6 +236,8 @@ check('workflow voice policy check',
       'python3 scripts/check_voice_policy.py' in workflow_text)
 check('workflow playback UI regression check',
       'python3 scripts/check_playback_ui_regression.py' in workflow_text)
+check('workflow home player UI stress check',
+      'python3 scripts/test_home_player_ui_1000.py' in workflow_text)
 check('no accessibility', 'BIND_ACCESSIBILITY_SERVICE' not in manifest and 'AccessibilityService' not in manifest)
 check('media projection', 'FOREGROUND_SERVICE_MEDIA_PROJECTION' in manifest and 'createScreenCaptureIntent()' in main)
 check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_GAME' in playback)
