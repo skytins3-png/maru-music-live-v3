@@ -9,7 +9,9 @@ public final class OneClickBroadcastPlan {
     public static final boolean REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT = true;
     public static final boolean USES_BIGO_NATIVE_TOOLBAR = true;
     public static final boolean USES_EXISTING_PLAYBACK_UI = true;
-    public static final boolean CONTROLS_EXTERNAL_APP_UI = false;
+    public static final boolean CONTROLS_EXTERNAL_APP_UI = true;
+    public static final boolean USES_USER_ENABLED_ACCESSIBILITY_NAVIGATOR = true;
+    public static final boolean STOPS_BEFORE_FINAL_BROADCAST_START = true;
 
     private OneClickBroadcastPlan() {}
 

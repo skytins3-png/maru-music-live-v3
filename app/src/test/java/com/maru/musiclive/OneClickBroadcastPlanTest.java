@@ -20,6 +20,8 @@ public class OneClickBroadcastPlanTest {
         assertTrue(OneClickBroadcastPlan.REQUIRES_BIGO_SCREEN_CAPTURE_CONSENT);
         assertTrue(OneClickBroadcastPlan.USES_BIGO_NATIVE_TOOLBAR);
         assertTrue(OneClickBroadcastPlan.USES_EXISTING_PLAYBACK_UI);
-        assertFalse(OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI);
+        assertTrue(OneClickBroadcastPlan.CONTROLS_EXTERNAL_APP_UI);
+        assertTrue(OneClickBroadcastPlan.USES_USER_ENABLED_ACCESSIBILITY_NAVIGATOR);
+        assertTrue(OneClickBroadcastPlan.STOPS_BEFORE_FINAL_BROADCAST_START);
     }
 }
