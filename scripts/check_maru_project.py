@@ -34,6 +34,7 @@ required = [
     'scripts/run_core_self_test.sh',
     'scripts/run_auto_reply_policy_checked_compile.sh',
     'scripts/run_playback_tts_checked_compile.sh', 'scripts/check_built_apk.py',
+    'scripts/test_built_apk_text_matching.py',
     'tools/IntermissionStressSelfTest.java',
     'tools/VisualCompatibilityStressSelfTest.java', 'tools/RandomPlaybackStressSelfTest.java',
     'tools/UiAiClosingStressSelfTest.java',
@@ -96,6 +97,8 @@ check('workflow 1000 source integrity',
       'python3 scripts/run_source_integrity_1000.py' in workflow_text)
 check('workflow auto-reply contract compile',
       'bash scripts/run_auto_reply_policy_checked_compile.sh' in workflow_text)
+check('workflow built-APK text matching regression',
+      'python3 scripts/test_built_apk_text_matching.py' in workflow_text)
 check('workflow has no missing purge-helper dependency',
       'purge_repository_leftovers.py' not in workflow_text)
 cleanup_tokens = (
@@ -157,6 +160,14 @@ check('auto-reply test uses correct join-detector semantics',
 check('complete stop button calls existing method',
       'column.addView(button("완전 종료", v -> stopAllBroadcastNow()));' in main
       and 'performImmediateFullStop()' not in main)
+built_apk_checker_text = (root / 'scripts/check_built_apk.py').read_text(encoding='utf-8')
+built_apk_text_test = (root / 'scripts/test_built_apk_text_matching.py').read_text(encoding='utf-8')
+check('built APK checker accepts folded guide fragments without weakening labels',
+      'REQUIRED_EXACT_DEX_STRINGS' in built_apk_checker_text
+      and 'REQUIRED_DEX_TEXT_FRAGMENTS' in built_apk_checker_text
+      and 'if not any(fragment in value for value in values)' in built_apk_checker_text
+      and 'CYCLES: 1000/1000' in built_apk_text_test
+      and 'missing_button.remove("완전 종료")' in built_apk_text_test)
 check('auto-reply checked compile uses real policy sources',
       'AutoReplyPolicyContractTest.java' in (root / 'scripts/run_auto_reply_policy_checked_compile.sh').read_text(encoding='utf-8')
       and 'src="app/src/main/java/com/maru/musiclive/$name"' in (root / 'scripts/run_auto_reply_policy_checked_compile.sh').read_text(encoding='utf-8')

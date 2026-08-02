@@ -21,16 +21,23 @@ FORBIDDEN_DEX_STRINGS = {
     "영어 여성",
 }
 
-REQUIRED_DEX_STRINGS = {
+# TextView/button labels are emitted as standalone DEX strings, so they are
+# checked by exact equality. The two guide sentences below are compile-time
+# fragments of one longer Java string. javac folds adjacent literals, so DEX
+# contains the whole guide string rather than each fragment as a separate entry.
+REQUIRED_EXACT_DEX_STRINGS = {
     "V3.2.2 · 기존 음악 재생 구조 유지 · 입장 자동답변 제외 · AI 글 답변 최대 2초",
     "일반 LIVE 음악방송 시작",
-    "입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다.",
     "오디오 LIVE 음악방송 시작",
-    "BIGO의 방송하기 버튼은 직접 눌러야 합니다.",
     "곡 사이 5개 언어 통합 안내",
     "랜덤 재생 · 같은 곡 20분 중복 방지",
     "오류검사·고급 기능",
     "완전 종료",
+}
+
+REQUIRED_DEX_TEXT_FRAGMENTS = {
+    "입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다.",
+    "BIGO의 방송하기 버튼은 직접 눌러야 합니다.",
 }
 
 EXPECTED_RAW_HASHES = {
@@ -39,6 +46,24 @@ EXPECTED_RAW_HASHES = {
     "res/raw/actual_lyrics.lrc":
         "dc11c908183a232e5c00e691da9f8895ac1022279cd07dc04e157ab1d8950564",
 }
+
+
+def missing_required_dex_texts(strings):
+    """Return required APK UI texts not represented in the DEX string pool.
+
+    Standalone labels must be exact entries. Guide sentences may be fragments
+    of a longer compile-time folded string, so they are matched as substrings.
+    """
+    values = set(strings)
+    missing_exact = sorted(
+        REQUIRED_EXACT_DEX_STRINGS - values
+    )
+    missing_fragments = sorted(
+        fragment
+        for fragment in REQUIRED_DEX_TEXT_FRAGMENTS
+        if not any(fragment in value for value in values)
+    )
+    return missing_exact + missing_fragments
 
 
 def read_uleb(data, offset):
@@ -162,8 +187,8 @@ def main():
                 + " | ".join(stale_strings)
             )
 
-        missing_strings = sorted(
-            REQUIRED_DEX_STRINGS - strings
+        missing_strings = missing_required_dex_texts(
+            strings
         )
 
         if missing_strings:

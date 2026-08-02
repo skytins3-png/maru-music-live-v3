@@ -64,6 +64,7 @@ REQUIRED_WORKFLOW_TOKENS = (
     ":app:assembleRelease",
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
+    "python3 scripts/test_built_apk_text_matching.py",
     "MARU-MUSIC-LIVE-V3.2.2-DEBUG.apk",
     "MARU-MUSIC-LIVE-V3.2.2-MUSIC-RELEASE.apk",
 )
@@ -110,6 +111,22 @@ def validate_static_once() -> list[str]:
     for path in (WORKFLOW, APP_GRADLE, ROOT_GRADLE, MANIFEST):
         if not path.is_file():
             errors.append(f"missing required file: {path.relative_to(ROOT)}")
+
+    built_apk_checker = ROOT / "scripts" / "check_built_apk.py"
+    built_apk_text_test = ROOT / "scripts" / "test_built_apk_text_matching.py"
+    if not built_apk_checker.is_file() or not built_apk_text_test.is_file():
+        errors.append("built APK text-matching checker/test is missing")
+    else:
+        checker_text = built_apk_checker.read_text(encoding="utf-8")
+        test_text = built_apk_text_test.read_text(encoding="utf-8")
+        if "REQUIRED_EXACT_DEX_STRINGS" not in checker_text:
+            errors.append("built APK checker exact-label policy missing")
+        if "REQUIRED_DEX_TEXT_FRAGMENTS" not in checker_text:
+            errors.append("built APK checker folded-fragment policy missing")
+        if "if not any(fragment in value for value in values)" not in checker_text:
+            errors.append("built APK checker does not use substring matching for folded guide text")
+        if "for _ in range(1000):" not in test_text:
+            errors.append("built APK text matching regression is not repeated 1000 times")
 
     if errors:
         return errors
