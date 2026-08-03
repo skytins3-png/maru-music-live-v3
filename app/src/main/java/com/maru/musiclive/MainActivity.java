@@ -420,7 +420,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다. "
                         + "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다. "
                         + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. "
-                        + "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지해 답변을 자동 입력·전송합니다.",
+                        + "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다.",
                 15,
                 true);
         guide.setBackgroundColor(0x6651246B);
