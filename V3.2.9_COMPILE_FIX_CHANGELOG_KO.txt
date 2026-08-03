@@ -1,0 +1,15 @@
+MARU MUSIC LIVE V3.2.9 컴파일 수정
+
+원인
+- BigoBroadcastNavigatorService.java에서 Android AccessibilityNodeInfo에 존재하지 않는 ACTION_IME_ENTER 상수를 사용해 javac 컴파일이 실패했습니다.
+
+수정
+- ACTION_IME_ENTER 대체 시도를 제거했습니다.
+- BIGO 댓글의 실제 '보내기' 버튼이 접근성 노드에서 확인될 때만 자동 전송합니다.
+- 보내기 버튼이 확인되지 않으면 댓글 입력까지만 유지하고 수동 확인 상태를 표시합니다.
+
+유지 기능
+- V3.2.8 분할화면 이미지 전체 맞춤
+- 일반 댓글 자동 입력 및 확인된 보내기 버튼 자동 선택
+- BIGO 자체 입장·좋아요·팔로우·선물 응답 제외
+- 한국어·영어·중국어·일본어·러시아어 5개국 음성 안내
