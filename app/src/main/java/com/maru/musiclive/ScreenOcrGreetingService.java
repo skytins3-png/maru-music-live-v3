@@ -310,12 +310,14 @@ public final class ScreenOcrGreetingService extends Service {
             return handleStrictJoinText(text, now);
         }
         if (MODE_AUTO_GREETING.equals(mode)) {
-            boolean handled = handleAutoBroadcastEvents(text, now);
+            // BIGO already provides its own join/follow/gift acknowledgements.
+            // MARU therefore ignores all system events in live mode and handles
+            // only ordinary viewer comments.
             if (AdaptiveAiStore.enabled(this)
                     && AdaptiveAiStore.conversationEnabled(this)) {
-                handled |= handleSafeChatMessages(text, now);
+                return handleSafeChatMessages(text, now);
             }
-            return handled;
+            return false;
         }
         return handleDetectOnlyEvents(text, now);
     }
@@ -455,10 +457,10 @@ public final class ScreenOcrGreetingService extends Service {
 
 
     /**
-     * Safe adaptive conversational AI. It learns from chat and shows a small visual reply only.
-     * Entry notifications never receive an AI reply; they remain event records for the
-     * between-song welcome and next-song voice announcement.
-     * It never types into BIGO and never speaks over a song, so keyboard and TTS loops are avoided.
+     * Safe adaptive conversational AI for ordinary viewer comments only.
+     * BIGO system events (join/like/follow/gift) are ignored because BIGO already
+     * acknowledges them. Generated replies are handed to the user-enabled BIGO
+     * accessibility service for guarded text entry and send.
      * Song requests are learned as phrases but always receive a fixed, polite
      * original-songs-only refusal; learning can never turn acceptance on.
      */
@@ -511,9 +513,13 @@ public final class ScreenOcrGreetingService extends Service {
             AutoGreetingStore.recordEvent(this, dialogue);
             LiveOverlayController.showDialogue(
                     this, chat.nickname, answer, language);
-            AutoGreetingStore.setStatus(
-                    this, chat.nickname + " · 습득·진화 AI 화면 답변 · 키보드 없음");
-            updateNotification(chat.nickname + " · AI 화면 답변");
+            boolean queued = BigoCommentAutoReplyBridge.enqueue(
+                    this, chat.nickname, answer);
+            String status = queued
+                    ? chat.nickname + " · 댓글 자동입력 대기"
+                    : chat.nickname + " · 댓글 답변 생성 · 전송 간격 대기";
+            AutoGreetingStore.setStatus(this, status);
+            updateNotification(status);
         }
         return handled;
     }

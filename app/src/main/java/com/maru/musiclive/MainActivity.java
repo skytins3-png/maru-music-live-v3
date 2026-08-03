@@ -409,7 +409,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.6 · BIGO 방송 이동 · onResume 중복 컴파일 수정",
+                "V3.2.9 · 분할화면 이미지 전체맞춤 · BIGO 오디오 LIVE",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -420,7 +420,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다. "
                         + "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다. "
                         + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. "
-                        + "입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다.",
+                        + "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지해 답변을 자동 입력·전송합니다.",
                 15,
                 true);
         guide.setBackgroundColor(0x6651246B);
@@ -764,7 +764,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("BIGO 이벤트 OCR · 노래 중 음악만")
+                .setTitle("BIGO 댓글 OCR · 자동응답 입력")
                 .setMessage(
                         "다음 화면 공유 확인창에서 ‘전체 화면’을 선택하세요.\n\n"
                                 + "노래 재생 중에는 노래 소리만 나옵니다. 입장·좋아요·선물·팔로우는 14sp 작은 글로 표시합니다.\n"
@@ -809,7 +809,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             if (oneClickRequest) {
                 AutoGreetingStore.setStatus(
                         this,
-                        "원클릭 방송 준비 완료 · OCR·이벤트 글·AI 화면 답변·음악 실행 중");
+                        "원클릭 방송 준비 완료 · 일반 댓글 OCR·자동입력·음악 실행 중");
                 refreshAutoGreetingStatus();
                 showTemporaryTestOverlay(
                         "BIGO에서 게임 LIVE → MARU MUSIC LIVE 선택 → 화면 공유 허용 → 방송 시작",
@@ -939,7 +939,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
                         + " · 대화형 화면 답변: "
                         + (AdaptiveAiStore.conversationEnabled(this) ? "켜짐" : "꺼짐")
-                        + " · 댓글 음성 답변: 항상 꺼짐"
+                        + " · 댓글 음성 답변: 꺼짐 · 댓글 글 자동전송: 켜짐"
                         + " · 미확인 언어: "
                         + GreetingLanguage.koreanLabel(AdaptiveAiStore.defaultLanguage(this))
                         + "\n"
@@ -1037,9 +1037,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         broadcastScreen.addView(mediaVideo, match());
 
         foregroundImage = new ImageView(this);
-        foregroundImage.setScaleType(AppStorage.fillBroadcastImage(this)
-                ? ImageView.ScaleType.CENTER_CROP
-                : ImageView.ScaleType.FIT_CENTER);
+        // V3.2.9: 분할 화면에서도 원본 이미지의 위·아래·좌·우를 자르지 않는다.
+        // 큰 세로 이미지도 사용 가능한 영역 안으로 자동 축소해서 전체가 보이게 한다.
+        foregroundImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        foregroundImage.setAdjustViewBounds(true);
+        foregroundImage.setPadding(dp(4), dp(4), dp(4), dp(4));
         broadcastScreen.addView(foregroundImage, match());
 
         titleView = text(

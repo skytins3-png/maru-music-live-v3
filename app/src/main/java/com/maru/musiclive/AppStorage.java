@@ -59,7 +59,7 @@ public final class AppStorage {
 
     /** Split-screen BIGO use: crop the song image slightly so the top pane has no wide side bars. */
     public static boolean fillBroadcastImage(Context c) {
-        return prefs(c).getBoolean(KEY_FILL_BROADCAST_IMAGE, true);
+        return prefs(c).getBoolean(KEY_FILL_BROADCAST_IMAGE, false);
     }
 
     public static void setFillBroadcastImage(Context c, boolean value) {

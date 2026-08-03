@@ -8,7 +8,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.Build;
 import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -34,10 +36,11 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
     private static final String KEY_STAGE = "stage";
     private static final String KEY_ATTEMPTS = "attempts";
     private static final long REQUEST_TIMEOUT_MS = 90_000L;
-    private static final int MAX_ATTEMPTS = 28;
+    private static final int MAX_ATTEMPTS = 36;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable navigateRunnable = this::navigateCurrentWindow;
+    private final Runnable replyRunnable = this::attemptPendingCommentReply;
 
     public static void arm(Context context, String liveMode) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -87,7 +90,8 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
             info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                     | AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
                     | AccessibilityEvent.TYPE_VIEW_CLICKED
-                    | AccessibilityEvent.TYPE_VIEW_SCROLLED;
+                    | AccessibilityEvent.TYPE_VIEW_SCROLLED
+                    | AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED;
             info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
             info.flags |= AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
                     | AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
@@ -98,21 +102,27 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
     }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (!isArmed()) return;
         CharSequence packageName = event == null ? null : event.getPackageName();
         if (packageName != null
                 && !OneClickBroadcastPlan.BIGO_PACKAGE.contentEquals(packageName)) {
             return;
         }
-        scheduleNavigation(220L);
+        if (BigoCommentAutoReplyBridge.peek(this) != null) {
+            scheduleReply(180L);
+        }
+        if (isArmed()) {
+            scheduleNavigation(220L);
+        }
     }
 
     @Override public void onInterrupt() {
         handler.removeCallbacks(navigateRunnable);
+        handler.removeCallbacks(replyRunnable);
     }
 
     @Override public void onDestroy() {
         handler.removeCallbacks(navigateRunnable);
+        handler.removeCallbacks(replyRunnable);
         super.onDestroy();
     }
 
@@ -184,10 +194,13 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
                 scheduleNavigation(950L);
                 return;
             }
-            if (attempts >= 4) {
-                tapBottomCenter();
+            if (attempts >= 3) {
+                // Current Korean BIGO home (2026-08) exposes the create button as
+                // an unlabeled cyan camera icon very close to the bottom center.
+                // Its accessibility node can be absent, so use a guarded gesture.
+                tapCurrentBigoCreateButton();
                 setStage(1);
-                scheduleNavigation(1_050L);
+                scheduleNavigation(1_250L);
                 return;
             }
             retry(320L);
@@ -203,11 +216,21 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
                 return;
             }
 
-            if (BigoNavigationPolicy.MODE_AUDIO.equals(mode)
-                    && (attempts == 8 || attempts == 13 || attempts == 18)) {
-                swipeModeStripLeft();
-                scheduleNavigation(800L);
-                return;
+            if (BigoNavigationPolicy.MODE_AUDIO.equals(mode)) {
+                // The current Korean BIGO preparation screen places the mode
+                // carousel at the very bottom. Prefer text-node clicks, then use
+                // a safe tab-coordinate fallback that is below the public
+                // "방송하기" button.
+                if (attempts == 6 || attempts == 10 || attempts == 14) {
+                    tapCurrentBigoAudioTab();
+                    scheduleNavigation(1_000L);
+                    return;
+                }
+                if (attempts == 18 || attempts == 23) {
+                    swipeModeStripLeft();
+                    scheduleNavigation(900L);
+                    return;
+                }
             }
 
             if (BigoNavigationPolicy.MODE_REGULAR.equals(mode)
@@ -229,6 +252,176 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
             }
             retry(420L);
         }
+    }
+
+
+    private void scheduleReply(long delayMs) {
+        handler.removeCallbacks(replyRunnable);
+        handler.postDelayed(replyRunnable, delayMs);
+    }
+
+    /**
+     * Guarded comment auto-reply. It never uses blind screen coordinates and
+     * never touches broadcast-start controls. A reply is sent only when BIGO
+     * exposes both an editable comment field and an explicit send control.
+     */
+    private void attemptPendingCommentReply() {
+        BigoCommentAutoReplyBridge.Pending pending =
+                BigoCommentAutoReplyBridge.peek(this);
+        if (pending == null) return;
+
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) {
+            scheduleReply(350L);
+            return;
+        }
+        CharSequence packageName = root.getPackageName();
+        if (packageName != null
+                && !OneClickBroadcastPlan.BIGO_PACKAGE.contentEquals(packageName)) {
+            return;
+        }
+
+        AccessibilityNodeInfo editor = findCommentEditor(root);
+        if (editor == null) {
+            AccessibilityNodeInfo opener = findCommentOpener(root);
+            if (opener != null && clickNode(opener)) {
+                scheduleReply(480L);
+            }
+            return;
+        }
+
+        Bundle arguments = new Bundle();
+        arguments.putCharSequence(
+                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                pending.text);
+        boolean filled;
+        try {
+            filled = editor.performAction(
+                    AccessibilityNodeInfo.ACTION_SET_TEXT,
+                    arguments);
+        } catch (RuntimeException ignored) {
+            filled = false;
+        }
+        if (!filled) return;
+
+        handler.postDelayed(() -> {
+            AccessibilityNodeInfo currentRoot = getRootInActiveWindow();
+            AccessibilityNodeInfo send = currentRoot == null
+                    ? null : findSendButton(currentRoot);
+            boolean sent = send != null && clickNode(send);
+            if (!sent && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    sent = editor.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER);
+                } catch (RuntimeException ignored) {
+                    sent = false;
+                }
+            }
+            if (sent) {
+                BigoCommentAutoReplyBridge.markSent(this);
+                AutoGreetingStore.setStatus(
+                        this,
+                        pending.nickname + " · 댓글 자동응답 전송 완료");
+            } else {
+                AutoGreetingStore.setStatus(
+                        this,
+                        pending.nickname + " · 댓글 입력 완료 · 전송 버튼 확인 필요");
+            }
+        }, 320L);
+    }
+
+    private AccessibilityNodeInfo findCommentEditor(AccessibilityNodeInfo root) {
+        DisplayMetrics display = getResources().getDisplayMetrics();
+        int height = Math.max(display.heightPixels, 1);
+        AccessibilityNodeInfo best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (AccessibilityNodeInfo node : flatten(root)) {
+            if (!node.isEnabled()) continue;
+            String className = node.getClassName() == null
+                    ? "" : node.getClassName().toString();
+            boolean editable = node.isEditable()
+                    || className.endsWith("EditText");
+            if (!editable) continue;
+            Rect bounds = new Rect();
+            node.getBoundsInScreen(bounds);
+            float cy = bounds.exactCenterY() / height;
+            String label = BigoNavigationPolicy.normalize(nodeLabel(node));
+            int score = cy > 0.62f ? 10 : 0;
+            if (cy > 0.78f) score += 8;
+            if (containsAny(label,
+                    "댓글", "메시지", "채팅", "comment", "message", "chat",
+                    "评论", "留言", "コメント", "сообщение")) score += 12;
+            if (containsAny(label,
+                    "검색", "search", "查找", "検索")) score -= 30;
+            if (score > bestScore) {
+                bestScore = score;
+                best = node;
+            }
+        }
+        return bestScore >= 10 ? best : null;
+    }
+
+    private AccessibilityNodeInfo findCommentOpener(AccessibilityNodeInfo root) {
+        DisplayMetrics display = getResources().getDisplayMetrics();
+        int height = Math.max(display.heightPixels, 1);
+        AccessibilityNodeInfo best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (AccessibilityNodeInfo node : flatten(root)) {
+            String label = BigoNavigationPolicy.normalize(nodeLabel(node));
+            if (!containsAny(label,
+                    "댓글", "메시지", "채팅", "comment", "message", "chat",
+                    "评论", "留言", "コメント", "сообщение")) continue;
+            AccessibilityNodeInfo clickable = clickableNode(node);
+            if (clickable == null) continue;
+            Rect bounds = new Rect();
+            clickable.getBoundsInScreen(bounds);
+            float cy = bounds.exactCenterY() / height;
+            int score = cy > 0.62f ? 8 : 0;
+            if (cy > 0.78f) score += 8;
+            if (containsAny(label, "방송하기", "golive", "startlive")) score -= 50;
+            if (score > bestScore) {
+                bestScore = score;
+                best = clickable;
+            }
+        }
+        return bestScore >= 8 ? best : null;
+    }
+
+    private AccessibilityNodeInfo findSendButton(AccessibilityNodeInfo root) {
+        DisplayMetrics display = getResources().getDisplayMetrics();
+        int height = Math.max(display.heightPixels, 1);
+        AccessibilityNodeInfo best = null;
+        int bestScore = Integer.MIN_VALUE;
+        for (AccessibilityNodeInfo node : flatten(root)) {
+            String label = BigoNavigationPolicy.normalize(nodeLabel(node));
+            if (!containsAny(label,
+                    "보내기", "전송", "send", "发送", "發送", "送信", "отправить")) {
+                continue;
+            }
+            if (containsAny(label,
+                    "선물", "gift", "방송", "live", "follow", "팔로우")) {
+                continue;
+            }
+            AccessibilityNodeInfo clickable = clickableNode(node);
+            if (clickable == null) continue;
+            Rect bounds = new Rect();
+            clickable.getBoundsInScreen(bounds);
+            float cy = bounds.exactCenterY() / height;
+            int score = cy > 0.62f ? 10 : 0;
+            if (cy > 0.78f) score += 8;
+            if (score > bestScore) {
+                bestScore = score;
+                best = clickable;
+            }
+        }
+        return bestScore >= 10 ? best : null;
+    }
+
+    private static boolean containsAny(String value, String... needles) {
+        if (value == null || value.isEmpty()) return false;
+        for (String needle : needles) {
+            if (value.contains(BigoNavigationPolicy.normalize(needle))) return true;
+        }
+        return false;
     }
 
     private void setStage(int stage) {
@@ -372,10 +565,22 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
         }
     }
 
-    private void tapBottomCenter() {
+    private void tapCurrentBigoCreateButton() {
         DisplayMetrics display = getResources().getDisplayMetrics();
         float x = display.widthPixels * 0.50f;
-        float y = display.heightPixels * 0.88f;
+        // Screenshot-verified Korean BIGO home: cyan camera button center is
+        // around 90.5% of the usable screen height. Keep this below feed cards.
+        float y = display.heightPixels * 0.905f;
+        dispatchTap(x, y);
+    }
+
+    private void tapCurrentBigoAudioTab() {
+        DisplayMetrics display = getResources().getDisplayMetrics();
+        // Screenshot-verified Korean BIGO mode carousel: Audio LIVE is the tab
+        // right of regular LIVE. This y-position is intentionally below the
+        // large public "방송하기" button, so it cannot start a broadcast.
+        float x = display.widthPixels * 0.73f;
+        float y = display.heightPixels * 0.945f;
         dispatchTap(x, y);
     }
 
