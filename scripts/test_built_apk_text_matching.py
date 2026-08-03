@@ -27,7 +27,7 @@ FULL_GUIDE = (
     "일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO의 방송 준비 화면까지 자동으로 이동합니다. "
     "처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다. "
     "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다. "
-    "입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다."
+    "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다."
 )
 
 base_strings = set(checker.REQUIRED_EXACT_DEX_STRINGS)
@@ -58,7 +58,7 @@ missing = checker.missing_required_dex_texts(partial_guide)
 if "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다." in missing:
     raise AssertionError("present guide fragment was rejected")
 if (
-    "입장은 AI 자동답변에서 제외하고, AI 댓글 답변은 최대 2초 동안 글로만 표시합니다."
+    "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다."
     not in missing
 ):
     raise AssertionError("absent guide fragment was not detected")
