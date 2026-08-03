@@ -308,14 +308,9 @@ public final class BigoBroadcastNavigatorService extends AccessibilityService {
             AccessibilityNodeInfo currentRoot = getRootInActiveWindow();
             AccessibilityNodeInfo send = currentRoot == null
                     ? null : findSendButton(currentRoot);
+            // 키보드 Enter 상수에 의존하지 않고 실제 보내기 버튼만 사용합니다.
+            // BIGO의 실제 보내기 버튼이 확인된 경우에만 안전하게 전송합니다.
             boolean sent = send != null && clickNode(send);
-            if (!sent && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                try {
-                    sent = editor.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER);
-                } catch (RuntimeException ignored) {
-                    sent = false;
-                }
-            }
             if (sent) {
                 BigoCommentAutoReplyBridge.markSent(this);
                 AutoGreetingStore.setStatus(
