@@ -93,8 +93,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3026')
-check('version name', version_name == '3.2.6')
+check('version code', version_code == '3029')
+check('version name', version_name == '3.2.9')
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
@@ -366,10 +366,10 @@ check('mobile event typography',
       and 'TIME_SP = 12f' in visual
       and 'setSingleLine(true)' in main
       and 'setEllipsize(TextUtils.TruncateAt.END)' in main)
-check('top split image fill',
-      'fillBroadcastImage' in main
-      and 'ImageView.ScaleType.CENTER_CROP' in main
-      and '상단 분할 화면 이미지 좌우 여백 없이 꽉 채우기' in all_text
+check('split image full fit without crop',
+      'foregroundImage.setScaleType(ImageView.ScaleType.FIT_CENTER)' in main
+      and 'foregroundImage.setAdjustViewBounds(true)' in main
+      and 'backgroundImage.setScaleType(ImageView.ScaleType.CENTER_CROP)' in main
       and 'KEY_FILL_BROADCAST_IMAGE' in (root / 'app/src/main/java/com/maru/musiclive/AppStorage.java').read_text(encoding='utf-8'))
 check('compact mobile event visual profile',
       'EVENT_WIDTH_RATIO = 0.82f' in visual

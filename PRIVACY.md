@@ -1,4 +1,4 @@
-# 개인정보 및 화면 처리 · V3.2.6
+# 개인정보 및 화면 처리 · V3.2.9
 
 MARU MUSIC LIVE의 `MARU BIGO 방송 화면 이동` 기능은 사용자가 Android 접근성 설정에서 직접 켠 경우에만 작동합니다. 이 기능은 BIGO LIVE 패키지(`sg.bigo.live`)의 현재 화면에서 LIVE 진입 버튼과 일반 LIVE 또는 오디오 LIVE 선택 항목을 찾는 데 사용됩니다.
 
