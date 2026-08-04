@@ -159,7 +159,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     };
 
     private final Runnable hideControls = () -> {
-        if (localTestMode || homePlayerMode) return;
+        if (localTestMode) return;
         if (controls != null) controls.setVisibility(View.GONE);
         if (titleView != null) titleView.setVisibility(View.GONE);
         if (timeView != null) timeView.setVisibility(View.GONE);
@@ -422,7 +422,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.10 · 분할화면 이미지 전체맞춤 · BIGO 오디오 LIVE",
+                "V3.2.11 · 분할화면 이미지 전체맞춤 · BIGO 오디오 LIVE",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -1050,7 +1050,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         broadcastScreen.addView(mediaVideo, match());
 
         foregroundImage = new ImageView(this);
-        // V3.2.10: 분할 화면에서도 원본 이미지의 위·아래·좌·우를 자르지 않는다.
+        // V3.2.11: 분할 화면에서도 원본 이미지의 위·아래·좌·우를 자르지 않는다.
         // 큰 세로 이미지도 사용 가능한 영역 안으로 자동 축소해서 전체가 보이게 한다.
         foregroundImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
         foregroundImage.setAdjustViewBounds(true);
@@ -1271,7 +1271,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         timeView.setVisibility(View.VISIBLE);
 
         handler.removeCallbacks(hideControls);
-        if (!localTestMode && !homePlayerMode) {
+        if (!localTestMode) {
             handler.postDelayed(
                     hideControls,
                     CONTROLS_HIDE_DELAY_MS);
