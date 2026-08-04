@@ -1,4 +1,4 @@
-MARU MUSIC LIVE V3.2.9 검증 보고서
+MARU MUSIC LIVE V3.2.10 검증 보고서
 
 변경 목적
 - BIGO 자체 입장·좋아요·팔로우·선물 인사와 MARU 중복 응답 제거

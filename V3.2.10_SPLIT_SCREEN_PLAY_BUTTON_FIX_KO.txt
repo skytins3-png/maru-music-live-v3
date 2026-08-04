@@ -1,0 +1,16 @@
+MARU MUSIC LIVE V3.2.10 수정 내용
+
+- 분할화면에서 음악이 재생 중인데 버튼이 계속 '재생'으로 남는 UI 동기화 오류 수정
+- PlaybackService 연결 직후 실제 재생 상태로 버튼 문구 동기화
+- 앱 복귀(onResume), 창 포커스 복귀, 분할화면 진입/크기 변경, 화면 구성 변경 때 재동기화
+- 재생 중: '일시정지', 멈춤: '재생'
+- 버튼 접근성 설명도 실제 상태와 함께 갱신
+- V3.2.9 기능 유지: 분할화면 이미지 전체 맞춤, 일반 댓글 자동입력, 5개국 TTS, BIGO 이동
+
+검사 결과
+- PROJECT-CHECK: 139/139
+- VOICE-POLICY-CHECK: 14/14
+- SOURCE-INTEGRITY-1000: 1000/1000
+- PLAYBACK-UI-REGRESSION: PASS
+
+실제 APK 컴파일 및 울트라 26 분할화면 실동작은 GitHub Actions와 휴대폰에서 최종 확인 필요.

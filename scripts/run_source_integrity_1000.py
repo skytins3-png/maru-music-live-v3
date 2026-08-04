@@ -23,8 +23,8 @@ ROOT_GRADLE = ROOT / "build.gradle"
 MANIFEST = MAIN / "AndroidManifest.xml"
 
 CYCLES = 1000
-EXPECTED_VERSION_CODE = "3029"
-EXPECTED_VERSION_NAME = "3.2.9"
+EXPECTED_VERSION_CODE = "3030"
+EXPECTED_VERSION_NAME = "3.2.10"
 EXPECTED_MEDIA = {
     MAIN / "res" / "raw" / "actual_music.mp3":
         "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
@@ -45,7 +45,7 @@ FORBIDDEN_EXACT = {
     ROOT / "scripts" / "restore_required_media.py",
 }
 REQUIRED_WORKFLOW_TOKENS = (
-    "name: Build MARU MUSIC LIVE V3.2.9 APK",
+    "name: Build MARU MUSIC LIVE V3.2.10 APK",
     "gradle-version: '8.13'",
     "java-version: '17'",
     "python3 scripts/check_required_media.py",
@@ -65,8 +65,8 @@ REQUIRED_WORKFLOW_TOKENS = (
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
     "python3 scripts/test_built_apk_text_matching.py",
-    "MARU-MUSIC-LIVE-V3.2.9-DEBUG.apk",
-    "MARU-MUSIC-LIVE-V3.2.9-MUSIC-RELEASE.apk",
+    "MARU-MUSIC-LIVE-V3.2.10-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.2.10-MUSIC-RELEASE.apk",
 )
 TEXT_SUFFIXES = {
     ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
@@ -139,9 +139,9 @@ def validate_static_once() -> list[str]:
     version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
     version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
     if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
-        errors.append("app/build.gradle versionCode is not 3029")
+        errors.append("app/build.gradle versionCode is not 3030")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
-        errors.append("app/build.gradle versionName is not 3.2.9")
+        errors.append("app/build.gradle versionName is not 3.2.10")
 
     main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
     one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
@@ -276,7 +276,7 @@ def validate_static_once() -> list[str]:
             )
 
     first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
-    if first_line != "name: Build MARU MUSIC LIVE V3.2.9 APK":
+    if first_line != "name: Build MARU MUSIC LIVE V3.2.10 APK":
         errors.append(f"wrong workflow name: {first_line!r}")
     if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
         errors.append("stale V3.1.1 workflow/APK token remains")
