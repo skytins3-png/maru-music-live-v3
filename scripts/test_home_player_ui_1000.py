@@ -21,7 +21,8 @@ required = (
     'smallButton("다음"',
     'smallButton("LIVE"',
     'smallButton("설정"',
-    'if (!localTestMode && !homePlayerMode)',
+    'if (!localTestMode)',
+    'if (localTestMode) return;',
 )
 for cycle in range(1, CYCLES + 1):
     missing = [token for token in required if token not in text]
@@ -31,9 +32,11 @@ for cycle in range(1, CYCLES + 1):
         raise SystemExit(f"HOME-PLAYER-UI: FAIL cycle={cycle} missing actual_image_01.jpg")
     if not (DRAWABLE / "actual_image_02.png").is_file():
         raise SystemExit(f"HOME-PLAYER-UI: FAIL cycle={cycle} missing actual_image_02.png")
-    if 'if (localTestMode || homePlayerMode) return;' not in text:
-        raise SystemExit(f"HOME-PLAYER-UI: FAIL cycle={cycle} hideControls policy")
+    if 'if (localTestMode || homePlayerMode) return;' in text:
+        raise SystemExit(f"HOME-PLAYER-UI: FAIL cycle={cycle} stale hideControls policy")
+    if 'if (!localTestMode && !homePlayerMode)' in text:
+        raise SystemExit(f"HOME-PLAYER-UI: FAIL cycle={cycle} stale scheduling policy")
 print('HOME-PLAYER-UI: PASS')
 print(f'CYCLES: {CYCLES}/{CYCLES}')
 print('DEFAULT-IMAGES: 2/2')
-print('VISIBLE-CONTROLS: previous/play/next/LIVE/settings')
+print('AUTO-HIDE-CONTROLS: previous/play/next/LIVE/settings')

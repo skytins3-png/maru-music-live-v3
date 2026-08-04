@@ -1,0 +1,15 @@
+MARU MUSIC LIVE V3.2.11 검사 보고서
+
+수정 내용
+- 홈 플레이어/분할화면에서 재생·일시정지 컨트롤 줄 자동 숨김 적용
+- 화면 터치 시 컨트롤 재표시 후 다시 자동 숨김
+
+검사 결과
+- PLAYBACK-UI-REGRESSION: PASS
+- HOME-PLAYER-UI: 1000/1000 PASS
+- PROJECT-CHECK: 139/139
+- SOURCE-INTEGRITY-1000: 1000/1000 PASS
+
+로컬 빌드 상태
+- 현재 실행 환경에는 Gradle이 설치되어 있지 않아 APK 로컬 빌드는 수행하지 못함
+- GitHub Actions의 Build MARU MUSIC LIVE V3.2.11 APK 워크플로에서 실제 APK 빌드 및 APK 검사를 완료해야 함

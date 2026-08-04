@@ -14,7 +14,8 @@ required = [
     'smallButton("재생"', 'smallButton("다음"',
     'smallButton("LIVE"', 'smallButton("설정"',
     '전체화면 이미지 플레이어 열기',
-    'if (!localTestMode && !homePlayerMode)',
+    'if (!localTestMode)',
+    'if (localTestMode) return;',
     'playback.setQueue(songs);', 'playback.prepareForBroadcast();',
     'startMusicForBroadcast();', 'startBroadcast();', 'openBigoChat();',
 ]
@@ -24,7 +25,9 @@ for token in required:
 for token in ('ACTION_PREPARE_FOR_BROADCAST',):
     if token in playback:
         raise SystemExit(f"PLAYBACK-UI-REGRESSION: FAIL experimental token remains: {token}")
-for token in ('scheduleOneClickPlaybackRecovery', 'PLAYBACK_CONTROL_BOTTOM_MARGIN_DP'):
+for token in ('scheduleOneClickPlaybackRecovery', 'PLAYBACK_CONTROL_BOTTOM_MARGIN_DP',
+              'if (!localTestMode && !homePlayerMode)',
+              'if (localTestMode || homePlayerMode) return;'):
     if token in main or token in visual:
         raise SystemExit(f"PLAYBACK-UI-REGRESSION: FAIL experimental UI token remains: {token}")
 print('PLAYBACK-UI-REGRESSION: PASS')

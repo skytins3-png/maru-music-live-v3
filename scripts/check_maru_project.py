@@ -94,7 +94,7 @@ workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='u
 workflow_tag = f'V{version_name}' if version_name else ''
 
 check('version code', version_code == '3030')
-check('version name', version_name == '3.2.10')
+check('version name', version_name == '3.2.11')
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
@@ -207,7 +207,8 @@ check('default full-screen image player visible',
       and 'BitmapFactory.decodeResource' in main
       and 'smallButton("LIVE"' in main
       and 'smallButton("설정"' in main
-      and 'if (!localTestMode && !homePlayerMode)' in main
+      and 'if (!localTestMode)' in main
+      and 'if (localTestMode) return;' in main
       and '전체화면 이미지 플레이어 열기' in main)
 check('game category', 'android:appCategory="game"' in manifest and 'android:isGame="true"' in manifest)
 check('release signed', 'signingConfig signingConfigs.debug' in gradle)

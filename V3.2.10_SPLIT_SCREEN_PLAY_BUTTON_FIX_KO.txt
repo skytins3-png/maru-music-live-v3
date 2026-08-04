@@ -1,4 +1,4 @@
-MARU MUSIC LIVE V3.2.10 수정 내용
+MARU MUSIC LIVE V3.2.11 수정 내용
 
 - 분할화면에서 음악이 재생 중인데 버튼이 계속 '재생'으로 남는 UI 동기화 오류 수정
 - PlaybackService 연결 직후 실제 재생 상태로 버튼 문구 동기화

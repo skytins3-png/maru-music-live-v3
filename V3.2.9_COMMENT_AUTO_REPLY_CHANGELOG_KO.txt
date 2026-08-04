@@ -1,4 +1,4 @@
-MARU MUSIC LIVE V3.2.10 변경사항
+MARU MUSIC LIVE V3.2.11 변경사항
 
 - BIGO가 자체 처리하는 입장, 좋아요, 팔로우, 선물 인사를 MARU 실방송 자동응답에서 제외
 - 일반 청취자 댓글만 OCR·대화 엔진 대상으로 처리

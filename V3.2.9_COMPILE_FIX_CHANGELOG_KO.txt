@@ -1,4 +1,4 @@
-MARU MUSIC LIVE V3.2.10 컴파일 수정
+MARU MUSIC LIVE V3.2.11 컴파일 수정
 
 원인
 - BigoBroadcastNavigatorService.java에서 Android AccessibilityNodeInfo에 존재하지 않는 ACTION_IME_ENTER 상수를 사용해 javac 컴파일이 실패했습니다.
