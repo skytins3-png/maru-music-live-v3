@@ -190,6 +190,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             playback.setRepeatAll(AppStorage.repeatAll(MainActivity.this));
             playback.setRandomMode(AppStorage.random(MainActivity.this));
             bound = true;
+            syncPlayButtonState();
             String runningMode = AutoGreetingStore.runningMode(MainActivity.this);
             if (pendingAutoMusicStart
                     || (localTestMode && broadcastVisible)
@@ -245,12 +246,24 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     @Override protected void onResume() {
         super.onResume();
         refreshAutoGreetingStatus();
+        syncPlayButtonState();
+        handler.postDelayed(this::syncPlayButtonState, 250L);
         if (!pendingBigoModeAfterAccessibility.isEmpty()
                 && BigoBroadcastNavigatorService.isEnabled(this)) {
             String mode = pendingBigoModeAfterAccessibility;
             pendingBigoModeAfterAccessibility = "";
             handler.postDelayed(() -> startCommunityLive(mode), 350L);
         }
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) syncPlayButtonState();
+    }
+
+    @Override public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
+        handler.postDelayed(this::syncPlayButtonState, 120L);
     }
 
     private void registerLaunchers() {
@@ -409,7 +422,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.9 · 분할화면 이미지 전체맞춤 · BIGO 오디오 LIVE",
+                "V3.2.10 · 분할화면 이미지 전체맞춤 · BIGO 오디오 LIVE",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -1037,7 +1050,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         broadcastScreen.addView(mediaVideo, match());
 
         foregroundImage = new ImageView(this);
-        // V3.2.9: 분할 화면에서도 원본 이미지의 위·아래·좌·우를 자르지 않는다.
+        // V3.2.10: 분할 화면에서도 원본 이미지의 위·아래·좌·우를 자르지 않는다.
         // 큰 세로 이미지도 사용 가능한 영역 안으로 자동 축소해서 전체가 보이게 한다.
         foregroundImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
         foregroundImage.setAdjustViewBounds(true);
@@ -2220,6 +2233,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
+    private void syncPlayButtonState() {
+        boolean playing = playback != null && playback.isPlaying();
+        if (playButton != null) {
+            playButton.setText(playing ? "일시정지" : "재생");
+            playButton.setContentDescription(playing ? "음악 일시정지" : "음악 재생");
+        }
+    }
+
     @Override public void onTrackChanged(int index) {
         runOnUiThread(() -> {
             if (titleView != null) {
@@ -2238,9 +2259,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override public void onStateChanged(boolean playing) {
-        runOnUiThread(() -> {
-            if (playButton != null) playButton.setText(playing ? "일시정지" : "재생");
-        });
+        runOnUiThread(this::syncPlayButtonState);
     }
 
     @Override public void onError(String message) {
@@ -2249,6 +2268,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     @Override public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
+        handler.postDelayed(this::syncPlayButtonState, 120L);
     }
 
     @Override protected void onDestroy() {
