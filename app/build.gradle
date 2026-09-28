@@ -10,8 +10,8 @@ android {
         applicationId 'com.maru.musiclive.ocr'
         minSdk 26
         targetSdk 36
-        versionCode 3030
-        versionName '3.2.11'
+        versionCode 3031
+        versionName '3.2.12'
     }
 
     buildTypes {
