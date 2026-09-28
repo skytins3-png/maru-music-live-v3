@@ -2179,7 +2179,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         String permission = musicReadPermission();
         if (ContextCompat.checkSelfPermission(this, permission)
                 != PackageManager.PERMISSION_GRANTED) {
-            if (userInitiated) musicPermissionLauncher.launch(permission);
+            boolean alreadyAsked = getPreferences(Context.MODE_PRIVATE)
+                    .getBoolean("music_permission_asked", false);
+            if (userInitiated || !alreadyAsked) {
+                getPreferences(Context.MODE_PRIVATE).edit()
+                        .putBoolean("music_permission_asked", true)
+                        .apply();
+                musicPermissionLauncher.launch(permission);
+            }
             return;
         }
 
