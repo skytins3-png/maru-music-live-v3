@@ -68,6 +68,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends ComponentActivity implements PlaybackService.Listener {
     private static final long CONTROLS_HIDE_DELAY_MS = 5_000L;
@@ -77,6 +79,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private static final long ONE_CLICK_GUIDE_MS = 8_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService musicScanExecutor = Executors.newSingleThreadExecutor();
     private final List<String> songs = new ArrayList<>();
     private final List<String> images = new ArrayList<>();
     private final List<String> lyricDocs = new ArrayList<>();
@@ -92,6 +95,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean pendingAutoMusicStart;
     private boolean oneClickStarting;
     private boolean eventOverlayShowing;
+    private boolean deviceMusicScanRunning;
+    private boolean initialDeviceMusicScanStarted;
     private String pendingBigoModeAfterAccessibility = "";
     private int overlayGeneration;
     private int imageIndex;
@@ -126,6 +131,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private ActivityResultLauncher<String> aiBackupCreateLauncher;
     private ActivityResultLauncher<String[]> aiBackupOpenLauncher;
     private ActivityResultLauncher<String> notificationPermissionLauncher;
+    private ActivityResultLauncher<String> musicPermissionLauncher;
     private ActivityResultLauncher<Intent> screenCaptureLauncher;
     private String pendingCaptureMode = ScreenOcrGreetingService.MODE_LOCAL_TEST;
 
@@ -230,6 +236,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         startAndBindPlayback();
         showHomePlayer();
         requestNotificationPermission();
+        scanDeviceMusic(false);
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
                 if (homePlayerMode) {
@@ -361,6 +368,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 new ActivityResultContracts.RequestPermission(),
                 granted -> {});
 
+        musicPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                granted -> {
+                    if (granted) {
+                        scanDeviceMusic(true);
+                    } else {
+                        toast("음악 권한을 허용해야 휴대폰 전체 노래를 자동으로 찾을 수 있습니다.");
+                    }
+                });
+
         screenCaptureLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 this::handleScreenCaptureResult);
@@ -422,7 +439,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.11 · 분할화면 이미지 전체맞춤 · BIGO 오디오 LIVE",
+                "V3.2.12 · 휴대폰 전체 노래 자동 불러오기",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -476,7 +493,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(autoGreetingStatusView);
 
         column.addView(space(12));
-        column.addView(button("노래 추가", v ->
+        column.addView(button(
+                "휴대폰 전체 노래 자동 불러오기",
+                v -> scanDeviceMusic(true)));
+        column.addView(button("노래 직접 추가", v ->
                 audioPickerLauncher.launch(new String[]{"audio/*"})));
         column.addView(button("공통 배경 이미지 추가", v ->
                 imagePickerLauncher.launch(new String[]{"image/*"})));
@@ -2143,6 +2163,72 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         return displayName(Uri.parse(songs.get(playback.currentIndex())));
     }
 
+    private String musicReadPermission() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                ? Manifest.permission.READ_MEDIA_AUDIO
+                : Manifest.permission.READ_EXTERNAL_STORAGE;
+    }
+
+    private void scanDeviceMusic(boolean userInitiated) {
+        if (deviceMusicScanRunning) {
+            if (userInitiated) toast("휴대폰 노래를 찾고 있습니다.");
+            return;
+        }
+        if (!userInitiated && initialDeviceMusicScanStarted) return;
+        initialDeviceMusicScanStarted = true;
+        String permission = musicReadPermission();
+        if (ContextCompat.checkSelfPermission(this, permission)
+                != PackageManager.PERMISSION_GRANTED) {
+            boolean alreadyAsked = getPreferences(Context.MODE_PRIVATE)
+                    .getBoolean("music_permission_asked", false);
+            if (userInitiated || !alreadyAsked) {
+                getPreferences(Context.MODE_PRIVATE).edit()
+                        .putBoolean("music_permission_asked", true)
+                        .apply();
+                musicPermissionLauncher.launch(permission);
+            }
+            return;
+        }
+
+        deviceMusicScanRunning = true;
+        if (userInitiated) toast("휴대폰 전체 노래를 찾는 중입니다.");
+        musicScanExecutor.execute(() -> {
+            DeviceMusicScanner.Result result = DeviceMusicScanner.scan(this);
+            handler.post(() -> applyDeviceMusicScan(result, userInitiated));
+        });
+    }
+
+    private void applyDeviceMusicScan(
+            DeviceMusicScanner.Result result,
+            boolean userInitiated) {
+        deviceMusicScanRunning = false;
+        if (isFinishing() || isDestroyed()) return;
+
+        List<String> merged = new ArrayList<>();
+        for (String existing : songs) {
+            if (existing == null || existing.startsWith("content://media/")) continue;
+            if (!merged.contains(existing)) merged.add(existing);
+        }
+        for (SongItem item : result.songs) {
+            if (!merged.contains(item.uri)) merged.add(item.uri);
+        }
+
+        boolean changed = !merged.equals(songs);
+        if (changed) {
+            if (playback != null && playback.isPlaying()) playback.stopPlayback();
+            songs.clear();
+            songs.addAll(merged);
+            AppStorage.saveSongs(this, songs);
+            refreshSongList();
+            if (playback != null) playback.setQueue(songs);
+            loadLyricsForCurrentSong();
+        }
+        if (userInitiated || changed) {
+            toast(result.songs.size() + "곡 불러옴 · 동일 파일 "
+                    + result.duplicates + "개 제외");
+        }
+    }
+
     private void refreshSongList() {
         if (songList == null) return;
         List<String> names = new ArrayList<>();
@@ -2272,6 +2358,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        musicScanExecutor.shutdownNow();
         handler.removeCallbacksAndMessages(null);
         try { unregisterReceiver(liveEventReceiver); } catch (IllegalArgumentException ignored) {}
         if (bound) {
