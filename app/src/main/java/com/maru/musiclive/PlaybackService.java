@@ -642,6 +642,7 @@ public final class PlaybackService extends Service {
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
             case AudioManager.AUDIOFOCUS_LOSS:
                 focusVolume = 1f;
+                applyVolume(); // Un-duck the local player before any later user resume.
                 try {
                     if (player != null && !preparing && player.isPlaying()) {
                         pausedForFocus = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
