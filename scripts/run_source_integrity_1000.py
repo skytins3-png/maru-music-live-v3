@@ -167,7 +167,7 @@ def validate_static_once() -> list[str]:
             "전체화면 이미지 플레이어",
             "startMusicForBroadcast();",
             "BIGO 앱을 엽니다",
-            "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다",
+            "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다",
             "openBigoChat();",
             'smallButton("이전"',
             'smallButton("재생"',
