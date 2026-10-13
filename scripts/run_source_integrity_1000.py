@@ -23,8 +23,8 @@ ROOT_GRADLE = ROOT / "build.gradle"
 MANIFEST = MAIN / "AndroidManifest.xml"
 
 CYCLES = 1000
-EXPECTED_VERSION_CODE = "3032"
-EXPECTED_VERSION_NAME = "3.2.13"
+EXPECTED_VERSION_CODE = "3033"
+EXPECTED_VERSION_NAME = "3.2.14"
 EXPECTED_MEDIA = {
     MAIN / "res" / "raw" / "actual_music.mp3":
         "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
@@ -45,7 +45,7 @@ FORBIDDEN_EXACT = {
     ROOT / "scripts" / "restore_required_media.py",
 }
 REQUIRED_WORKFLOW_TOKENS = (
-    "name: Build MARU MUSIC LIVE V3.2.13 APK",
+    "name: Build MARU MUSIC LIVE V3.2.14 APK",
     "gradle-version: '8.13'",
     "java-version: '17'",
     "python3 scripts/check_required_media.py",
@@ -65,8 +65,8 @@ REQUIRED_WORKFLOW_TOKENS = (
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
     "python3 scripts/test_built_apk_text_matching.py",
-    "MARU-MUSIC-LIVE-V3.2.13-DEBUG.apk",
-    "MARU-MUSIC-LIVE-V3.2.13-MUSIC-RELEASE.apk",
+    "MARU-MUSIC-LIVE-V3.2.14-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.2.14-MUSIC-RELEASE.apk",
 )
 TEXT_SUFFIXES = {
     ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
@@ -139,9 +139,9 @@ def validate_static_once() -> list[str]:
     version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
     version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
     if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
-        errors.append("app/build.gradle versionCode is not 3032")
+        errors.append("app/build.gradle versionCode is not 3033")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
-        errors.append("app/build.gradle versionName is not 3.2.13")
+        errors.append("app/build.gradle versionName is not 3.2.14")
 
     main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
     one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
@@ -166,7 +166,7 @@ def validate_static_once() -> list[str]:
             "오디오 LIVE 음악방송 시작",
             "전체화면 이미지 플레이어",
             "startMusicForBroadcast();",
-            "BigoBroadcastNavigatorService.arm(this, liveMode);",
+            "BIGO 앱을 엽니다",
             "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다",
             "openBigoChat();",
             'smallButton("이전"',
@@ -184,9 +184,9 @@ def validate_static_once() -> list[str]:
             'BIGO_PACKAGE = "sg.bigo.live"',
             'BROADCAST_MODE = BroadcastMode.PORTRAIT_9_16',
             'REQUIRES_MARU_SCREEN_CAPTURE = false',
-            'CONTROLS_EXTERNAL_APP_UI = true',
+            'CONTROLS_EXTERNAL_APP_UI = false',
             'USES_EXISTING_PLAYBACK_UI = true',
-            'USES_USER_ENABLED_ACCESSIBILITY_NAVIGATOR = true',
+            'USES_USER_ENABLED_ACCESSIBILITY_NAVIGATOR = false',
             'STOPS_BEFORE_FINAL_BROADCAST_START = true',
         ):
             if token not in plan_text:
@@ -222,16 +222,13 @@ def validate_static_once() -> list[str]:
             if forbidden in main_text or forbidden in plan_text or forbidden in manifest:
                 errors.append(f"forbidden test automation token: {forbidden}")
         navigator = MAIN / "java" / "com" / "maru" / "musiclive" / "BigoBroadcastNavigatorService.java"
-        policy = MAIN / "java" / "com" / "maru" / "musiclive" / "BigoNavigationPolicy.java"
         config = MAIN / "res" / "xml" / "accessibility_service_config.xml"
-        if not navigator.is_file() or not policy.is_file() or not config.is_file():
-            errors.append("BIGO broadcast navigator source/config is missing")
-        else:
-            navigator_text = navigator.read_text(encoding="utf-8")
-            if "dispatchGesture" not in navigator_text:
-                errors.append("BIGO navigator gesture fallback is missing")
-            if "STOPS_BEFORE_FINAL_BROADCAST_START" not in plan_text:
-                errors.append("final broadcast-start safety policy is missing")
+        if navigator.exists() or config.exists():
+            errors.append("sensitive accessibility navigator must be absent from audio-safe build")
+        if "dispatchGesture" in main_text:
+            errors.append("audio-safe build must not issue accessibility gestures")
+        if "STOPS_BEFORE_FINAL_BROADCAST_START" not in plan_text:
+            errors.append("final broadcast-start safety policy is missing")
 
     gradle_tokens = (
         "compileSdk 36", "minSdk 26", "targetSdk 36",
@@ -276,7 +273,7 @@ def validate_static_once() -> list[str]:
             )
 
     first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
-    if first_line != "name: Build MARU MUSIC LIVE V3.2.13 APK":
+    if first_line != "name: Build MARU MUSIC LIVE V3.2.14 APK":
         errors.append(f"wrong workflow name: {first_line!r}")
     if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
         errors.append("stale V3.1.1 workflow/APK token remains")
@@ -311,12 +308,12 @@ def validate_static_once() -> list[str]:
                     f"raw hash mismatch: {path.relative_to(ROOT)} ({actual})"
                 )
 
-    if "android.permission.BIND_ACCESSIBILITY_SERVICE" not in manifest:
-        errors.append("BIGO navigator accessibility permission is missing")
-    if "BigoBroadcastNavigatorService" not in manifest:
-        errors.append("BIGO navigator service declaration is missing")
-    if "@xml/accessibility_service_config" not in manifest:
-        errors.append("BIGO navigator accessibility metadata is missing")
+    if "android.permission.BIND_ACCESSIBILITY_SERVICE" in manifest:
+        errors.append("sensitive accessibility permission must not be declared")
+    if "BigoBroadcastNavigatorService" in manifest:
+        errors.append("BIGO accessibility navigator service must not be declared")
+    if "@xml/accessibility_service_config" in manifest:
+        errors.append("obsolete accessibility metadata must not be declared")
     if "FOREGROUND_SERVICE_MEDIA_PROJECTION" not in manifest:
         errors.append("media-projection foreground permission missing")
     if 'android:name=".ScreenOcrGreetingService"' not in manifest:
