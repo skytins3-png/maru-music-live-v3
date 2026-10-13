@@ -442,7 +442,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.12 · 휴대폰 전체 노래 자동 불러오기",
+                "V3.2.13 · BIGO 음악 음량 복구",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
