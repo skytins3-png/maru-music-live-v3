@@ -198,6 +198,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             bound = true;
             syncPlayButtonState();
             String runningMode = AutoGreetingStore.runningMode(MainActivity.this);
+            if (isBigoAudioCoexistenceMode(runningMode)) {
+                playback.setBigoCoexistenceMode(true);
+            }
             if (pendingAutoMusicStart
                     || (localTestMode && broadcastVisible)
                     || ScreenOcrGreetingService.MODE_AUTO_GREETING.equals(runningMode)
@@ -587,6 +590,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     liveMode + " 준비 · BIGO 방송 준비 화면 자동 이동 중");
 
             BigoBroadcastNavigatorService.arm(this, liveMode);
+            if (playback != null) playback.setBigoCoexistenceMode(true);
             startMusicForBroadcast();
             refreshAutoGreetingStatus();
             showTemporaryTestOverlay(
@@ -870,6 +874,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void startBigoMusicOnly() {
+        if (playback != null) playback.setBigoCoexistenceMode(true);
         ScreenOcrGreetingService.stop(this);
         AutoGreetingService.cancel(this);
         IntermissionStore.resetSession(this);
@@ -1892,6 +1897,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         return false;
     }
 
+    private static boolean isBigoAudioCoexistenceMode(String mode) {
+        return "community_live".equals(mode)
+                || "music_only".equals(mode)
+                || "bigo_native_toolbar".equals(mode)
+                || ScreenOcrGreetingService.MODE_AUTO_GREETING.equals(mode);
+    }
+
     private void startMusicForBroadcast() {
         if (songs.isEmpty()) {
             pendingAutoMusicStart = false;
@@ -1903,6 +1915,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         if (playback == null) return;
 
         try {
+            if (isBigoAudioCoexistenceMode(AutoGreetingStore.runningMode(this)))
+                playback.setBigoCoexistenceMode(true);
             playback.setQueue(songs);
             playback.prepareForBroadcast();
         } catch (RuntimeException error) {
