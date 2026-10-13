@@ -33,7 +33,7 @@ jobs:
           find . -maxdepth 1 -type f -name '*.java' -print -delete
           rm -rf build app/build .gradle
 
-          # 구형 음성 리소스와 알려진 저장소 잔재를 제거한다. V3.2.14 접근성 설정은 유지한다.
+          # 구형 음성 리소스와 알려진 저장소 잔재를 제거한다. V3.2.14에서는 접근성 서비스/민감 권한을 포함하지 않는다.
           rm -f app/src/main/res/raw/default_male_greeting*.mp3
           rm -f app/src/main/java/com/maru/musiclive/BigoAccessibilityService.java
           rm -f app/src/main/java/com/maru/musiclive/AccessibilityEventRelay.java
