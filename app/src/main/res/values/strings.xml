@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">MARU MUSIC LIVE GAME</string>
+    <string name="app_name">MARU MUSIC LIVE</string>
     <string name="channel_name">MARU MUSIC LIVE 재생</string>
     <string name="channel_description">음악을 백그라운드에서 재생합니다.</string>
     <string name="auto_greeting_channel_name">MARU 곡 사이 통합 안내</string>
