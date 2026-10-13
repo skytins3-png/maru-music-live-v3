@@ -55,12 +55,12 @@ for expected in checker.REQUIRED_DEX_TEXT_FRAGMENTS:
         raise AssertionError("missing guide fragment was not detected: " + expected)
 
 partial_guide = set(checker.REQUIRED_EXACT_DEX_STRINGS)
-partial_guide.add("실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다.")
+partial_guide.add("BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다.")
 missing = checker.missing_required_dex_texts(partial_guide)
-if "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다." in missing:
+if "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다." in missing:
     raise AssertionError("present guide fragment was rejected")
 if (
-    "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다."
+    "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요."
     not in missing
 ):
     raise AssertionError("absent guide fragment was not detected")
