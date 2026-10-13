@@ -7,6 +7,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -16,6 +17,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 
 import androidx.core.app.NotificationCompat;
 
@@ -64,6 +66,23 @@ public final class PlaybackService extends Service {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final RandomPlaybackGuard randomGuard = new RandomPlaybackGuard();
     private final VolumeDucking ducking = new VolumeDucking();
+    private static final long HOST_DUCK_MAX_MS = 15_000L;
+    private static final long GUIDANCE_DUCK_MAX_MS = 30_000L;
+    private final Runnable volumeRecovery = () -> {
+        synchronized (PlaybackService.this) {
+            // Music has its own timer: destroying MainActivity while BIGO is
+            // foreground cannot strand the playback gain at 0% or 18%.
+            applyVolume();
+        }
+    };
+    private AudioManager audioManager;
+    private AudioFocusRequest focusRequest;
+    private boolean ownsAudioFocus;
+    private boolean pausedForFocus;
+    private boolean bigoCoexistenceMode;
+    private float focusVolume = 1f;
+    private final AudioManager.OnAudioFocusChangeListener focusListener =
+            change -> main.post(() -> handleAudioFocusChange(change));
 
     private MediaPlayer player;
     private int currentIndex = -1;
@@ -86,6 +105,14 @@ public final class PlaybackService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         allowPlaybackCapture();
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (audioManager != null) {
+            focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(musicAttributes())
+                    .setWillPauseWhenDucked(true)
+                    .setOnAudioFocusChangeListener(focusListener, main)
+                    .build();
+        }
         randomGuard.restore(
                 AppStorage.loadRandomHistory(this),
                 AppStorage.loadRandomCycle(this));
@@ -161,8 +188,7 @@ public final class PlaybackService extends Service {
 
     public synchronized void prepareForBroadcast() {
         if (intermissionPending) return;
-        ducking.setGuidance(1f);
-        ducking.setHost(1f);
+        ducking.restoreAll();
         applyVolume();
 
         if (queue.isEmpty()) {
@@ -181,6 +207,11 @@ public final class PlaybackService extends Service {
 
         try {
             if (!player.isPlaying()) {
+                if (!requestFocusForMusic()) {
+                    error("다른 앱이 오디오 우선권을 사용하고 있습니다. 재생을 다시 눌러 주세요.");
+                    return;
+                }
+                pausedForFocus = false;
                 player.start();
                 notifyState(true);
                 startForeground(NOTIFICATION_ID, notification("게임 오디오 음악만 재생 중"));
@@ -217,6 +248,13 @@ public final class PlaybackService extends Service {
             try {
                 synchronized (PlaybackService.this) {
                     preparing = false;
+                    if (player != mp) return;
+                    if (!requestFocusForMusic()) {
+                        notifyState(false);
+                        error("음악 출력 대기 · 다른 앱에서 오디오를 사용 중입니다.");
+                        return;
+                    }
+                    pausedForFocus = false;
                     applyVolume();
                     mp.start();
                     randomGuard.markStarted(
@@ -417,7 +455,9 @@ public final class PlaybackService extends Service {
 
     private AudioAttributes musicAttributes() {
         AudioAttributes.Builder builder = new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
+                // Music should use the Android media stream, not the game channel.
+                // Samsung side volume keys therefore target regular media audio.
+                .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
@@ -435,9 +475,15 @@ public final class PlaybackService extends Service {
 
         try {
             if (player.isPlaying()) {
+                pausedForFocus = false;
                 player.pause();
                 notifyState(false);
             } else {
+                if (!requestFocusForMusic()) {
+                    error("오디오 우선권을 받을 수 없습니다. 다른 앱의 음성 재생 상태를 확인하세요.");
+                    return;
+                }
+                pausedForFocus = false;
                 player.start();
                 notifyState(true);
             }
@@ -447,6 +493,7 @@ public final class PlaybackService extends Service {
     }
 
     public synchronized void pause() {
+        pausedForFocus = false; // Explicit user pause must never auto-resume.
         if (player == null || preparing) return;
         try {
             if (player.isPlaying()) {
@@ -458,6 +505,11 @@ public final class PlaybackService extends Service {
     }
 
     public synchronized void stopPlayback() {
+        ducking.restoreAll();
+        main.removeCallbacks(volumeRecovery);
+        pausedForFocus = false;
+        bigoCoexistenceMode = false;
+        abandonFocus();
         cancelRandomRetry();
         AutoGreetingService.cancel(this);
         intermissionPending = false;
@@ -519,22 +571,106 @@ public final class PlaybackService extends Service {
     }
 
     public synchronized void setHostVolume(float value) {
-        ducking.setHost(value);
+        ducking.setHostTimed(value, SystemClock.elapsedRealtime(), HOST_DUCK_MAX_MS);
         applyVolume();
     }
 
     public synchronized void setGuidanceVolume(float value) {
-        ducking.setGuidance(value);
+        ducking.setGuidanceTimed(value, SystemClock.elapsedRealtime(), GUIDANCE_DUCK_MAX_MS);
         applyVolume();
     }
 
+    /**
+     * BIGO must capture this app's MUSIC output. During BIGO coexistence do
+     * not request/steal exclusive audio focus away from the broadcast app.
+     * Android may still enforce focus rules; we cannot override system audio.
+     */
+    public synchronized void setBigoCoexistenceMode(boolean enabled) {
+        bigoCoexistenceMode = enabled;
+        if (enabled) {
+            abandonFocus();
+            focusVolume = 1f;
+            pausedForFocus = false;
+            ducking.restoreAll();
+            applyVolume();
+        } else if (isPlaying()) {
+            requestFocusForMusic();
+        }
+    }
+
+    private boolean requestFocusForMusic() {
+        if (bigoCoexistenceMode || audioManager == null || focusRequest == null) return true;
+        if (ownsAudioFocus) return true;
+        try {
+            ownsAudioFocus = audioManager.requestAudioFocus(focusRequest)
+                    == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        } catch (RuntimeException error) {
+            ownsAudioFocus = false;
+        }
+        return ownsAudioFocus;
+    }
+
+    private void abandonFocus() {
+        if (ownsAudioFocus && audioManager != null && focusRequest != null) {
+            try { audioManager.abandonAudioFocusRequest(focusRequest); }
+            catch (RuntimeException ignored) {}
+        }
+        ownsAudioFocus = false;
+    }
+
+    private synchronized void handleAudioFocusChange(int change) {
+        if (bigoCoexistenceMode) return;
+        switch (change) {
+            case AudioManager.AUDIOFOCUS_GAIN:
+                ownsAudioFocus = true;
+                focusVolume = 1f;
+                applyVolume();
+                if (pausedForFocus && player != null && !preparing) {
+                    pausedForFocus = false;
+                    try {
+                        player.start();
+                        notifyState(true);
+                    } catch (IllegalStateException ignored) {
+                        notifyState(false);
+                    }
+                }
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                focusVolume = 0.35f;
+                applyVolume();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+            case AudioManager.AUDIOFOCUS_LOSS:
+                focusVolume = 1f;
+                try {
+                    if (player != null && !preparing && player.isPlaying()) {
+                        pausedForFocus = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
+                        player.pause();
+                        notifyState(false);
+                    }
+                } catch (IllegalStateException ignored) {}
+                if (change == AudioManager.AUDIOFOCUS_LOSS) {
+                    pausedForFocus = false;
+                    ownsAudioFocus = false;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
     private void applyVolume() {
+        main.removeCallbacks(volumeRecovery);
+        long now = SystemClock.elapsedRealtime();
+        ducking.restoreExpired(now);
+        long nextExpiry = ducking.nextExpiryMs();
+        if (nextExpiry > 0L)
+            main.postDelayed(volumeRecovery, Math.max(1L, nextExpiry - now));
         if (player == null) return;
         try {
-            float value = ducking.effective();
+            float value = ducking.effective() * focusVolume;
             player.setVolume(value, value);
-        } catch (IllegalStateException ignored) {
-        }
+        } catch (IllegalStateException ignored) {}
     }
 
     private void notifyTrack() {
@@ -564,6 +700,11 @@ public final class PlaybackService extends Service {
 
     private void stopAllServices() {
         synchronized (this) {
+            ducking.restoreAll();
+            main.removeCallbacks(volumeRecovery);
+            pausedForFocus = false;
+            bigoCoexistenceMode = false;
+            abandonFocus();
             cancelRandomRetry();
             intermissionPending = false;
             releasePlayer();
@@ -624,6 +765,8 @@ public final class PlaybackService extends Service {
     }
 
     @Override public void onDestroy() {
+        main.removeCallbacks(volumeRecovery);
+        abandonFocus();
         AutoGreetingService.cancel(this);
         releasePlayer();
         super.onDestroy();
