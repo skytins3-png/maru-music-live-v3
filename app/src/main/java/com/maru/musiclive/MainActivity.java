@@ -2067,6 +2067,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             toast("로컬 테스트에서는 BIGO LIVE를 열지 않습니다.");
             return;
         }
+        // Don't compete for Android audio focus with BIGO after handoff.
+        // This is the same foreground PlaybackService, not another audio app.
+        if (playback != null) playback.setBigoCoexistenceMode(true);
         Intent launch = getPackageManager()
                 .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (launch == null) {
