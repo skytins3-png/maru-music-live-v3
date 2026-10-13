@@ -97,7 +97,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean eventOverlayShowing;
     private boolean deviceMusicScanRunning;
     private boolean initialDeviceMusicScanStarted;
-    private String pendingBigoModeAfterAccessibility = "";
     private int overlayGeneration;
     private int imageIndex;
     private int mediaIndex;
@@ -258,12 +257,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         refreshAutoGreetingStatus();
         syncPlayButtonState();
         handler.postDelayed(this::syncPlayButtonState, 250L);
-        if (!pendingBigoModeAfterAccessibility.isEmpty()
-                && BigoBroadcastNavigatorService.isEnabled(this)) {
-            String mode = pendingBigoModeAfterAccessibility;
-            pendingBigoModeAfterAccessibility = "";
-            handler.postDelayed(() -> startCommunityLive(mode), 350L);
-        }
     }
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
@@ -442,18 +435,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.13 · BIGO 음악 음량 복구",
+                "V3.2.14 · 안전한 음악 방송",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
         column.addView(version);
 
         TextView guide = text(
-                "일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO의 방송 준비 화면까지 자동으로 이동합니다. "
-                        + "처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다. "
-                        + "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다. "
+                "일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO 앱을 엽니다. "
+                        + "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
+                        + "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
                         + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. "
-                        + "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다.",
+                        + "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요.",
                 15,
                 true);
         guide.setBackgroundColor(0x6651246B);
@@ -488,8 +481,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(audioLive);
 
         column.addView(button(
-                "BIGO 방송 화면 이동 권한 설정",
-                v -> openBigoNavigatorAccessibilitySettings()));
+                "BIGO 앱 직접 열기",
+                v -> openBigoChat()));
 
         autoGreetingStatusView = text("방송 상태 확인 중", 14, false);
         autoGreetingStatusView.setBackgroundColor(0x553D7A46);
@@ -574,10 +567,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             toast("BIGO LIVE를 찾지 못했습니다.");
             return;
         }
-        if (!BigoBroadcastNavigatorService.isEnabled(this)) {
-            showBigoNavigatorPermissionDialog(liveMode);
-            return;
-        }
         if (!canReadBroadcastSong()) return;
 
         try {
@@ -587,47 +576,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             AutoGreetingStore.setRunningMode(this, "community_live");
             AutoGreetingStore.setStatus(
                     this,
-                    liveMode + " 준비 · BIGO 방송 준비 화면 자동 이동 중");
+                    liveMode + " 준비 · 음악 재생 후 BIGO 앱을 엽니다. 방송 종류·시작은 직접 선택해 주세요.");
 
-            BigoBroadcastNavigatorService.arm(this, liveMode);
             if (playback != null) playback.setBigoCoexistenceMode(true);
             startMusicForBroadcast();
             refreshAutoGreetingStatus();
             showTemporaryTestOverlay(
-                    "BIGO " + liveMode + " 방송 준비 화면으로 이동합니다",
+                    "BIGO 앱을 엽니다 · " + liveMode + " 선택 후 방송 시작을 직접 눌러 주세요",
                     ONE_CLICK_GUIDE_MS);
             handler.postDelayed(this::openBigoChat, 650L);
         } catch (RuntimeException error) {
-            BigoBroadcastNavigatorService.disarm(this);
             AutoGreetingStore.setRunningMode(this, "");
             AutoGreetingStore.setStatus(
                     this,
                     "BIGO 방송 준비 실패 · " + safeErrorMessage(error));
             toast("방송 준비 오류를 막았습니다. 노래를 다시 추가한 뒤 시도하세요.");
-        }
-    }
-
-    private void showBigoNavigatorPermissionDialog(String liveMode) {
-        pendingBigoModeAfterAccessibility = liveMode;
-        new AlertDialog.Builder(this)
-                .setTitle("BIGO 방송 화면 이동 권한")
-                .setMessage(
-                        "처음 한 번만 휴대폰 접근성 설정에서 ‘MARU BIGO 방송 화면 이동’을 켜주세요. "
-                                + "이 기능은 BIGO 홈의 LIVE 메뉴와 선택한 방송 종류만 누르며, "
-                                + "실제 공개 방송 시작 버튼은 누르지 않습니다.")
-                .setPositiveButton("접근성 설정 열기", (dialog, which) ->
-                        openBigoNavigatorAccessibilitySettings())
-                .setNegativeButton("취소", (dialog, which) ->
-                        pendingBigoModeAfterAccessibility = "")
-                .show();
-    }
-
-    private void openBigoNavigatorAccessibilitySettings() {
-        try {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            toast("설치된 앱에서 ‘MARU BIGO 방송 화면 이동’을 켜주세요.");
-        } catch (RuntimeException error) {
-            toast("접근성 설정을 열 수 없습니다.");
         }
     }
 
@@ -2073,7 +2036,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         Intent launch = getPackageManager()
                 .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (launch == null) {
-            BigoBroadcastNavigatorService.disarm(this);
             toast("BIGO LIVE를 찾지 못했습니다.");
             return;
         }
@@ -2081,13 +2043,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             launch.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             startActivity(launch);
         } catch (ActivityNotFoundException | SecurityException error) {
-            BigoBroadcastNavigatorService.disarm(this);
             AutoGreetingStore.setStatus(
                     this,
                     "BIGO 실행 차단 · " + safeErrorMessage(error));
             toast("BIGO LIVE를 열 수 없습니다. BIGO 앱을 업데이트해 주세요.");
         } catch (RuntimeException error) {
-            BigoBroadcastNavigatorService.disarm(this);
             AutoGreetingStore.setStatus(
                     this,
                     "BIGO 실행 오류 방지 · " + safeErrorMessage(error));
