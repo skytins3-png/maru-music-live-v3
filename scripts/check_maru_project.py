@@ -93,8 +93,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3031')
-check('version name', version_name == '3.2.12')
+check('version code', version_code == '3032')
+check('version name', version_name == '3.2.13')
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
@@ -256,7 +256,7 @@ check('user-enabled BIGO navigator accessibility service',
       and 'android.accessibilityservice.AccessibilityService' in manifest
       and 'BigoBroadcastNavigatorService' in manifest)
 check('media projection', 'FOREGROUND_SERVICE_MEDIA_PROJECTION' in manifest and 'createScreenCaptureIntent()' in main)
-check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_GAME' in playback)
+check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_MEDIA' in playback and 'setBigoCoexistenceMode' in playback)
 
 check('music only while track plays',
       '중요: 제목/인사 TTS는 곡이 시작된 뒤 절대 재생하지 않는다.' in playback

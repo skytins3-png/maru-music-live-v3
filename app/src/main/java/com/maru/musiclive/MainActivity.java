@@ -198,6 +198,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             bound = true;
             syncPlayButtonState();
             String runningMode = AutoGreetingStore.runningMode(MainActivity.this);
+            if (isBigoAudioCoexistenceMode(runningMode)) {
+                playback.setBigoCoexistenceMode(true);
+            }
             if (pendingAutoMusicStart
                     || (localTestMode && broadcastVisible)
                     || ScreenOcrGreetingService.MODE_AUTO_GREETING.equals(runningMode)
@@ -439,7 +442,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.12 · 휴대폰 전체 노래 자동 불러오기",
+                "V3.2.13 · BIGO 음악 음량 복구",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -587,6 +590,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     liveMode + " 준비 · BIGO 방송 준비 화면 자동 이동 중");
 
             BigoBroadcastNavigatorService.arm(this, liveMode);
+            if (playback != null) playback.setBigoCoexistenceMode(true);
             startMusicForBroadcast();
             refreshAutoGreetingStatus();
             showTemporaryTestOverlay(
@@ -870,6 +874,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void startBigoMusicOnly() {
+        if (playback != null) playback.setBigoCoexistenceMode(true);
         ScreenOcrGreetingService.stop(this);
         AutoGreetingService.cancel(this);
         IntermissionStore.resetSession(this);
@@ -1892,6 +1897,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         return false;
     }
 
+    private static boolean isBigoAudioCoexistenceMode(String mode) {
+        return "community_live".equals(mode)
+                || "music_only".equals(mode)
+                || "bigo_native_toolbar".equals(mode)
+                || ScreenOcrGreetingService.MODE_AUTO_GREETING.equals(mode);
+    }
+
     private void startMusicForBroadcast() {
         if (songs.isEmpty()) {
             pendingAutoMusicStart = false;
@@ -1903,6 +1915,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         if (playback == null) return;
 
         try {
+            if (isBigoAudioCoexistenceMode(AutoGreetingStore.runningMode(this)))
+                playback.setBigoCoexistenceMode(true);
             playback.setQueue(songs);
             playback.prepareForBroadcast();
         } catch (RuntimeException error) {
@@ -2053,6 +2067,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             toast("로컬 테스트에서는 BIGO LIVE를 열지 않습니다.");
             return;
         }
+        // Don't compete for Android audio focus with BIGO after handoff.
+        // This is the same foreground PlaybackService, not another audio app.
+        if (playback != null) playback.setBigoCoexistenceMode(true);
         Intent launch = getPackageManager()
                 .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (launch == null) {

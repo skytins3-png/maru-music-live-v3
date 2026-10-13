@@ -31,11 +31,11 @@ JAVA
 cat > "$SRC/android/content/Context.java" <<'JAVA'
 package android.content;
 public class Context {
- public static final int MODE_PRIVATE=0;
+ public static final int MODE_PRIVATE=0; public static final String AUDIO_SERVICE="audio";
  public SharedPreferences getSharedPreferences(String n,int m){return null;}
  public Intent startForegroundService(Intent i){return i;} public Intent startService(Intent i){return i;}
  public boolean stopService(Intent i){return true;}
- public <T> T getSystemService(Class<T> c){return null;} public String getString(int id){return "";}
+ public <T> T getSystemService(Class<T> c){return null;} public Object getSystemService(String s){return null;} public String getString(int id){return "";}
  public void sendBroadcast(Intent i){} public String getPackageName(){return "com.maru.musiclive";}
 }
 JAVA
@@ -70,11 +70,30 @@ public class Service extends Context { public static final int START_STICKY=1,ST
  public void startForeground(int id,Notification n){} public void stopForeground(boolean r){} public void stopForeground(int r){} public void stopSelf(){} }
 JAVA
 cat > "$SRC/android/media/AudioAttributes.java" <<'JAVA'
-package android.media; public class AudioAttributes { public static final int USAGE_GAME=1,CONTENT_TYPE_SPEECH=2,CONTENT_TYPE_MUSIC=3,ALLOW_CAPTURE_BY_ALL=4;
+package android.media; public class AudioAttributes { public static final int USAGE_GAME=1,USAGE_MEDIA=5,CONTENT_TYPE_SPEECH=2,CONTENT_TYPE_MUSIC=3,ALLOW_CAPTURE_BY_ALL=4;
  public static class Builder { public Builder setUsage(int v){return this;} public Builder setContentType(int v){return this;} public Builder setAllowedCapturePolicy(int v){return this;} public AudioAttributes build(){return new AudioAttributes();} } }
 JAVA
 cat > "$SRC/android/media/AudioManager.java" <<'JAVA'
-package android.media; public class AudioManager { public void setAllowedCapturePolicy(int p){} }
+package android.media; public class AudioManager {
+ public static final int AUDIOFOCUS_GAIN=1,AUDIOFOCUS_LOSS=-1,AUDIOFOCUS_LOSS_TRANSIENT=-2,
+  AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK=-3,AUDIOFOCUS_REQUEST_GRANTED=1;
+ public interface OnAudioFocusChangeListener { void onAudioFocusChange(int change); }
+ public void setAllowedCapturePolicy(int p){}
+ public int requestAudioFocus(AudioFocusRequest r){return AUDIOFOCUS_REQUEST_GRANTED;}
+ public int abandonAudioFocusRequest(AudioFocusRequest r){return AUDIOFOCUS_REQUEST_GRANTED;}
+}
+JAVA
+cat > "$SRC/android/media/AudioFocusRequest.java" <<'JAVA'
+package android.media;
+import android.os.Handler;
+public class AudioFocusRequest {
+ public static class Builder {
+  public Builder(int gain){} public Builder setAudioAttributes(AudioAttributes a){return this;}
+  public Builder setWillPauseWhenDucked(boolean v){return this;}
+  public Builder setOnAudioFocusChangeListener(AudioManager.OnAudioFocusChangeListener l, Handler h){return this;}
+  public AudioFocusRequest build(){return new AudioFocusRequest();}
+ }
+}
 JAVA
 cat > "$SRC/android/media/MediaPlayer.java" <<'JAVA'
 package android.media; import android.content.Context; import android.net.Uri; import android.os.PowerManager; import java.io.IOException;
@@ -105,6 +124,9 @@ package android.os; public class Binder implements IBinder {}
 JAVA
 cat > "$SRC/android/os/PowerManager.java" <<'JAVA'
 package android.os; public class PowerManager { public static final int PARTIAL_WAKE_LOCK=1; }
+JAVA
+cat > "$SRC/android/os/SystemClock.java" <<'JAVA'
+package android.os; public class SystemClock { public static long elapsedRealtime(){return 1000L;} }
 JAVA
 cat > "$SRC/android/speech/tts/UtteranceProgressListener.java" <<'JAVA'
 package android.speech.tts; public abstract class UtteranceProgressListener { public abstract void onStart(String id); public abstract void onDone(String id); public abstract void onError(String id); public void onError(String id,int code){} }

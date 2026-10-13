@@ -208,7 +208,7 @@ public final class AutoGreetingService extends Service {
             tts.setPitch(BroadcastVoicePolicy.PITCH);
 
             AudioAttributes.Builder attributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 attributes.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
