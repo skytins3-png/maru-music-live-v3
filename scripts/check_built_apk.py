@@ -26,7 +26,7 @@ FORBIDDEN_DEX_STRINGS = {
 # fragments of one longer Java string. javac folds adjacent literals, so DEX
 # contains the whole guide string rather than each fragment as a separate entry.
 REQUIRED_EXACT_DEX_STRINGS = {
-    "V3.2.13 · BIGO 음악 음량 복구",
+    "V3.2.14 · 안전한 음악 방송",
     "일반 LIVE 음악방송 시작",
     "오디오 LIVE 음악방송 시작",
     "곡 사이 5개 언어 통합 안내",
@@ -34,15 +34,15 @@ REQUIRED_EXACT_DEX_STRINGS = {
     "오류검사·고급 기능",
     "완전 종료",
     "전체화면 이미지 플레이어 열기",
-    "BIGO 방송 화면 이동 권한 설정",
+    "BIGO 앱 직접 열기",
     "LIVE",
     "설정",
 }
 
 REQUIRED_DEX_TEXT_FRAGMENTS = {
-    "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다.",
-    "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다.",
-    "처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다.",
+    "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요.",
+    "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다.",
+    "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다.",
 }
 
 EXPECTED_RAW_HASHES = {
@@ -198,7 +198,7 @@ def main():
 
         if missing_strings:
             failures.append(
-                "missing V3.2.13 navigator/player strings: "
+                "missing V3.2.14 audio-safe/player strings: "
                 + " | ".join(missing_strings)
             )
 
