@@ -145,6 +145,20 @@ jobs:
       - name: Build installable debug and release APKs
         run: gradle --no-daemon --stacktrace clean :app:assembleDebug :app:assembleRelease
 
+      - name: Verify merged APK manifests contain no sensitive accessibility service
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release.apk; do
+            "$AAPT" dump xmltree "$apk" AndroidManifest.xml > /tmp/maru-manifest-tree.txt
+            if grep -E 'BIND_ACCESSIBILITY_SERVICE|BigoBroadcastNavigatorService|android.accessibilityservice.AccessibilityService|READ_SMS|RECEIVE_SMS|BIND_NOTIFICATION_LISTENER_SERVICE' /tmp/maru-manifest-tree.txt; then
+              echo "BLOCKED: built APK still declares sensitive accessibility/SMS/notification access"
+              exit 1
+            fi
+            echo "SAFE-MANIFEST: no AccessibilityService or sensitive permissions in $apk"
+          done
+
       - name: Verify, sign-check, and rename APKs
         shell: bash
         run: |
