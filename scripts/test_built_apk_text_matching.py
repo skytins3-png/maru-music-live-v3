@@ -24,10 +24,12 @@ checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
 
 FULL_GUIDE = (
-    "일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO의 방송 준비 화면까지 자동으로 이동합니다. "
-    "처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다. "
-    "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다. "
-    "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다."
+    "일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO 앱을 엽니다. "
+    "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
+    "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
+    "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. "
+    "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요."
+
 )
 
 base_strings = set(checker.REQUIRED_EXACT_DEX_STRINGS)
@@ -53,12 +55,12 @@ for expected in checker.REQUIRED_DEX_TEXT_FRAGMENTS:
         raise AssertionError("missing guide fragment was not detected: " + expected)
 
 partial_guide = set(checker.REQUIRED_EXACT_DEX_STRINGS)
-partial_guide.add("실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다.")
+partial_guide.add("BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다.")
 missing = checker.missing_required_dex_texts(partial_guide)
-if "실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다." in missing:
+if "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다." in missing:
     raise AssertionError("present guide fragment was rejected")
 if (
-    "BIGO 자체 입장·팔로우·선물 인사는 사용하고, MARU는 일반 댓글만 감지합니다. AI 댓글 답변은 음성 없이 글로만 자동 입력·전송합니다."
+    "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요."
     not in missing
 ):
     raise AssertionError("absent guide fragment was not detected")

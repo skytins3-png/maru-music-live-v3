@@ -19,9 +19,7 @@ required = [
     'app/src/main/java/com/maru/musiclive/BroadcastVoicePolicy.java',
     'app/src/main/java/com/maru/musiclive/PlaybackService.java',
     'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java',
-    'app/src/main/java/com/maru/musiclive/BigoBroadcastNavigatorService.java',
     'app/src/main/java/com/maru/musiclive/BigoNavigationPolicy.java',
-    'app/src/main/res/xml/accessibility_service_config.xml',
     'app/src/main/java/com/maru/musiclive/ConversationEngine.java',
     'app/src/main/java/com/maru/musiclive/AutoReplyPolicy.java',
     'app/src/main/java/com/maru/musiclive/AdaptiveAiStore.java',
@@ -93,8 +91,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3032')
-check('version name', version_name == '3.2.13')
+check('version code', version_code == '3033')
+check('version name', version_name == '3.2.14')
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
@@ -149,19 +147,21 @@ check('core self-test isolated sourcepath',
 one_click_plan_text = (
     root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java'
 ).read_text(encoding='utf-8')
-check('community live with BIGO preparation-screen navigation',
+check('community live with user-controlled BIGO opening',
       '일반 LIVE 음악방송 시작' in main
       and '오디오 LIVE 음악방송 시작' in main
       and 'startCommunityLive' in main
       and 'startMusicForBroadcast();' in main
-      and 'BigoBroadcastNavigatorService.arm(this, liveMode);' in main
       and 'openBigoChat();' in main
-      and '실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다' in main
+      and '실제 방송 시작 버튼은 직접 누릅니다' in main
       and 'ACTION_PREPARE_FOR_BROADCAST' not in playback
       and 'scheduleOneClickPlaybackRecovery' not in main
-      and 'android.permission.BIND_ACCESSIBILITY_SERVICE' in manifest
-      and 'BigoBroadcastNavigatorService' in manifest
-      and 'dispatchGesture' in all_text
+      and 'android.permission.BIND_ACCESSIBILITY_SERVICE' not in manifest
+      and 'BigoBroadcastNavigatorService' not in manifest
+      and 'BigoBroadcastNavigatorService' not in main
+      and not (root / 'app/src/main/java/com/maru/musiclive/BigoBroadcastNavigatorService.java').exists()
+      and not (root / 'app/src/main/res/xml/accessibility_service_config.xml').exists()
+      and 'dispatchGesture' not in all_text
       and 'UiAutomator' not in all_text)
 auto_reply_test_text = (
     root / 'app/src/test/java/com/maru/musiclive/AutoReplyPolicyTest.java'
@@ -210,7 +210,7 @@ check('default full-screen image player visible',
       and 'if (!localTestMode)' in main
       and 'if (localTestMode) return;' in main
       and '전체화면 이미지 플레이어 열기' in main)
-check('game category', 'android:appCategory="game"' in manifest and 'android:isGame="true"' in manifest)
+check('music category', 'android:appCategory="audio"' in manifest and 'android:isGame="true"' not in manifest)
 check('release signed', 'signingConfig signingConfigs.debug' in gradle)
 check('direct raw resources only',
       'stageRequiredRawMedia' not in gradle
@@ -251,10 +251,10 @@ check('workflow playback UI regression check',
       'python3 scripts/check_playback_ui_regression.py' in workflow_text)
 check('workflow home player UI stress check',
       'python3 scripts/test_home_player_ui_1000.py' in workflow_text)
-check('user-enabled BIGO navigator accessibility service',
-      'android.permission.BIND_ACCESSIBILITY_SERVICE' in manifest
-      and 'android.accessibilityservice.AccessibilityService' in manifest
-      and 'BigoBroadcastNavigatorService' in manifest)
+check('no sensitive accessibility permission or exported service',
+      'android.permission.BIND_ACCESSIBILITY_SERVICE' not in manifest
+      and 'android.accessibilityservice.AccessibilityService' not in manifest
+      and 'BigoBroadcastNavigatorService' not in manifest)
 check('media projection', 'FOREGROUND_SERVICE_MEDIA_PROJECTION' in manifest and 'createScreenCaptureIntent()' in main)
 check('playback capture', 'ALLOW_CAPTURE_BY_ALL' in playback and 'USAGE_MEDIA' in playback and 'setBigoCoexistenceMode' in playback)
 
@@ -377,10 +377,10 @@ check('compact mobile event visual profile',
       and 'EVENT_HEIGHT_DP = 42' in visual
       and (root / 'scripts/check_v275_reference.py').is_file())
 check('session reset', 'IntermissionStore.resetSession(this);' in main)
-check('UI explains community live behavior',
-      '일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO의 방송 준비 화면까지 자동으로 이동합니다' in main
-      and '처음 한 번은 ‘MARU BIGO 방송 화면 이동’ 접근성 권한을 켜야 합니다' in main
-      and '실제 공개 방송을 시작하는 마지막 버튼은 안전을 위해 직접 누릅니다' in main)
+check('UI explains manual BIGO control',
+      '일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO 앱을 엽니다' in main
+      and '접근성 권한 요청 기능은 제거했습니다' in main
+      and '실제 방송 시작 버튼은 직접 누릅니다' in main)
 check('keyboard free closing',
       'showBroadcastEndMenu' in main
       and 'beginPresetBroadcastClosing' in main

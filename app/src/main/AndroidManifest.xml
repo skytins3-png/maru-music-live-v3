@@ -16,7 +16,7 @@
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
-    <application android:allowAudioPlaybackCapture="true" android:appCategory="game" android:isGame="true" android:icon="@drawable/ic_launcher" android:label="@string/app_name" android:roundIcon="@drawable/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.MaruMusicLive">
+    <application android:allowAudioPlaybackCapture="true" android:appCategory="audio" android:icon="@drawable/ic_launcher" android:label="@string/app_name" android:roundIcon="@drawable/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.MaruMusicLive">
         <activity android:name=".OcrTestActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".YouTubePlayerActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize" android:exported="true" android:screenOrientation="portrait">
@@ -28,17 +28,5 @@
         <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".AutoGreetingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".ScreenOcrGreetingService" android:exported="false" android:foregroundServiceType="mediaProjection|mediaPlayback" />
-        <service
-            android:name=".BigoBroadcastNavigatorService"
-            android:exported="true"
-            android:label="@string/bigo_navigation_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
     </application>
 </manifest>
