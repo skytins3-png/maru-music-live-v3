@@ -19,7 +19,7 @@ required = (
     'smallButton("이전"',
     'smallButton("재생"',
     'smallButton("다음"',
-    'smallButton("LIVE"',
+    'smallButton("오디오 LIVE"',
     'smallButton("설정"',
     'if (!localTestMode)',
     'if (localTestMode) return;',
@@ -39,4 +39,4 @@ for cycle in range(1, CYCLES + 1):
 print('HOME-PLAYER-UI: PASS')
 print(f'CYCLES: {CYCLES}/{CYCLES}')
 print('DEFAULT-IMAGES: 2/2')
-print('AUTO-HIDE-CONTROLS: previous/play/next/LIVE/settings')
+print('AUTO-HIDE-CONTROLS: previous/play/next/audioLIVE/settings')
