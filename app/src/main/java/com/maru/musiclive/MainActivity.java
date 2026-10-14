@@ -239,6 +239,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         showHomePlayer();
         requestNotificationPermission();
         scanDeviceMusic(false);
+        importSharedOriginals(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
                 if (homePlayerMode) {
@@ -249,6 +250,79 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     showHomePlayer();
                 }
             }
+        });
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        importSharedOriginals(intent);
+    }
+
+    /** Accept audio files the user explicitly shares from Suno or a file manager. */
+    private void importSharedOriginals(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getAction();
+        if (!Intent.ACTION_SEND.equals(action)
+                && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
+
+        List<Uri> incoming = new ArrayList<>();
+        if (Intent.ACTION_SEND.equals(action)) {
+            Uri audio = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (audio != null) incoming.add(audio);
+        } else {
+            ArrayList<Uri> many = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (many != null) incoming.addAll(many);
+        }
+        if (incoming.isEmpty() && intent.getClipData() != null) {
+            ClipData clip = intent.getClipData();
+            for (int i = 0; i < clip.getItemCount(); i++) {
+                Uri uri = clip.getItemAt(i).getUri();
+                if (uri != null) incoming.add(uri);
+            }
+        }
+        if (incoming.isEmpty()) {
+            toast("Suno 공유 링크는 오디오 파일이 아닙니다. MP3/WAV를 내려받아 공유해 주세요.");
+            return;
+        }
+        final List<Uri> accepted = incoming;
+        musicScanExecutor.execute(() -> {
+            List<String> imported = new ArrayList<>();
+            String firstError = "";
+            for (Uri uri : accepted) {
+                try {
+                    String item = SharedAudioImport.copyOriginal(
+                            getApplicationContext(), uri);
+                    if (!imported.contains(item)) imported.add(item);
+                } catch (Exception error) {
+                    if (firstError.isEmpty()) firstError = error.getMessage();
+                }
+            }
+            final String errorMessage = firstError;
+            handler.post(() -> {
+                if (isDestroyed()) return;
+                int added = 0;
+                for (String item : imported) {
+                    if (!songs.contains(item)) {
+                        songs.add(item);
+                        added++;
+                    }
+                }
+                if (added > 0) {
+                    AppStorage.saveSongs(this, songs);
+                    refreshSongList();
+                    if (playback != null) playback.setQueue(songs);
+                }
+                if (imported.isEmpty()) {
+                    toast(errorMessage == null || errorMessage.isEmpty()
+                            ? "공유 음악을 가져오지 못했습니다."
+                            : "가져오기 실패: " + errorMessage);
+                } else {
+                    toast(added > 0
+                            ? "Suno 원본 " + added + "곡 저장 · 무변환 재생 준비 완료"
+                            : "이미 저장된 원본 음악입니다.");
+                }
+            });
         });
     }
 
@@ -494,6 +568,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 v -> scanDeviceMusic(true)));
         column.addView(button("노래 직접 추가 (Suno MP3/WAV 포함)", v ->
                 audioPickerLauncher.launch(new String[]{"audio/*"})));
+        column.addView(button("Suno → BIGO 원곡 방송 안내", v ->
+                showSunoBigoGuide()));
         column.addView(button("공통 배경 이미지 추가", v ->
                 imagePickerLauncher.launch(new String[]{"image/*"})));
         column.addView(button("가사 추가 (LRC/TXT)", v ->
@@ -554,6 +630,25 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         refreshAutoGreetingStatus();
         appRoot.addView(setupScreen);
         setContentView(appRoot);
+    }
+
+    private void showSunoBigoGuide() {
+        new AlertDialog.Builder(this)
+                .setTitle("Suno 원곡으로 BIGO 오디오 LIVE")
+                .setMessage(
+                        "1. Suno에서 내 원곡 MP3/WAV를 휴대폰에 저장하세요.\n"
+                        + "2. 파일 관리자에서 음악을 공유할 때 MARU MUSIC을 고르면 "
+                        + "원본 파일을 변환하지 않고 보관합니다. 또는 '노래 직접 추가'를 누르세요.\n"
+                        + "3. BIGO 오디오 LIVE의 도구 → 믹서/배경음악에서 "
+                        + "휴대폰 로컬 음원 선택이 제공된다면 Suno 파일을 그쪽에서 선택해 "
+                        + "송출 음량을 별도로 관리할 수 있는지 확인하세요.\n\n"
+                        + "중요: Suno 앱에서 직접 재생 중인 소리를 MARU가 가로채 "
+                        + "BIGO 마이크 입력으로 전달하는 기능은 아닙니다. "
+                        + "휴대폰 볼륨키와 실제 시청자 음량 분리는 BIGO 지원 여부에 달려 있습니다.")
+                .setPositiveButton("원곡 파일 선택", (dialog, which) ->
+                        audioPickerLauncher.launch(new String[]{"audio/*"}))
+                .setNegativeButton("닫기", null)
+                .show();
     }
 
     private void startCommunityLive(String liveMode) {
@@ -2123,6 +2218,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private String displayName(Uri uri) {
+        if ("file".equals(uri.getScheme()) && uri.getLastPathSegment() != null) {
+            String storedName = uri.getLastPathSegment();
+            int separator = storedName.indexOf("--");
+            if (separator == 64) return storedName.substring(separator + 2);
+        }
         try (Cursor cursor = getContentResolver().query(
                 uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
