@@ -492,7 +492,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(button(
                 "휴대폰 전체 노래 자동 불러오기",
                 v -> scanDeviceMusic(true)));
-        column.addView(button("노래 직접 추가", v ->
+        column.addView(button("노래 직접 추가 (Suno MP3/WAV 포함)", v ->
                 audioPickerLauncher.launch(new String[]{"audio/*"})));
         column.addView(button("공통 배경 이미지 추가", v ->
                 imagePickerLauncher.launch(new String[]{"image/*"})));
@@ -1977,10 +1977,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
     private void beginHostSpeechDuck() {
-        if (playback != null) playback.setHostVolume(0.18f);
+        boolean broadcasting = isBigoAudioCoexistenceMode(AutoGreetingStore.runningMode(this));
+        if (!broadcasting && playback != null) playback.setHostVolume(0.18f);
         handler.removeCallbacks(restoreHostSpeech);
-        handler.postDelayed(restoreHostSpeech, HOST_SPEECH_AUTO_RESTORE_MS);
-        toast("말하기 모드: 음악 18%");
+        if (!broadcasting) handler.postDelayed(restoreHostSpeech, HOST_SPEECH_AUTO_RESTORE_MS);
+        toast(broadcasting ? "BIGO 방송 모드: MARU 음악 크기 유지" : "말하기 모드: 음악 18%");
     }
 
     private void endHostSpeechDuck() {
