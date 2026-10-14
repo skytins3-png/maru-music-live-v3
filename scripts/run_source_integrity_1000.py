@@ -23,8 +23,8 @@ ROOT_GRADLE = ROOT / "build.gradle"
 MANIFEST = MAIN / "AndroidManifest.xml"
 
 CYCLES = 1000
-EXPECTED_VERSION_CODE = "3033"
-EXPECTED_VERSION_NAME = "3.2.14"
+EXPECTED_VERSION_CODE = "3034"
+EXPECTED_VERSION_NAME = "3.2.15"
 EXPECTED_MEDIA = {
     MAIN / "res" / "raw" / "actual_music.mp3":
         "0675b96d48ec97cec56303b620e7652dc3408c0d27df03803653086af723e0b3",
@@ -45,7 +45,7 @@ FORBIDDEN_EXACT = {
     ROOT / "scripts" / "restore_required_media.py",
 }
 REQUIRED_WORKFLOW_TOKENS = (
-    "name: Build MARU MUSIC LIVE V3.2.14 APK",
+    "name: Build MARU MUSIC LIVE V3.2.15 APK",
     "gradle-version: '8.13'",
     "java-version: '17'",
     "python3 scripts/check_required_media.py",
@@ -65,8 +65,8 @@ REQUIRED_WORKFLOW_TOKENS = (
     "apksigner\" verify --verbose",
     "python3 scripts/check_built_apk.py",
     "python3 scripts/test_built_apk_text_matching.py",
-    "MARU-MUSIC-LIVE-V3.2.14-DEBUG.apk",
-    "MARU-MUSIC-LIVE-V3.2.14-MUSIC-RELEASE.apk",
+    "MARU-MUSIC-LIVE-V3.2.15-DEBUG.apk",
+    "MARU-MUSIC-LIVE-V3.2.15-MUSIC-RELEASE.apk",
 )
 TEXT_SUFFIXES = {
     ".java", ".xml", ".gradle", ".properties", ".yml", ".yaml",
@@ -139,9 +139,9 @@ def validate_static_once() -> list[str]:
     version_code = re.search(r"\bversionCode\s+(\d+)", app_gradle)
     version_name = re.search(r"\bversionName\s+['\"]([^'\"]+)['\"]", app_gradle)
     if not version_code or version_code.group(1) != EXPECTED_VERSION_CODE:
-        errors.append("app/build.gradle versionCode is not 3033")
+        errors.append("app/build.gradle versionCode is not 3034")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
-        errors.append("app/build.gradle versionName is not 3.2.14")
+        errors.append("app/build.gradle versionName is not 3.2.15")
 
     main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
     one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
@@ -160,10 +160,10 @@ def validate_static_once() -> list[str]:
                     f"duplicate MainActivity lifecycle method: {lifecycle_name} ({lifecycle_count})"
                 )
         for token in (
-            "일반 LIVE 음악방송 시작",
+            "BIGO 오디오 LIVE 시작",
             "startCommunityLive",
             "OneClickBroadcastPlan.BIGO_PACKAGE",
-            "오디오 LIVE 음악방송 시작",
+            "Suno → BIGO 원곡 방송 안내",
             "전체화면 이미지 플레이어",
             "startMusicForBroadcast();",
             "BIGO 앱을 엽니다",
@@ -174,7 +174,7 @@ def validate_static_once() -> list[str]:
             'smallButton("다음"',
             'showHomePlayer();',
             'BitmapFactory.decodeResource',
-            'smallButton("LIVE"',
+            'smallButton("오디오 LIVE"',
             'smallButton("설정"',
             '전체화면 이미지 플레이어 열기',
         ):
@@ -273,7 +273,7 @@ def validate_static_once() -> list[str]:
             )
 
     first_line = workflow.splitlines()[0] if workflow.splitlines() else ""
-    if first_line != "name: Build MARU MUSIC LIVE V3.2.14 APK":
+    if first_line != "name: Build MARU MUSIC LIVE V3.2.15 APK":
         errors.append(f"wrong workflow name: {first_line!r}")
     if "V3.1.1 APK" in workflow or "V3.1.1-" in workflow:
         errors.append("stale V3.1.1 workflow/APK token remains")
