@@ -24,6 +24,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- User-initiated Suno / file-manager sharing: audio file bytes only. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/*" />
+            </intent-filter>
         </activity>
         <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".AutoGreetingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
