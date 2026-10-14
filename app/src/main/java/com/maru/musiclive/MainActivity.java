@@ -238,7 +238,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         startAndBindPlayback();
         showHomePlayer();
         requestNotificationPermission();
-        scanDeviceMusic(false);
+        // Avoid expensive SHA-256 scanning of every media file on startup.
+        // Existing saved songs remain; user may scan explicitly when needed.
         importSharedOriginals(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
@@ -533,8 +534,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(openPlayer);
 
         Button regularLive = button(
-                "일반 LIVE 음악방송 시작",
-                v -> startCommunityLive("일반 LIVE"));
+                "BIGO 오디오 LIVE 시작",
+                v -> startCommunityLive("오디오 LIVE"));
         regularLive.setTextSize(21f);
         regularLive.setTextColor(Color.WHITE);
         GradientDrawable regularBg = new GradientDrawable();
@@ -548,11 +549,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         regularLive.setLayoutParams(regularParams);
         column.addView(regularLive);
 
-        Button audioLive = button(
-                "오디오 LIVE 음악방송 시작",
-                v -> startCommunityLive("오디오 LIVE"));
-        audioLive.setTextSize(20f);
-        column.addView(audioLive);
 
         column.addView(button(
                 "BIGO 앱 직접 열기",
@@ -603,7 +599,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(songTitleTts);
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
-        column.addView(button("오류검사·고급 기능", v -> showAdvancedToolsDialog()));
+        column.addView(button("댓글 인식 · 화면 답변", v ->
+                requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
+        column.addView(button("입장 감사 화면", v -> showEventVisualSettings()));
+        column.addView(button("내 방송 닉네임", v -> editHostNickname()));
         column.addView(button("완전 종료", v -> stopAllBroadcastNow()));
 
         TextView songGuide = text(
@@ -697,23 +696,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         startBroadcast();
     }
 
-    private void showCommunityLiveModeDialog() {
-        String[] items = {
-                "일반 LIVE 음악방송 시작",
-                "오디오 LIVE 음악방송 시작"
-        };
-        new AlertDialog.Builder(this)
-                .setTitle("BIGO LIVE 시작")
-                .setItems(items, (dialog, which) -> {
-                    if (which == 0) {
-                        startCommunityLive("일반 LIVE");
-                    } else {
-                        startCommunityLive("오디오 LIVE");
-                    }
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
     private void openSetupFromPlayer() {
         leavePlayerScreen(false);
@@ -721,7 +703,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void showHomePlayerMenu() {
         String[] items = {
-                "BIGO LIVE 시작",
+                "BIGO 오디오 LIVE 시작",
                 "노래·이미지·설정 열기",
                 "완전 종료"
         };
@@ -729,7 +711,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .setTitle("MARU MUSIC LIVE")
                 .setItems(items, (dialog, which) -> {
                     if (which == 0) {
-                        showCommunityLiveModeDialog();
+                        startCommunityLive("오디오 LIVE");
                     } else if (which == 1) {
                         openSetupFromPlayer();
                     } else {
@@ -770,85 +752,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         setContentView(appRoot);
     }
 
-    private void showAdvancedToolsDialog() {
-        String[] items = {
-                "5개 언어 안내 음성 테스트",
-                "OCR 입장 로컬 테스트",
-                "OCR 이벤트 글 검사",
-                "OCR·AI 화면 답변 검사",
-                "게임 LIVE 화면방송 보조 모드",
-                "AI 학습·언어·백업 관리",
-                "입장 감사 화면 설정",
-                "실방송 전체화면 미리보기"
-        };
-        new AlertDialog.Builder(this)
-                .setTitle("오류검사·고급 기능")
-                .setItems(items, (dialog, which) -> {
-                    switch (which) {
-                        case 0:
-                            runActualGreetingTest();
-                            break;
-                        case 1:
-                            requestScreenCapture(ScreenOcrGreetingService.MODE_LOCAL_TEST);
-                            break;
-                        case 2:
-                            requestScreenCapture(ScreenOcrGreetingService.MODE_DETECT_ONLY);
-                            break;
-                        case 3:
-                            requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING);
-                            break;
-                        case 4:
-                            startOneClickBigoBroadcast();
-                            break;
-                        case 5:
-                            showAiManagementDialog();
-                            break;
-                        case 6:
-                            showEventVisualSettings();
-                            break;
-                        case 7:
-                            showLiveBroadcastWarning();
-                            break;
-                        default:
-                            break;
-                    }
-                })
-                .setNegativeButton("닫기", null)
-                .show();
-    }
 
 
     // V3.2.3 PLAYER VISIBILITY POLICY:
     // - 기존 V3.1.6 PlaybackService를 변경하지 않는다.
     // - 앱을 열면 이미지와 이전/재생/다음/LIVE/설정 버튼을 즉시 표시한다.
     // - 원클릭은 음악 재생 후 BIGO 일반 LIVE 방송 준비 화면까지 자동 이동한다.
-    private void startOneClickBigoBroadcast() {
-        if (oneClickStarting) {
-            toast("원클릭 방송을 준비하고 있습니다.");
-            return;
-        }
-        oneClickStarting = true;
-        startCommunityLive("일반 LIVE");
-        handler.postDelayed(() -> oneClickStarting = false, 2_000L);
-    }
 
-    private void openBigoOverlaySettings() {
-        Intent overlay = new Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:" + OneClickBroadcastPlan.BIGO_PACKAGE));
-        try {
-            startActivity(overlay);
-        } catch (RuntimeException first) {
-            Intent details = new Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:" + OneClickBroadcastPlan.BIGO_PACKAGE));
-            try {
-                startActivity(details);
-            } catch (RuntimeException ignored) {
-                toast("BIGO 설정을 열지 못했습니다.");
-            }
-        }
-    }
 
     private void requestScreenCapture(String mode) {
         pendingCaptureMode = mode;
@@ -931,43 +841,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
     }
 
-    private void startBigoMusicOnly() {
-        if (playback != null) playback.setBigoCoexistenceMode(true);
-        ScreenOcrGreetingService.stop(this);
-        AutoGreetingService.cancel(this);
-        IntermissionStore.resetSession(this);
-        startMusicForBroadcast();
-        AutoGreetingStore.setRunningMode(this, "music_only");
-        AutoGreetingStore.setStatus(this, "노래 재생 중 음악만 · 곡 사이 5개 언어 안내 대기");
-        refreshAutoGreetingStatus();
-        handler.postDelayed(this::openBigoChat, 350L);
-    }
 
-    private void runActualGreetingTest() {
-        StringBuilder preview = new StringBuilder();
-        String[] languages = IntermissionStore.announcementLanguages();
-        for (int i = 0; i < languages.length; i++) {
-            if (i > 0) preview.append("\n\n");
-            preview.append(IntermissionAnnouncementText.build(
-                    "별빛 아래서",
-                    languages[i],
-                    java.util.Collections.singletonList("Test Listener"),
-                    java.util.Collections.singletonList("New Friend")));
-        }
-
-        new AlertDialog.Builder(this)
-                .setTitle("5개 언어 연속 통합 안내 테스트")
-                .setMessage(preview.toString())
-                .setPositiveButton("실제 음성 테스트", (dialog, which) ->
-                        AutoGreetingService.announceIntermission(
-                                this,
-                                "별빛 아래서",
-                                java.util.Collections.singletonList("Test Listener"),
-                                java.util.Collections.singletonList("New Friend"),
-                                -1))
-                .setNegativeButton("닫기", null)
-                .show();
-    }
 
     private void openTtsSettings() {
         Intent intent =
@@ -1050,51 +924,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "상태: " + AutoGreetingStore.status(this));
     }
 
-    private void startLocalTest() {
-        homePlayerMode = false;
-        localTestMode = true;
-        selectedMode =
-                BroadcastMode.PORTRAIT_9_16;
-        pendingAutoMusicStart = true;
-        startBroadcast();
-    }
 
-    private void showLiveBroadcastWarning() {
-        new AlertDialog.Builder(this)
-                .setTitle("실방송 시작 전 확인")
-                .setMessage(
-                        "로컬 테스트에서 음악·이미지·가사·안내음성을 모두 확인했습니까?\n\n"
-                                + "실방송 화면에서는 청취자에게 소리와 화면이 전달될 수 있습니다.")
-                .setPositiveButton("확인 후 계속", (dialog, which) -> {
-                    homePlayerMode = false;
-                    localTestMode = false;
-                    showBroadcastModeDialog();
-                })
-                .setNegativeButton("로컬 테스트로 돌아가기", null)
-                .show();
-    }
 
-    private void showBroadcastModeDialog() {
-        homePlayerMode = false;
-        localTestMode = false;
-        String[] labels = {
-                BroadcastMode.PORTRAIT_9_16.label,
-                BroadcastMode.LANDSCAPE_16_9.label
-        };
-        int selected = selectedMode == BroadcastMode.PORTRAIT_9_16 ? 0 : 1;
-        new AlertDialog.Builder(this)
-                .setTitle("방송 화면 선택")
-                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
-                    selectedMode = which == 0
-                            ? BroadcastMode.PORTRAIT_9_16
-                            : BroadcastMode.LANDSCAPE_16_9;
-                    AppStorage.setBroadcastMode(this, selectedMode.name());
-                    dialog.dismiss();
-                    startBroadcast();
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
     private void startBroadcast() {
         broadcastVisible = true;
@@ -1218,21 +1049,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }));
 
         if (homePlayerMode) {
-            controls.addView(smallButton("LIVE", v ->
-                    showCommunityLiveModeDialog()));
+            controls.addView(smallButton("오디오 LIVE", v ->
+                    startCommunityLive("오디오 LIVE")));
             controls.addView(smallButton("설정", v ->
                     openSetupFromPlayer()));
         } else if (localTestMode) {
-            controls.addView(smallButton("가짜 이벤트", v ->
-                    showFakeEventDialog()));
-            controls.addView(smallButton("안내음성", v ->
-                    runGreetingVoiceTest()));
-            controls.addView(smallButton("이미지", v ->
-                    showNextImageNow()));
-            controls.addView(smallButton("가사", v ->
-                    runLyricsDisplayTest()));
-            controls.addView(smallButton("테스트 끝", v ->
-                    finishBroadcast()));
+            controls.addView(smallButton("설정", v ->
+                    openSetupFromPlayer()));
         } else {
             controls.addView(smallButton("답변", v ->
                     showQuickReplyDialog()));
@@ -1361,43 +1184,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
     }
 
-    private void runFakeViewerTest() {
-        runFakeEvent(EventType.JOIN);
-    }
 
-    private void showFakeEventDialog() {
-        String[] labels = {"입장", "좋아요", "선물", "팔로우"};
-        new AlertDialog.Builder(this)
-                .setTitle("가짜 이벤트 로컬 테스트")
-                .setItems(labels, (dialog, which) -> {
-                    EventType[] types = {
-                            EventType.JOIN,
-                            EventType.LIKE,
-                            EventType.GIFT,
-                            EventType.FOLLOW
-                    };
-                    runFakeEvent(types[which]);
-                })
-                .setNegativeButton("닫기", null)
-                .show();
-    }
 
-    private void runFakeEvent(EventType type) {
-        String detail = type == EventType.GIFT
-                ? "Rose x10"
-                : "";
-        LiveEvent event = new LiveEvent(
-                type,
-                "Test Listener",
-                detail,
-                "LOCAL TEST",
-                GreetingLanguage.ENGLISH,
-                System.currentTimeMillis());
-        LiveOverlayController.show(this, event);
-        if (type == EventType.JOIN) {
-            AutoGreetingService.announceEvent(this, event);
-        }
-    }
 
     private void showEventVisualSettings() {
         EventType[] types = {EventType.JOIN};
@@ -1415,7 +1203,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     new AlertDialog.Builder(this)
                             .setTitle(type.koreanLabel + " 화면")
                             .setItems(
-                                    new String[]{"이미지·MP4 선택", "등록 삭제", "가짜 테스트"},
+                                    new String[]{"이미지·MP4 선택", "등록 삭제"},
                                     (menu, action) -> {
                                         if (action == 0) {
                                             pendingEventVisualType = type;
@@ -1424,8 +1212,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                         } else if (action == 1) {
                                             EventVisualStore.clear(this, type);
                                             toast(type.koreanLabel + " 화면 삭제");
-                                        } else {
-                                            runFakeEvent(type);
                                         }
                                     })
                             .setNegativeButton("닫기", null)
@@ -1470,55 +1256,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
-    private void showAiManagementDialog() {
-        String[] labels = {
-                "AI 학습 현황",
-                "미확인 청취자 기본 언어",
-                "내 BIGO 닉네임 설정",
-                "마지막 청취자 언어 수정",
-                "최근 OCR 이벤트 문구 학습",
-                "대화 답변 직접 학습",
-                "AI 학습 데이터 백업",
-                "AI 학습 데이터 복원",
-                "AI 학습 데이터 초기화"
-        };
-        new AlertDialog.Builder(this)
-                .setTitle("습득·진화형 AI 관리")
-                .setItems(labels, (dialog, which) -> {
-                    switch (which) {
-                        case 0: showMessage("AI 학습 현황", AdaptiveAiStore.summary(this)); break;
-                        case 1: chooseDefaultLanguage(); break;
-                        case 2: editHostNickname(); break;
-                        case 3: correctLastViewerLanguage(); break;
-                        case 4: learnRecentEventPhrase(); break;
-                        case 5: learnConversationReply(); break;
-                        case 6: aiBackupCreateLauncher.launch("MARU-AI-BACKUP.json"); break;
-                        case 7: aiBackupOpenLauncher.launch(new String[]{"application/json", "text/*"}); break;
-                        case 8: confirmClearAi(); break;
-                        default: break;
-                    }
-                })
-                .setNegativeButton("닫기", null)
-                .show();
-    }
 
-    private void chooseDefaultLanguage() {
-        String[] labels = GreetingLanguage.supportedLabels();
-        String[] codes = GreetingLanguage.supportedCodes();
-        int selected = 0;
-        String current = AdaptiveAiStore.defaultLanguage(this);
-        for (int i = 0; i < codes.length; i++) if (codes[i].equals(current)) selected = i;
-        final int checked = selected;
-        new AlertDialog.Builder(this)
-                .setTitle("미확인 청취자 기본 언어")
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    AdaptiveAiStore.setDefaultLanguage(this, codes[which]);
-                    dialog.dismiss();
-                    refreshAutoGreetingStatus();
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
     private void editHostNickname() {
         EditText input = new EditText(this);
@@ -1534,143 +1272,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
-    private void correctLastViewerLanguage() {
-        String name = AutoGreetingStore.lastNickname(this);
-        if (name.isEmpty()) {
-            toast("마지막 청취자 기록이 없습니다.");
-            return;
-        }
-        String[] labels = GreetingLanguage.supportedLabels();
-        String[] codes = GreetingLanguage.supportedCodes();
-        new AlertDialog.Builder(this)
-                .setTitle(name + " 언어 수정")
-                .setItems(labels, (dialog, which) -> {
-                    AdaptiveAiStore.rememberLanguage(this, name, codes[which], 10);
-                    toast(name + " · " + labels[which] + " 기억 완료");
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
-    private void learnRecentEventPhrase() {
-        EditText input = new EditText(this);
-        input.setText(AutoGreetingStore.lastOcrText(this));
-        input.setHint("반복되는 BIGO 이벤트 핵심 문구");
-        new AlertDialog.Builder(this)
-                .setTitle("최근 OCR 문구 학습")
-                .setMessage("전체 문장보다 'sent a gift'처럼 반복되는 핵심 문구를 남기세요.")
-                .setView(input)
-                .setPositiveButton("다음", (dialog, which) -> {
-                    String phrase = input.getText().toString().trim();
-                    EventType[] types = {EventType.JOIN, EventType.LIKE, EventType.GIFT, EventType.FOLLOW};
-                    String[] labels = {"입장", "좋아요", "선물", "팔로우"};
-                    new AlertDialog.Builder(this)
-                            .setTitle("이 문구의 종류")
-                            .setItems(labels, (d, index) -> {
-                                String language = GreetingLanguage.detectFromText(phrase);
-                                AdaptiveAiStore.addEventRule(this, phrase, types[index], language);
-                                toast("새 이벤트 문구를 학습했습니다.");
-                            })
-                            .show();
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
-    private void learnConversationReply() {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(dp(20), dp(8), dp(20), 0);
-        EditText trigger = new EditText(this);
-        trigger.setHint("청취자 문구: 예) where are you from");
-        org.json.JSONObject latest = AdaptiveAiStore.latestCandidate(this);
-        trigger.setText(latest.optString("message", ""));
-        EditText answer = new EditText(this);
-        answer.setHint("AI 답변 문장");
-        box.addView(trigger);
-        box.addView(answer);
-        new AlertDialog.Builder(this)
-                .setTitle("대화 답변 학습")
-                .setView(box)
-                .setPositiveButton("저장", (dialog, which) -> {
-                    String t = trigger.getText().toString();
-                    String a = answer.getText().toString();
-                    AdaptiveAiStore.addCustomReply(
-                            this,
-                            t,
-                            a,
-                            GreetingLanguage.detectFromText(a));
-                    toast("대화 답변을 학습했습니다.");
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
-    private void confirmClearAi() {
-        new AlertDialog.Builder(this)
-                .setTitle("AI 학습 초기화")
-                .setMessage("기억한 언어·문구·답변을 모두 지울까요?")
-                .setPositiveButton("초기화", (dialog, which) -> {
-                    AdaptiveAiStore.clear(this);
-                    refreshAutoGreetingStatus();
-                    toast("AI 학습 데이터를 초기화했습니다.");
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
 
-    private void showMessage(String title, String message) {
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton("확인", null)
-                .show();
-    }
 
-    private void runGreetingVoiceTest() {
-        showTemporaryTestOverlay(
-                "곡 사이 통합 안내 로컬 테스트\n"
-                        + "노래 재생 중에는 실행하지 않습니다.",
-                4_000L);
-        AutoGreetingService.announceIntermission(
-                this,
-                "별빛 아래서",
-                java.util.Collections.singletonList("테스트 청취자"),
-                java.util.Collections.singletonList("새 친구"),
-                -1);
-    }
 
-    private void runLyricsDisplayTest() {
-        if (lyricView == null) return;
-        lyricView.setText(
-                "가사 자막 로컬 테스트\n"
-                        + "두 번째 줄 표시 확인");
-        lyricView.setVisibility(View.VISIBLE);
-        handler.postDelayed(() -> {
-            if (lyricView != null && localTestMode) {
-                String current = playback == null
-                        ? ""
-                        : LyricsCore.twoLines(
-                                lyrics, playback.position());
-                lyricView.setText(current);
-                lyricView.setVisibility(
-                        current.trim().isEmpty()
-                                ? View.GONE
-                                : View.VISIBLE);
-            }
-        }, 5_000L);
-    }
 
-    private void showNextImageNow() {
-        if (activeSongMedia.isEmpty()) {
-            toast("등록된 곡 이미지·영상이 없습니다.");
-            return;
-        }
-        advanceSongMedia();
-        showTemporaryTestOverlay(
-                "곡 미디어 전환 " + (mediaIndex + 1) + " / " + activeSongMedia.size(),
-                2_000L);
-    }
 
     private void showTemporaryTestOverlay(
             String message,
