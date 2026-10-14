@@ -91,8 +91,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3033')
-check('version name', version_name == '3.2.14')
+check('version code', version_code == '3034')
+check('version name', version_name == '3.2.15')
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
@@ -148,8 +148,8 @@ one_click_plan_text = (
     root / 'app/src/main/java/com/maru/musiclive/OneClickBroadcastPlan.java'
 ).read_text(encoding='utf-8')
 check('community live with user-controlled BIGO opening',
-      '일반 LIVE 음악방송 시작' in main
-      and '오디오 LIVE 음악방송 시작' in main
+      'BIGO 오디오 LIVE 시작' in main
+      and 'Suno → BIGO 원곡 방송 안내' in main
       and 'startCommunityLive' in main
       and 'startMusicForBroadcast();' in main
       and 'openBigoChat();' in main
@@ -205,7 +205,7 @@ check('default full-screen image player visible',
       and 'loadActiveSongMedia();' in main
       and 'showActiveSongMedia();' in main
       and 'BitmapFactory.decodeResource' in main
-      and 'smallButton("LIVE"' in main
+      and 'smallButton("오디오 LIVE"' in main
       and 'smallButton("설정"' in main
       and 'if (!localTestMode)' in main
       and 'if (localTestMode) return;' in main
