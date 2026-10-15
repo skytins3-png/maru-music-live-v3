@@ -75,8 +75,13 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void syncWallEndFromSchedule() {
-        // Used for ALL ways of starting playback, not only the scheduled BIGO handoff.
-        wallEndAt = RadioSchedule.endAt(this);
+        // All playback paths use a selected end clock, not only scheduled BIGO handoff.
+        // The preference getter returns zero after the deadline passes: never erase
+        // an already-expired deadline before checking it (e.g. user presses Next
+        // while the inexact Android alarm has not fired).
+        long scheduled = RadioSchedule.endAt(this);
+        if (scheduled > 0L) wallEndAt = scheduled;
+        else if (wallEndAt > System.currentTimeMillis()) wallEndAt = 0L;
         rescheduleTimerCheck();
     }
 
