@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.safev17'" in gradle,
+    "own package": "applicationId 'com.maru.radio.safev171'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -66,11 +66,11 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7 distinct package protects V1.6 data": "applicationId 'com.maru.radio.safev17'" in gradle
+    "V1.7 distinct package protects V1.6 data": "applicationId 'com.maru.radio.safev171'" in gradle
         and "applicationId 'com.maru.radio.safev16'" not in gradle,
-    "V1.7 correct Android version": "versionCode 8" in gradle
-        and "versionName '1.7.0'" in gradle
-        and "MARU RADIO V1.7" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7 correct Android version": "versionCode 9" in gradle
+        and "versionName '1.7.1'" in gradle
+        and "MARU RADIO V1.7.1" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
         and 'picker.setValue(currentMinutes == 0 ? 5 : currentMinutes)' in activity,
     "V1.7 timer only after explicit choice": 'RadioProgram.setDurationMinutes(this, chosen)' in activity
