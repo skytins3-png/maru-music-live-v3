@@ -146,12 +146,6 @@ public final class Originals {
     private static boolean retainDownloadDocument(Context ctx, Uri uri,
             List<Track> tracks, Set<String> hashes) throws Exception {
         if (uri == null) throw new IOException("선택한 음악 파일을 찾을 수 없어요.");
-        try {
-            ctx.getContentResolver().takePersistableUriPermission(
-                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } catch (SecurityException | IllegalArgumentException ex) {
-            return copyOriginal(ctx, uri, tracks, hashes);
-        }
         String title = name(ctx.getContentResolver(), uri);
         String mime = ctx.getContentResolver().getType(uri);
         if (!audioFile(title, mime)) throw new IOException("오디오 파일만 가져올 수 있어요.");
@@ -171,6 +165,16 @@ public final class Originals {
         if (size == 0L) throw new IOException("비어 있는 음악 파일이에요.");
         String fingerprint = hex(hash.digest());
         if (hashes.contains(fingerprint)) return false;
+        try {
+            // Stay well below the older Android 128 persisted-URI grant limit.
+            if (ctx.getContentResolver().getPersistedUriPermissions().size() >= 96) {
+                return copyOriginal(ctx, uri, tracks, hashes);
+            }
+            ctx.getContentResolver().takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException | IllegalArgumentException ex) {
+            return copyOriginal(ctx, uri, tracks, hashes);
+        }
         tracks.add(new Track(title, uri.toString(), fingerprint));
         hashes.add(fingerprint);
         return true;
