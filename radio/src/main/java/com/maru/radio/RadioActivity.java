@@ -533,13 +533,14 @@ public final class RadioActivity extends Activity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(24), dp(10), dp(24), dp(4));
-        content.addView(label("재생 중인 원곡 음악을 종료할 시간을 정하세요. "
+        content.addView(label("기본 자동 종료는 없습니다. 아래 타이머 시작을 직접 누른 경우에만 작동합니다. " 
+                + "재생 중인 원곡 음악을 종료할 시간을 정하세요. "
                 + "BIGO 라이브 자체는 종료되지 않으므로 BIGO에서 직접 끝내야 해요.",
                 14, Color.DKGRAY, false));
         NumberPicker picker = new NumberPicker(this);
         picker.setMinValue(5);
         picker.setMaxValue(720);
-        picker.setValue(currentMinutes == 0 ? 60 : currentMinutes);
+        picker.setValue(currentMinutes == 0 ? 5 : currentMinutes);
         picker.setWrapSelectorWheel(false);
         content.addView(picker);
         new AlertDialog.Builder(this)
@@ -547,12 +548,12 @@ public final class RadioActivity extends Activity {
                 .setView(content)
                 .setPositiveButton("타이머 시작", (dialog, which) -> {
                     int chosen = picker.getValue();
-                    RadioProgram.setDurationMinutes(this, chosen);
                     if (radioService == null || !radioService.isPlaying()) {
-                        say("시간은 저장했어. 먼저 ▶ 재생을 누르고 시간 설정을 다시 눌러줘.");
+                        say("타이머는 시작하지 않았어. 먼저 ▶ 재생을 누른 뒤 다시 설정해 줘.");
                         refreshProgramUI();
                         return;
                     }
+                    RadioProgram.setDurationMinutes(this, chosen);
                     Intent timer = new Intent(this, RadioPlaybackService.class)
                             .setAction(RadioPlaybackService.ACTION_SET_TIMER)
                             .putExtra(RadioPlaybackService.EXTRA_MINUTES, chosen);
@@ -564,6 +565,7 @@ public final class RadioActivity extends Activity {
     }
 
     private void cancelProgramTimer() {
+        RadioProgram.setDurationMinutes(this, 0);
         startService(new Intent(this, RadioPlaybackService.class)
                 .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
         say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");
