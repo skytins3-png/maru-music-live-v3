@@ -44,7 +44,7 @@ checks = {
     "one-time clock reminder": "RadioSchedule" in manifest and "POST_NOTIFICATIONS" in manifest and
         "new Intent(this, RadioAutomationActivity.class)" in activity,
     "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
-        "handleStartIntent", "beginBroadcast()", "getLaunchIntentForPackage(\"sg.bigo.live\")", "RadioSchedule.set(this, pendingStartAt)")),
+        "handleStartIntent", "beginBroadcast()", "BigoBroadcastGuide.openBigo(this, false)", "RadioSchedule.set(this, pendingStartAt)")),
     "five-language copy-only replies": "RadioReplies.message(language, event)" in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
     "no accessibility service or permission": all(s not in manifest for s in
         ("AccessibilityService", "BIND_ACCESSIBILITY_SERVICE", "BigoControlAssist",
@@ -88,6 +88,19 @@ checks.update({
         and "private void rescheduleTimerCheck()" in service,
     "V1.7 next-day time chooser": "chosen.add(Calendar.DAY_OF_MONTH, 1)" in automation
         and "RadioSchedule.setEnd(this, pendingEndAt)" in automation,
+    "BIGO guided start/end based on user screenshots": all(
+        text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
+                 .read_text(encoding="utf-8") for text in (
+        '"믹서"', "마이크 볼륨 1", "Original(원본)", "방송하기",
+        "라이브 종료하기", "stopService(new Intent(host, RadioPlaybackService.class))")),
+    "BIGO navigation is safe launch-only": all(
+        text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
+                 .read_text(encoding="utf-8") for text in (
+        'getLaunchIntentForPackage(BIGO_PACKAGE)', 'host.startActivity(launch)'))
+        and "BIND_ACCESSIBILITY_SERVICE" not in manifest
+        and "SYSTEM_ALERT_WINDOW" not in manifest,
+    "BIGO end notification has open shortcut": "BigoBroadcastGuide.endBigoShortcut(context)" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
     "V1.7 no new BIGO accessibility controls": "BIND_ACCESSIBILITY_SERVICE" not in manifest
         and "dispatchGesture" not in service and "dispatchGesture" not in automation,
 })
