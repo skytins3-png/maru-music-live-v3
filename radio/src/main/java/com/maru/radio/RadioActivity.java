@@ -143,6 +143,20 @@ public final class RadioActivity extends Activity {
         root.addView(label("MARU RADIO", 31, VIOLET, true));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
+        root.addView(label("V1.7 새 설치형 · 기존 V1.6의 곡과 설정은 삭제되지 않아요.", 13,
+                0xFFFFD998, false));
+        root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
+                new AlertDialog.Builder(this)
+                        .setTitle("V1.6 곡 보관 · V1.7 가져오기")
+                        .setMessage("V1.6은 삭제하지 마세요. V1.7은 서로 다른 앱으로 설치됩니다.\n\n"
+                                + "① 이 앱에서 'Download 바로가기'를 눌러 기존 Suno MP3/WAV를 "
+                                + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\n\n"
+                                + "② Download에 없는 곡은 기존 V1.6에서 그 곡의 "
+                                + "'BIGO용 저장'으로 Music 폴더에 내보낸 다음 "
+                                + "이 앱에서 '다른 폴더에서 가져오기'로 등록하세요.\n\n"
+                                + "V1.6만의 장르 분류/예약 설정은 자동으로 이전되지 않으며 "
+                                + "V1.7에서 다시 지정해야 합니다.")
+                        .setPositiveButton("확인", null).show()));
         gap(root, 8);
 
         LinearLayout playerCard = new LinearLayout(this);
@@ -212,7 +226,7 @@ public final class RadioActivity extends Activity {
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
-        timerButtons.addView(compactButton("⏱ 시간 설정 · 시작", this::configureProgramTimer),
+        timerButtons.addView(compactButton("⏱ 음악 종료 시간(선택)", this::configureProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 1.2f));
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 0.85f));
@@ -454,22 +468,11 @@ public final class RadioActivity extends Activity {
     }
 
     private void requestBigoStart() {
-        new AlertDialog.Builder(this).setTitle("BIGO 오디오 LIVE 시작")
-                .setMessage("BIGO 앱을 연 뒤 '오디오 라이브'를 선택하고 "
-                        + "'방송하기' 버튼을 직접 눌러 주세요.\n\n"
-                        + "보안을 위해 MARU는 접근성 권한을 요청하지 않으며 "
-                        + "다른 앱의 버튼을 자동 조작하지 않습니다.")
-                .setPositiveButton("BIGO 열기", (d, w) -> openBigo())
-                .setNegativeButton("취소", null).show();
+        BigoBroadcastGuide.showStart(this);
     }
 
     private void requestBigoEnd() {
-        new AlertDialog.Builder(this).setTitle("BIGO 라이브 종료")
-                .setMessage("BIGO를 열고 현재 방송 화면 오른쪽 위 X를 누른 뒤 "
-                        + "'라이브 종료하기'를 직접 선택해 주세요.\n\n"
-                        + "음악 타이머 종료는 BIGO 방송을 자동 종료하지 않습니다.")
-                .setPositiveButton("BIGO 열기", (d, w) -> openBigo())
-                .setNegativeButton("취소", null).show();
+        BigoBroadcastGuide.showEnd(this);
     }
 
     private void broadcastGuide() {
@@ -520,7 +523,7 @@ public final class RadioActivity extends Activity {
         if (programSummary != null) {
             int minutes = RadioProgram.durationMinutes(this);
             long remaining = radioService == null ? 0 : radioService.timerRemainingMs();
-            programSummary.setText("설정 " + minutes + "분 · "
+            programSummary.setText("음악 자동 종료 " + (minutes == 0 ? "꺼짐" : minutes + "분 설정") + " · "
                     + (remaining <= 0 ? "타이머 중지" :
                     "자동 재생 종료까지 " + (remaining / 60000) + "분 "
                             + ((remaining / 1000) % 60) + "초")
@@ -533,26 +536,27 @@ public final class RadioActivity extends Activity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(24), dp(10), dp(24), dp(4));
-        content.addView(label("재생 중인 원곡 음악을 종료할 시간을 정하세요. "
+        content.addView(label("기본 자동 종료는 없습니다. 아래 타이머 시작을 직접 누른 경우에만 작동합니다. " 
+                + "재생 중인 원곡 음악을 종료할 시간을 정하세요. "
                 + "BIGO 라이브 자체는 종료되지 않으므로 BIGO에서 직접 끝내야 해요.",
                 14, Color.DKGRAY, false));
         NumberPicker picker = new NumberPicker(this);
         picker.setMinValue(5);
         picker.setMaxValue(720);
-        picker.setValue(currentMinutes);
+        picker.setValue(currentMinutes == 0 ? 5 : currentMinutes);
         picker.setWrapSelectorWheel(false);
         content.addView(picker);
         new AlertDialog.Builder(this)
-                .setTitle("음악 자동 종료 시간")
+                .setTitle("선택한 시간 뒤 음악 종료")
                 .setView(content)
                 .setPositiveButton("타이머 시작", (dialog, which) -> {
                     int chosen = picker.getValue();
-                    RadioProgram.setDurationMinutes(this, chosen);
                     if (radioService == null || !radioService.isPlaying()) {
-                        say("시간은 저장했어. 먼저 ▶ 재생을 누르고 시간 설정을 다시 눌러줘.");
+                        say("타이머는 시작하지 않았어. 먼저 ▶ 재생을 누른 뒤 다시 설정해 줘.");
                         refreshProgramUI();
                         return;
                     }
+                    RadioProgram.setDurationMinutes(this, chosen);
                     Intent timer = new Intent(this, RadioPlaybackService.class)
                             .setAction(RadioPlaybackService.ACTION_SET_TIMER)
                             .putExtra(RadioPlaybackService.EXTRA_MINUTES, chosen);
@@ -564,6 +568,7 @@ public final class RadioActivity extends Activity {
     }
 
     private void cancelProgramTimer() {
+        RadioProgram.setDurationMinutes(this, 0);
         startService(new Intent(this, RadioPlaybackService.class)
                 .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
         say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");

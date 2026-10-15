@@ -35,11 +35,15 @@ public final class RadioProgram {
             pref(context).edit().putString("map", map.toString()).apply();
         } catch (Exception ignored) {}
     }
+    // A fresh installation NEVER stops the music after a hidden default hour.
+    // A timer exists only if the user explicitly saves one. 0 means disabled.
     public static int durationMinutes(Context context) {
-        return Math.max(5, Math.min(720, pref(context).getInt("duration", 60)));
+        int value = pref(context).getInt("duration", 0);
+        return value == 0 ? 0 : Math.max(5, Math.min(720, value));
     }
     public static void setDurationMinutes(Context context, int minutes) {
-        pref(context).edit().putInt("duration", Math.max(5, Math.min(720, minutes))).apply();
+        pref(context).edit().putInt("duration",
+                minutes <= 0 ? 0 : Math.max(5, Math.min(720, minutes))).apply();
     }
     public static int inferred(String title) {
         if (title == null) return 3;

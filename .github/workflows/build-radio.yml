@@ -1,4 +1,4 @@
-name: MARU RADIO V1.6 safe permissions APK
+name: MARU RADIO V1.7.3 paired schedule APK
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feat/maru-radio-clean-20261015
+      - fix/radio-no-fixed-hour-start-end-v17-20261015
   pull_request:
     branches: [main]
 
@@ -36,6 +37,14 @@ jobs:
       - name: Check clean original-audio app contract
         run: python3 scripts/test_radio_contract.py
 
+      - name: Test next-day and overnight clock calculations (plain Java)
+        run: |
+          mkdir -p /tmp/radio-clock-tests
+          javac -d /tmp/radio-clock-tests \
+            radio/src/main/java/com/maru/radio/RadioClock.java \
+            scripts/RadioClockSelfTest.java
+          java -cp /tmp/radio-clock-tests com.maru.radio.RadioClockSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -48,15 +57,15 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.safev16'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO 안전형'" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.safev173'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.7.3'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.6-INSTALL.apk
-          ls -lh MARU-RADIO-V1.6-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.7.3-PAIRED-SCHEDULE-INSTALL.apk
+          ls -lh MARU-RADIO-V1.7.3-PAIRED-SCHEDULE-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.6-NEW-INSTALL
-          path: MARU-RADIO-V1.6-INSTALL.apk
+          name: MARU-RADIO-V1.7.3-PAIRED-SCHEDULE
+          path: MARU-RADIO-V1.7.3-PAIRED-SCHEDULE-INSTALL.apk
           if-no-files-found: error

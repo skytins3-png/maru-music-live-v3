@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.safev16'" in gradle,
+    "own package": "applicationId 'com.maru.radio.safev173'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -44,7 +44,7 @@ checks = {
     "one-time clock reminder": "RadioSchedule" in manifest and "POST_NOTIFICATIONS" in manifest and
         "new Intent(this, RadioAutomationActivity.class)" in activity,
     "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
-        "handleStartIntent", "beginBroadcast()", "getLaunchIntentForPackage(\"sg.bigo.live\")", "RadioSchedule.set(this, pendingStartAt)")),
+        "handleStartIntent", "beginBroadcast()", "BigoBroadcastGuide.openBigo(this, false)", "RadioSchedule.set(this, pendingStartAt)")),
     "five-language copy-only replies": "RadioReplies.message(language, event)" in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
     "no accessibility service or permission": all(s not in manifest for s in
         ("AccessibilityService", "BIND_ACCESSIBILITY_SERVICE", "BigoControlAssist",
@@ -60,6 +60,95 @@ checks = {
         "AutoGreetingService", "ScreenOcrGreetingService", "AdaptiveAiStore",
         "OcrTestActivity", "YouTubePlayerActivity")),
 }
+
+# V1.7 regression guards: opt-in only, independent timers, safe app handoff.
+service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8")
+automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
+program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.safev173'" in gradle
+        and "applicationId 'com.maru.radio.safev16'" not in gradle
+        and "applicationId 'com.maru.radio.safev17'" not in gradle
+        and "applicationId 'com.maru.radio.safev171'" not in gradle,
+    "V1.7.2 correct Android version": "versionCode 11" in gradle
+        and "versionName '1.7.3'" in gradle
+        and "MARU RADIO V1.7.3" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
+        and "canScheduleExactAlarms()" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
+        and "Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM" in automation,
+    "V1.7.2 background start limited to MARU music": all(
+        word in (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
+        for word in ("setExactAndAllowWhileIdle(", "startForegroundService(play)",
+                     "RadioProgram.active(context)", "EXTRA_AUTO_READY", "end_when")),
+    "V1.7.2 explicit auto/manual selection": all(word in automation for word in
+        ("chooseClock(true)", "chooseClock(false)", "RadioSchedule.setAutomatic(this, pendingStartAt)",
+         "RadioSchedule.set(this, pendingStartAt)", "잠겨 있어도")),
+    "V1.7.2 reboot rearm only": "RECEIVE_BOOT_COMPLETED" in manifest
+        and "android.intent.action.BOOT_COMPLETED" in manifest
+        and "restore(context)" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
+    "V1.7.2 end only MARU, no BIGO UI automation": all(x not in manifest for x in
+        ("BIND_ACCESSIBILITY_SERVICE", "SYSTEM_ALERT_WINDOW", "RECORD_AUDIO"))
+        and "context.stopService(new Intent(context, RadioPlaybackService.class))" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
+    "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
+        and 'picker.setValue(currentMinutes == 0 ? 5 : currentMinutes)' in activity,
+    "V1.7 timer only after explicit choice": 'RadioProgram.setDurationMinutes(this, chosen)' in activity
+        and '타이머는 시작하지 않았어' in activity,
+    "V1.7 independent deadline fields": "private long minutesDeadline;" in service
+        and "private long wallEndAt;" in service
+        and "Math.min(durationRemaining, clockRemaining)" in service,
+    "V1.7 cancel duration without canceling clock": "minutesDeadline = 0L; // Do not cancel" in service
+        and "wallEndAt = 0L; // Do not cancel" in service
+        and ".setAction(RadioPlaybackService.ACTION_CANCEL_WALL_END)" in automation,
+    "V1.7 clock applies normal playback": "syncWallEndFromSchedule();" in service
+        and "ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)" in service,
+    "V1.7 prevent next track after deadline": "private void advanceOnCompletion()" in service
+        and "if (deadlineReached())" in service
+        and "private void rescheduleTimerCheck()" in service,
+    "V1.7 next-day time chooser": "RadioClock.endAfter(now, start, hour, minute)" in automation
+        and "RadioSchedule.setEnd(this, pendingEndAt)" in automation,
+    "BIGO guided start/end based on user screenshots": all(
+        text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
+                 .read_text(encoding="utf-8") for text in (
+        "'믹서'", "마이크 볼륨 1", "Original(원본)", "방송하기",
+        "라이브 종료하기", "stopService(new Intent(host, RadioPlaybackService.class))")),
+    "BIGO navigation is safe launch-only": all(
+        text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
+                 .read_text(encoding="utf-8") for text in (
+        'getLaunchIntentForPackage(BIGO_PACKAGE)', 'host.startActivity(launch)'))
+        and "BIND_ACCESSIBILITY_SERVICE" not in manifest
+        and "SYSTEM_ALERT_WINDOW" not in manifest,
+    "BIGO end notification has open shortcut": "BigoBroadcastGuide.endBigoShortcut(context)" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
+    "V1.7 no new BIGO accessibility controls": "BIND_ACCESSIBILITY_SERVICE" not in manifest
+        and "dispatchGesture" not in service and "dispatchGesture" not in automation,
+})
+# V1.7.3 joint scheduling should neither overwrite a selected stop clock nor
+# advertise automatic control over BIGO's third-party live session.
+clock = (root / "radio/src/main/java/com/maru/radio/RadioClock.java").read_text(encoding="utf-8")
+schedule = (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.7.3 paired clock UI": all(value in automation for value in (
+        "choosePair()", "savePair()", "cancelPair()", "ASK_PAIR_NOTIFICATION",
+        "시작·종료 한번에 자동 예약", "RadioClock.endAfter(now, pendingStartAt",
+        "RadioSchedule.setPair(this, pendingStartAt, pendingEndAt)")),
+    "V1.7.3 pair time atomic preferences": all(value in schedule for value in (
+        "public static void setPair(", "finishAt <= startAt", ".putLong(\"when\", startAt)",
+        ".putLong(\"end_when\", finishAt)", ".putBoolean(\"auto_music\", true)",
+        "manager.cancel(alarm(context, false))", "manager.cancel(alarm(context, true))")),
+    "V1.7.3 end alarm restored despite start failure":
+        schedule.find("if (end > now) arm(context, end, true, false)")
+        < schedule.find("if (start > now) arm(context, start, false,"),
+    "V1.7.3 calendar calculations pure Java": all(value in clock for value in (
+        "nextOccurrence(Calendar now", "endAfter(Calendar now", "Calendar.DAY_OF_MONTH",
+        "while (end.getTimeInMillis() <= startAt)")),
+    "V1.7.3 no BIGO automatic control": "BIND_ACCESSIBILITY_SERVICE" not in manifest
+        and "SYSTEM_ALERT_WINDOW" not in manifest
+        and "BigoBroadcastGuide.showStart(this)" in automation,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
