@@ -40,11 +40,26 @@ public final class RadioAutomationActivity extends Activity {
     private TextView note;
     private long pendingStartAt;
     private long pendingEndAt;
+    private boolean pendingAutoMusic;
+    private boolean waitingExactAccess;
 
     @Override protected void onCreate(Bundle savedState) {
         super.onCreate(savedState);
         render();
         handleStartIntent(getIntent());
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (waitingExactAccess) {
+            waitingExactAccess = false;
+            if (RadioSchedule.canAutoStart(this) && pendingStartAt > System.currentTimeMillis()) {
+                saveSchedule();
+            } else {
+                message("정확한 알람이 허용되지 않았어요. 음악 자동 시작은 예약되지 않았습니다.");
+            }
+        }
+        updateStatus();
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -105,20 +120,23 @@ public final class RadioAutomationActivity extends Activity {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(19), dp(17), dp(19), dp(36));
         scroll.addView(content);
-        content.addView(label("📻 MARU 방송 자동 운영", 27, PURPLE));
-        content.addView(label("방송 준비 알림 · 음악 종료시간 · 댓글 답변 문구", 14, WHITE));
+        content.addView(label("📻 MARU 원곡 자동 시작·종료", 27, PURPLE));
+        content.addView(label("MARU 음악만 예약 자동 재생·종료 · BIGO 라이브 조작은 수동", 14, WHITE));
 
         LinearLayout schedule = card(content);
-        schedule.addView(label("① 방송 시작 시각 예약", 21, WHITE));
-        schedule.addView(label("휴대폰에 시작 알림을 띄워요. 알림을 누른 뒤 방송 시작을 확인해야 해요.",
+        schedule.addView(label("① 원하는 음악 시작 시각", 21, WHITE));
+        schedule.addView(label("‘음악 자동 시작’은 선택한 Suno 원곡을 예약 시각에 "
+                + "자동 재생하도록 Android에 요청해요. BIGO 오디오 라이브 방송은 "
+                + "자동 시작되지 않으니 직접 눌러야 해요.",
                 14, 0xFFDDD2E8));
-        scheduleStatus = label("시작 알림 예약 없음", 16, PURPLE);
+        scheduleStatus = label("음악 시작 예약 없음", 16, PURPLE);
         schedule.addView(scheduleStatus);
-        schedule.addView(button("📅 시작 시간 지정", this::chooseClock));
-        schedule.addView(button("시작 알림 취소", this::cancelSchedule));
+        schedule.addView(button("🎵 음악 자동 시작 시간 지정", () -> chooseClock(true)));
+        schedule.addView(button("🔔 알림만 예약 (직접 재생)", () -> chooseClock(false)));
+        schedule.addView(button("시작 예약 취소", this::cancelSchedule));
 
         LinearLayout time = card(content);
-        time.addView(label("② 원하는 방송 종료 시각", 21, WHITE));
+        time.addView(label("② 원하는 음악 종료 시각", 21, WHITE));
         time.addView(label("1시간 자동 종료는 없습니다. 형이 지정한 시각에만 "
                 + "MARU 음악을 종료하고 BIGO 종료 알림을 보냅니다. "
                 + "BIGO 라이브는 방송 화면에서 직접 종료해야 합니다.",
@@ -142,10 +160,11 @@ public final class RadioAutomationActivity extends Activity {
 
         LinearLayout notes = card(content);
         notes.addView(label("방송 자동 운영 관련 안내", 18, PURPLE));
-        notes.addView(label("보안상 MARU는 BIGO의 방송하기/종료 버튼을 자동 조작하지 않습니다. "
-                + "시작 예약은 알림 후 형이 확인할 때만 음악을 재생하고 BIGO를 엽니다. "
-                + "종료 예약 시 MARU 음악만 자동 종료되며 실제 BIGO 라이브는 직접 끝내야 합니다. "
-                + "휴대폰 절전 상태에서 알림은 늦어질 수 있어요.",
+        notes.addView(label("🎵 자동 시작은 먼저 파일을 등록하고 정확한 알람 특별 접근을 "
+                + "허용한 경우에만 동작하도록 예약해요. 휴대폰이 재부팅되면 "
+                + "예약을 재등록하지만 기기 전원 꺼짐·오디오 포커스·절전 정책으로 "
+                + "시작이 실패할 수 있습니다. 종료는 MARU 음악만 끝내며, "
+                + "BIGO 실제 생방송의 시작·믹서 조작·종료는 직접 해야 합니다.",
                 13, 0xFFDDD2E8));
 
         note = label("원곡은 재가공하지 않아요.", 13, 0xFFA8E3BE);
@@ -157,7 +176,10 @@ public final class RadioAutomationActivity extends Activity {
 
     private void updateStatus() {
         if (scheduleStatus != null) scheduleStatus.setText(
-                "시작 준비 알림: " + RadioSchedule.formatted(this));
+                (RadioSchedule.scheduledAt(this) == 0L ? "음악 시작 예약: "
+                        : RadioSchedule.automaticMusic(this) ? "🎵 음악 자동 시작: "
+                        : "🔔 시작 알림만: ")
+                        + RadioSchedule.formatted(this));
         if (endStatus != null) endStatus.setText(
                 "MARU 음악 종료 시각: " + RadioSchedule.endFormatted(this)
                         + " (BIGO 라이브 수동 종료)");
@@ -165,7 +187,8 @@ public final class RadioAutomationActivity extends Activity {
 
     private void message(String value) { if (note != null) note.setText(value); }
 
-    private void chooseClock() {
+    private void chooseClock(boolean autoMusic) {
+        pendingAutoMusic = autoMusic;
         Calendar now = Calendar.getInstance();
         new TimePickerDialog(this, (view, hour, min) -> {
             Calendar chosen = Calendar.getInstance();
@@ -175,11 +198,15 @@ public final class RadioAutomationActivity extends Activity {
             chosen.set(Calendar.MILLISECOND, 0);
             if (!chosen.after(now)) chosen.add(Calendar.DAY_OF_MONTH, 1);
             pendingStartAt = chosen.getTimeInMillis();
-            new AlertDialog.Builder(this).setTitle("방송 시작 알림 예약")
+            new AlertDialog.Builder(this).setTitle(
+                            autoMusic ? "MARU 원곡 자동 재생 예약" : "음악 시작 알림 예약")
                     .setMessage("예약 시각: " + DateFormat.format("M월 d일 HH:mm", chosen)
-                            + "\n\n예약된 시각에 알림을 표시합니다. "
-                            + "알림을 누른 뒤 '방송 시작'을 직접 확인해 주세요. "
-                            + "기기가 잠겨 있을 때 자동으로 BIGO 방송을 시작하지 않습니다.")
+                            + (autoMusic
+                                ? "\n\n해당 시각에 MARU 원곡 재생을 요청합니다. "
+                                  + "정확한 알람 허용이 필요하며, BIGO 오디오 LIVE는 "
+                                  + "직접 방송하기를 눌러야 합니다."
+                                : "\n\n예약 시각에 알림을 표시하고, "
+                                  + "알림을 눌러야 음악을 직접 시작할 수 있어요."))
                     .setPositiveButton("예약 저장", (dialog, which) -> saveSchedule())
                     .setNegativeButton("취소", null).show();
         }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true).show();
@@ -197,12 +224,51 @@ public final class RadioAutomationActivity extends Activity {
             } else message("알림을 허용해 주세요.");
             return;
         }
+        if (pendingAutoMusic && !RadioSchedule.canAutoStart(this)) {
+            new AlertDialog.Builder(this)
+                    .setTitle("정확한 알람 접근 허용 필요")
+                    .setMessage("휴대폰이 잠겨 있어도 MARU 음악 자동 시작을 요청하려면 "
+                            + "시스템의 '알람 및 리마인더' 특별 접근을 허용해야 해요. "
+                            + "허용하지 않으면 자동 시작 예약을 만들지 않습니다.")
+                    .setPositiveButton("시스템 설정 열기", (d, w) -> {
+                        try {
+                            waitingExactAccess = true;
+                            Intent settings = new Intent(
+                                    Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    .setData(android.net.Uri.parse("package:" + getPackageName()));
+                            startActivity(settings);
+                        } catch (RuntimeException ex) {
+                            waitingExactAccess = false;
+                            message("정확한 알람 설정을 열 수 없어요.");
+                        }
+                    })
+                    .setNegativeButton("취소", null).show();
+            return;
+        }
+        if (pendingAutoMusic) {
+            int category = RadioProgram.active(this);
+            boolean found = false;
+            for (Originals.Track track : Originals.list(this)) {
+                if (category == 0 || category == 5
+                        || RadioProgram.category(this, track) == category) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                message("선택한 장르에 곡이 없어 자동 시작을 예약하지 않았어. 먼저 원곡을 가져와 줘.");
+                return;
+            }
+        }
         try {
-            RadioSchedule.set(this, pendingStartAt);
+            if (pendingAutoMusic) RadioSchedule.setAutomatic(this, pendingStartAt);
+            else RadioSchedule.set(this, pendingStartAt);
             updateStatus();
-            message("알림 예약 완료. 휴대폰 절전 상태에서는 늦게 도착할 수 있어요.");
+            message(pendingAutoMusic
+                    ? "MARU 음악 자동 재생 예약 완료. BIGO 방송 시작은 직접 눌러야 해요."
+                    : "시작 알림 예약 완료. 알림을 누른 뒤 직접 음악을 켜 주세요.");
         } catch (RuntimeException ex) {
-            message("알람 예약에 실패했습니다. 알림/배터리 설정을 확인해 주세요.");
+            message("예약 실패. 정확한 알람/알림/배터리 설정을 확인해 주세요.");
         }
     }
 
@@ -292,6 +358,21 @@ public final class RadioAutomationActivity extends Activity {
 
     private void handleStartIntent(Intent intent) {
         if (intent == null) return;
+        if (intent.getBooleanExtra(RadioSchedule.EXTRA_AUTO_READY, false)) {
+            intent.removeExtra(RadioSchedule.EXTRA_AUTO_READY);
+            boolean attempted = intent.getBooleanExtra("music_launch_attempted", false);
+            new AlertDialog.Builder(this)
+                    .setTitle("예약한 MARU 음악 시작 시각")
+                    .setMessage(attempted
+                        ? "MARU에서 음악 자동 재생을 요청했어요. 실제 소리가 나는지 확인하세요. "
+                          + "BIGO 라이브 방송은 자동 시작되지 않았어요."
+                        : "MARU 자동 재생에 실패했거나 예약 종료 시각이 지났어요. "
+                          + "저장곡과 휴대폰 상태를 확인하세요.")
+                    .setPositiveButton("BIGO 열어 직접 방송하기",
+                            (d, w) -> BigoBroadcastGuide.showStart(this))
+                    .setNegativeButton("닫기", null).show();
+            return;
+        }
         if (intent.getBooleanExtra(RadioSchedule.EXTRA_END_READY, false)) {
             intent.removeExtra(RadioSchedule.EXTRA_END_READY);
             new AlertDialog.Builder(this).setTitle("MARU 음악 종료 시각")
