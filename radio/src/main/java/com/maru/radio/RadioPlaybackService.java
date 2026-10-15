@@ -75,6 +75,20 @@ public final class RadioPlaybackService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
+            ++generation;
+            releasePlayer();
+            queue.clear();
+            currentIndex = -1;
+            loading = false;
+            error = "";
+            if (audio != null && focusRequest != null)
+                audio.abandonAudioFocusRequest(focusRequest);
+            if (Build.VERSION.SDK_INT >= 24) {
+                stopForeground(STOP_FOREGROUND_REMOVE);
+            } else {
+                stopForeground(true);
+            }
+            foreground = false;
             stopSelf();
             return START_NOT_STICKY;
         }
