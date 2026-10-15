@@ -37,6 +37,14 @@ jobs:
       - name: Check clean original-audio app contract
         run: python3 scripts/test_radio_contract.py
 
+      - name: Test next-day and overnight clock calculations (plain Java)
+        run: |
+          mkdir -p /tmp/radio-clock-tests
+          javac -d /tmp/radio-clock-tests \
+            radio/src/main/java/com/maru/radio/RadioClock.java \
+            scripts/RadioClockSelfTest.java
+          java -cp /tmp/radio-clock-tests com.maru.radio.RadioClockSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
