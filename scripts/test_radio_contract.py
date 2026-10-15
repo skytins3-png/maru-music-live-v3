@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.safev171'" in gradle,
+    "own package": "applicationId 'com.maru.radio.safev172'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -66,12 +66,32 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7.1 separate package protects V1.6 and V1.7 data": "applicationId 'com.maru.radio.safev171'" in gradle
+    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.safev172'" in gradle
         and "applicationId 'com.maru.radio.safev16'" not in gradle
-        and "applicationId 'com.maru.radio.safev17'" not in gradle,
-    "V1.7.1 correct Android version": "versionCode 9" in gradle
-        and "versionName '1.7.1'" in gradle
-        and "MARU RADIO V1.7.1" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+        and "applicationId 'com.maru.radio.safev17'" not in gradle
+        and "applicationId 'com.maru.radio.safev171'" not in gradle,
+    "V1.7.2 correct Android version": "versionCode 10" in gradle
+        and "versionName '1.7.2'" in gradle
+        and "MARU RADIO V1.7.2" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
+        and "canScheduleExactAlarms()" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
+        and "Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM" in automation,
+    "V1.7.2 background start limited to MARU music": all(
+        word in (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
+        for word in ("setExactAndAllowWhileIdle(", "startForegroundService(play)",
+                     "RadioProgram.active(context)", "EXTRA_AUTO_READY", "end_when")),
+    "V1.7.2 explicit auto/manual selection": all(word in automation for word in
+        ("chooseClock(true)", "chooseClock(false)", "RadioSchedule.setAutomatic(this, pendingStartAt)",
+         "RadioSchedule.set(this, pendingStartAt)", "기기가 잠겨")),
+    "V1.7.2 reboot rearm only": "RECEIVE_BOOT_COMPLETED" in manifest
+        and "ACTION_BOOT_COMPLETED" in manifest
+        and "restore(context)" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
+    "V1.7.2 end only MARU, no BIGO UI automation": all(x not in manifest for x in
+        ("BIND_ACCESSIBILITY_SERVICE", "SYSTEM_ALERT_WINDOW", "RECORD_AUDIO"))
+        and "context.stopService(new Intent(context, RadioPlaybackService.class))" in
+        (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
     "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
         and 'picker.setValue(currentMinutes == 0 ? 5 : currentMinutes)' in activity,
     "V1.7 timer only after explicit choice": 'RadioProgram.setDurationMinutes(this, chosen)' in activity
