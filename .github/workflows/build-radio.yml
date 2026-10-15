@@ -1,4 +1,4 @@
-name: MARU RADIO V1.2 playback APK
+name: MARU RADIO V1.3 BIGO start stop assist APK
 
 on:
   workflow_dispatch:
@@ -48,15 +48,15 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.player'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO PLAYER'" /tmp/radio-badging.txt
-            ! grep -Eq "BIND_ACCESSIBILITY_SERVICE|RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.bigo'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO BIGO'" /tmp/radio-badging.txt
+            ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.2-INSTALL.apk
-          ls -lh MARU-RADIO-V1.2-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.3-INSTALL.apk
+          ls -lh MARU-RADIO-V1.3-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.2-NEW-INSTALL
-          path: MARU-RADIO-V1.2-INSTALL.apk
+          name: MARU-RADIO-V1.3-NEW-INSTALL
+          path: MARU-RADIO-V1.3-INSTALL.apk
           if-no-files-found: error
