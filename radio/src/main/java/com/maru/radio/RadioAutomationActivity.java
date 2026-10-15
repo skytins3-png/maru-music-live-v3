@@ -227,7 +227,7 @@ public final class RadioAutomationActivity extends Activity {
         List<Originals.Track> saved = Originals.list(this);
         Originals.Track first = null;
         for (Originals.Track t : saved) {
-            if (cat == 0 || RadioProgram.category(this, t) == cat) {
+            if (cat == 0 || cat == 5 || RadioProgram.category(this, t) == cat) {
                 first = t;
                 break;
             }
