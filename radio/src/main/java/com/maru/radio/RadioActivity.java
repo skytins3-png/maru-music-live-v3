@@ -31,6 +31,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.NumberPicker;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.ScrollView;
@@ -71,6 +72,8 @@ public final class RadioActivity extends Activity {
     private TextView playerTitle;
     private TextView playerTime;
     private TextView bigoStatus;
+    private TextView programSummary;
+    private Button programCategoryButton;
     private Button playerToggleButton;
     private SeekBar playerSeek;
     private boolean playerSeeking;
@@ -193,6 +196,31 @@ public final class RadioActivity extends Activity {
                 playerAction(RadioPlaybackService.ACTION_STOP)));
         gap(root, 8);
 
+        LinearLayout programCard = new LinearLayout(this);
+        programCard.setOrientation(LinearLayout.VERTICAL);
+        programCard.setPadding(dp(14), dp(12), dp(14), dp(12));
+        GradientDrawable programBg = new GradientDrawable();
+        programBg.setColor(0xFF2D2442);
+        programBg.setCornerRadius(dp(14));
+        programCard.setBackground(programBg);
+        LinearLayout.LayoutParams programParams = new LinearLayout.LayoutParams(-1, -2);
+        programParams.bottomMargin = dp(14);
+        root.addView(programCard, programParams);
+        programCard.addView(label("📻 방송 편성 · 시간 설정", 19, WHITE, true));
+        programCategoryButton = compactButton("노래 분류 선택", this::selectProgramCategory);
+        programCategoryButton.setTextSize(15);
+        programCard.addView(programCategoryButton);
+        programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
+        programCard.addView(programSummary);
+        LinearLayout timerButtons = new LinearLayout(this);
+        timerButtons.setOrientation(LinearLayout.HORIZONTAL);
+        timerButtons.addView(compactButton("⏱ 시간 설정 · 시작", this::configureProgramTimer),
+                new LinearLayout.LayoutParams(0, dp(53), 1.2f));
+        timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
+                new LinearLayout.LayoutParams(0, dp(53), 0.85f));
+        programCard.addView(timerButtons);
+        gap(root, 8);
+
         LinearLayout bigoStartEnd = new LinearLayout(this);
         bigoStartEnd.setOrientation(LinearLayout.VERTICAL);
         bigoStartEnd.setPadding(dp(14), dp(10), dp(14), dp(10));
@@ -276,7 +304,7 @@ public final class RadioActivity extends Activity {
                 choose.setTextSize(14);
                 choose.setMaxLines(2);
                 choose.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                choose.setText(t.title);
+                choose.setText(t.title + "  · " + RadioProgram.NAMES[RadioProgram.category(RadioActivity.this, t)]);
                 choose.setChecked(selected.contains(t.hash));
                 choose.setOnCheckedChangeListener((button, checked) -> {
                     if (checked) selected.add(t.hash);
@@ -307,6 +335,7 @@ public final class RadioActivity extends Activity {
         setContentView(scroll);
         refreshSongs();
         refreshBigoAssistStatus();
+        refreshProgramUI();
     }
 
     private void card(LinearLayout root, String title, String body,
@@ -506,6 +535,105 @@ public final class RadioActivity extends Activity {
             .setPositiveButton("확인", null).show();
     }
 
+    private void selectProgramCategory() {
+        int current = RadioProgram.active(this);
+        new AlertDialog.Builder(this)
+                .setTitle("방송할 노래 분류")
+                .setSingleChoiceItems(RadioProgram.NAMES, current, (dialog, choice) -> {
+                    if (radioService != null && radioService.isPlaying()) {
+                        say("재생 중에는 방송 분류가 다음 곡부터 반영됩니다.");
+                    }
+                    RadioProgram.select(this, choice);
+                    updateVisibleTracks();
+                    refreshProgramUI();
+                    dialog.dismiss();
+                })
+                .setNegativeButton("닫기", null).show();
+    }
+
+    private void classifyTrack(Originals.Track track) {
+        new AlertDialog.Builder(this)
+                .setTitle("이 노래의 분류 · " + track.title)
+                .setSingleChoiceItems(new String[]{"한국노래", "중국노래", "서양노래", "연주곡"},
+                        Math.max(0, RadioProgram.category(this, track) - 1), (dialog, choice) -> {
+                            RadioProgram.classify(this, track, choice + 1);
+                            updateVisibleTracks();
+                            dialog.dismiss();
+                            say("곡 분류 저장: " + RadioProgram.NAMES[choice + 1]);
+                        })
+                .setNegativeButton("취소", null).show();
+    }
+
+    private void refreshProgramUI() {
+        if (programCategoryButton != null) {
+            programCategoryButton.setText("🎼 " + RadioProgram.NAMES[RadioProgram.active(this)] + " ▾");
+        }
+        if (programSummary != null) {
+            int minutes = RadioProgram.durationMinutes(this);
+            long remaining = radioService == null ? 0 : radioService.timerRemainingMs();
+            programSummary.setText("설정 " + minutes + "분 · "
+                    + (remaining <= 0 ? "타이머 중지" :
+                    "자동 재생 종료까지 " + (remaining / 60000) + "분 "
+                            + ((remaining / 1000) % 60) + "초")
+                    + (RadioProgram.autoEndBigo(this) ? " · BIGO 종료 시도 선택됨" : ""));
+        }
+    }
+
+    private void configureProgramTimer() {
+        int currentMinutes = RadioProgram.durationMinutes(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(24), dp(10), dp(24), dp(4));
+        TextView hint = label("음악을 재생한 상태에서 자동 종료할 시간을 정하세요.\n"
+                + "시간은 지금부터 계산하고, 앱을 전환해도 음악 종료 타이머는 유지합니다.",
+                14, Color.DKGRAY, false);
+        content.addView(hint);
+        NumberPicker picker = new NumberPicker(this);
+        picker.setMinValue(5);
+        picker.setMaxValue(720);
+        picker.setValue(currentMinutes);
+        picker.setWrapSelectorWheel(false);
+        content.addView(picker);
+        CheckBox closeBigo = new CheckBox(this);
+        closeBigo.setText("종료 시간에 BIGO의 라이브 종료 버튼도 시도");
+        closeBigo.setTextColor(Color.DKGRAY);
+        closeBigo.setChecked(RadioProgram.autoEndBigo(this));
+        closeBigo.setEnabled(BigoControlAssist.isConnected(this));
+        content.addView(closeBigo);
+        content.addView(label("BIGO 자동 종료는 접근성 설정이 켜져 있고 BIGO 라이브 화면이 "
+                + "열려 있을 때만 시도합니다. 반드시 실제 종료 여부를 확인하세요.",
+                12, Color.DKGRAY, false));
+        new AlertDialog.Builder(this)
+                .setTitle("방송 시간 · 자동 종료")
+                .setView(content)
+                .setPositiveButton("타이머 시작", (dialog, which) -> {
+                    int chosen = picker.getValue();
+                    RadioProgram.setDurationMinutes(this, chosen);
+                    RadioProgram.setAutoEndBigo(this, closeBigo.isEnabled() && closeBigo.isChecked());
+                    if (radioService == null || !radioService.isPlaying()) {
+                        say("시간은 저장했어. 먼저 ▶ 음악 재생을 누르고 시간 설정을 다시 눌러줘.");
+                        refreshProgramUI();
+                        return;
+                    }
+                    Intent timer = new Intent(this, RadioPlaybackService.class)
+                            .setAction(RadioPlaybackService.ACTION_SET_TIMER)
+                            .putExtra(RadioPlaybackService.EXTRA_MINUTES, chosen)
+                            .putExtra(RadioPlaybackService.EXTRA_END_BIGO, closeBigo.isEnabled() && closeBigo.isChecked());
+                    startService(timer);
+                    say(chosen + "분 뒤 MARU 음악 자동 종료 예약 완료"
+                            + (closeBigo.isChecked() ? " · BIGO 종료 버튼도 시도" : ""));
+                    refreshProgramUI();
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
+    private void cancelProgramTimer() {
+        startService(new Intent(this, RadioPlaybackService.class)
+                .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
+        say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");
+        refreshProgramUI();
+    }
+
     private void refreshSongs() {
         if (songList == null) return;
         allTracks.clear();
@@ -533,7 +661,9 @@ public final class RadioActivity extends Activity {
         }
         String query = search == null ? "" :
                 search.getText().toString().trim().toLowerCase(Locale.ROOT);
+        int activeCategory = RadioProgram.active(this);
         for (Originals.Track t : sorted) {
+            if (activeCategory != 0 && RadioProgram.category(this, t) != activeCategory) continue;
             if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;
@@ -619,9 +749,10 @@ public final class RadioActivity extends Activity {
 
     private void showTrackActions(Originals.Track track) {
         new AlertDialog.Builder(this).setTitle(track.title)
-                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "이 곡 삭제"}, (dialog, which) -> {
+                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "곡 분류 변경", "이 곡 삭제"}, (dialog, which) -> {
                     if (which == 0) playTrack(track);
                     else if (which == 1) export(track);
+                    else if (which == 2) classifyTrack(track);
                     else confirmDelete(track);
                 })
                 .setNegativeButton("닫기", null).show();
@@ -677,6 +808,7 @@ public final class RadioActivity extends Activity {
 
     private void updatePlayerStatus() {
         refreshBigoAssistStatus();
+        refreshProgramUI();
         if (playerTitle == null || playerToggleButton == null) return;
         if (radioService == null) {
             playerToggleButton.setText("▶ 재생");
