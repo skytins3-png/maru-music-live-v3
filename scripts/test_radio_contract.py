@@ -83,7 +83,7 @@ checks.update({
                      "RadioProgram.active(context)", "EXTRA_AUTO_READY", "end_when")),
     "V1.7.2 explicit auto/manual selection": all(word in automation for word in
         ("chooseClock(true)", "chooseClock(false)", "RadioSchedule.setAutomatic(this, pendingStartAt)",
-         "RadioSchedule.set(this, pendingStartAt)", "기기가 잠겨")),
+         "RadioSchedule.set(this, pendingStartAt)", "잠겨 있어도")),
     "V1.7.2 reboot rearm only": "RECEIVE_BOOT_COMPLETED" in manifest
         and "ACTION_BOOT_COMPLETED" in manifest
         and "restore(context)" in
