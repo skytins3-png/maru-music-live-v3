@@ -378,7 +378,7 @@ check('compact mobile event visual profile',
       and (root / 'scripts/check_v275_reference.py').is_file())
 check('session reset', 'IntermissionStore.resetSession(this);' in main)
 check('UI explains manual BIGO control',
-      '일반 LIVE 또는 오디오 LIVE를 누르면 MARU가 음악을 재생한 뒤 BIGO 앱을 엽니다' in main
+      '오디오 LIVE를 누르면 MARU 원곡을 재생한 뒤 BIGO 앱을 엽니다' in main
       and '접근성 권한 요청 기능은 제거했습니다' in main
       and '실제 방송 시작 버튼은 직접 누릅니다' in main)
 check('keyboard free closing',
