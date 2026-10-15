@@ -32,6 +32,15 @@ public final class BigoControlAssist extends AccessibilityService {
     private static final long TIMEOUT_MS = 60000;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable scheduledProcess = this::process;
+    // Respond promptly to the user's explicit request even when BIGO's host
+    // screen is otherwise idle (no new accessibility event at timer expiry).
+    private final SharedPreferences.OnSharedPreferenceChangeListener pendingListener =
+            (preferences, key) -> {
+                if ("mode".equals(key) && connected) {
+                    handler.removeCallbacks(scheduledProcess);
+                    handler.postDelayed(scheduledProcess, 350);
+                }
+            };
 
     private String mode = "";
     private int step;
@@ -79,6 +88,7 @@ public final class BigoControlAssist extends AccessibilityService {
     @Override protected void onServiceConnected() {
         super.onServiceConnected();
         connected = true;
+        pref().registerOnSharedPreferenceChangeListener(pendingListener);
         pref().edit().putBoolean("connected", true)
                 .putString("status", "BIGO 버튼 지원 연결됨 · 요청 전에는 동작하지 않음")
                 .apply();
@@ -86,6 +96,8 @@ public final class BigoControlAssist extends AccessibilityService {
 
     @Override public boolean onUnbind(android.content.Intent intent) {
         connected = false;
+        pref().unregisterOnSharedPreferenceChangeListener(pendingListener);
+        handler.removeCallbacks(scheduledProcess);
         pref().edit().putBoolean("connected", false).remove("mode")
                 .putString("status", "BIGO 시작·종료 지원 꺼짐").apply();
         return super.onUnbind(intent);
