@@ -7,11 +7,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.radio.safev17'
+        applicationId 'com.maru.radio.safev171'
         minSdk 26
         targetSdk 35
-        versionCode 8
-        versionName '1.7.0'
+        versionCode 9
+        versionName '1.7.1'
     }
 
     buildTypes {
