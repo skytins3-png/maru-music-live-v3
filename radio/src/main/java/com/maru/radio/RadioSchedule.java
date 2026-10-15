@@ -113,7 +113,8 @@ public final class RadioSchedule extends BroadcastReceiver {
         arm(context, at, end, autoMusic);
         SharedPreferences.Editor edit = pref(context).edit()
                 .putLong(end ? "end_when" : "when", at);
-        if (!end) edit.putBoolean("auto_music", autoMusic);
+        if (end) edit.remove("last_end_at");
+        else edit.putBoolean("auto_music", autoMusic);
         edit.apply();
     }
 
@@ -128,7 +129,8 @@ public final class RadioSchedule extends BroadcastReceiver {
         if (manager != null) manager.cancel(alarm(context, end));
         SharedPreferences.Editor edit = pref(context).edit()
                 .remove(end ? "end_when" : "when");
-        if (!end) edit.remove("auto_music");
+        if (end) edit.remove("last_end_at");
+        else edit.remove("auto_music");
         edit.apply();
     }
 
@@ -191,7 +193,9 @@ public final class RadioSchedule extends BroadcastReceiver {
         long now = System.currentTimeMillis();
         if (now + 1000L < expected) return; // Reject obsolete early delivery.
         boolean automatic = !isEnd && sp.getBoolean("auto_music", false);
-        sp.edit().remove(key).apply();
+        SharedPreferences.Editor consumed = sp.edit().remove(key);
+        if (isEnd) consumed.putLong("last_end_at", expected);
+        consumed.apply();
 
         boolean started = false;
         boolean skippedForEnd = false;
@@ -200,7 +204,10 @@ public final class RadioSchedule extends BroadcastReceiver {
             catch (RuntimeException ignored) {}
         } else if (automatic) {
             long end = sp.getLong("end_when", 0L);
-            skippedForEnd = end > 0L && now >= end;
+            // A delayed start alarm must not restart playback after the end
+            // alarm has already fired and removed the stored end_when key.
+            skippedForEnd = (end > 0L && now >= end)
+                    || sp.getLong("last_end_at", 0L) >= expected;
             if (!skippedForEnd) started = startLocalMusic(context);
         }
 
