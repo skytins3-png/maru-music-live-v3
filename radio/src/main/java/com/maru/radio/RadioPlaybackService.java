@@ -36,7 +36,6 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
     public static final String EXTRA_MINUTES = "minutes";
-    public static final String EXTRA_END_BIGO = "end_bigo";
     public static final String EXTRA_HASH = "hash";
 
     private static final String CHANNEL = "maru_radio_playback";
@@ -55,18 +54,12 @@ public final class RadioPlaybackService extends Service {
     private int generation;
     private final Handler timerHandler = new Handler(Looper.getMainLooper());
     private long timerDeadline;
-    private boolean endBigoOnTimer;
     private final Runnable timerCheck = new Runnable() {
         @Override public void run() {
             if (timerDeadline == 0L) return;
             if (SystemClock.elapsedRealtime() >= timerDeadline) {
-                boolean closeBigo = endBigoOnTimer;
+                // Only the local music playback stops. BIGO broadcast is not controlled.
                 clearTimer();
-                if (closeBigo && BigoControlAssist.isConnected(RadioPlaybackService.this)) {
-                    // Only attempt closure if host explicitly approved it when setting timer.
-                    // Actual BIGO LIVE state is unknowable; host must verify it.
-                    BigoControlAssist.queue(RadioPlaybackService.this, false);
-                }
                 stopPlayback();
                 return;
             }
@@ -118,7 +111,6 @@ public final class RadioPlaybackService extends Service {
             }
             int minutes = Math.max(5, Math.min(720, intent.getIntExtra(EXTRA_MINUTES, 60)));
             timerDeadline = SystemClock.elapsedRealtime() + minutes * 60000L;
-            endBigoOnTimer = intent.getBooleanExtra(EXTRA_END_BIGO, false);
             timerHandler.removeCallbacks(timerCheck);
             timerHandler.post(timerCheck);
             updateNotification();
@@ -278,7 +270,6 @@ public final class RadioPlaybackService extends Service {
 
     private void clearTimer() {
         timerDeadline = 0L;
-        endBigoOnTimer = false;
         timerHandler.removeCallbacks(timerCheck);
     }
 

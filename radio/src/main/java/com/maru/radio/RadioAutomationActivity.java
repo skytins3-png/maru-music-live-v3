@@ -216,8 +216,8 @@ public final class RadioAutomationActivity extends Activity {
         intent.removeExtra(RadioSchedule.EXTRA_READY);
         new AlertDialog.Builder(this).setTitle("📻 방송 시작 준비 시간")
                 .setMessage("선택한 분류의 Suno 원곡을 재생하고 BIGO LIVE를 열까요?\n\n"
-                        + "BIGO 방송 시작 버튼은 접근성 지원이 켜져 있을 때만 누르도록 "
-                        + "시도하며, 라이브 시작 여부를 BIGO 화면에서 확인해야 해요.")
+                        + "BIGO는 시작 화면만 열립니다. 라이브 방송을 시작하려면 "
+                        + "BIGO의 '오디오 라이브 → 방송하기' 버튼을 직접 눌러 주세요.")
                 .setPositiveButton("음악 재생 + BIGO 열기", (dialog, which) -> beginBroadcast())
                 .setNegativeButton("나중에", null).show();
     }
@@ -243,9 +243,7 @@ public final class RadioAutomationActivity extends Activity {
                 Intent timer = new Intent(this, RadioPlaybackService.class)
                         .setAction(RadioPlaybackService.ACTION_SET_TIMER)
                         .putExtra(RadioPlaybackService.EXTRA_MINUTES,
-                                RadioProgram.durationMinutes(this))
-                        .putExtra(RadioPlaybackService.EXTRA_END_BIGO,
-                                RadioProgram.autoEndBigo(this));
+                                RadioProgram.durationMinutes(this));
                 startService(timer);
             } catch (RuntimeException ignored) {
                 message("음악 서비스를 시작하지 못했어요. MARU 플레이어를 확인해 주세요.");
@@ -253,7 +251,6 @@ public final class RadioAutomationActivity extends Activity {
         } else {
             message("선택한 장르에 원곡이 없어 음악을 재생하지 않았어요.");
         }
-        if (BigoControlAssist.isConnected(this)) BigoControlAssist.queue(this, true);
         Intent bigo = getPackageManager().getLaunchIntentForPackage("sg.bigo.live");
         if (bigo == null) {
             message("BIGO 앱을 찾지 못했어요. 앱이 설치되었는지 확인해 주세요.");

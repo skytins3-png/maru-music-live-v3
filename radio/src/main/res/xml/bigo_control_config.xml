@@ -1,9 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
-<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
-    android:accessibilityFeedbackType="feedbackGeneric"
-    android:notificationTimeout="150"
-    android:packageNames="sg.bigo.live"
-    android:canRetrieveWindowContent="true"
-    android:canPerformGestures="true"
-    android:description="@string/bigo_accessibility_description" />
+<!-- Retained as harmless inert resource: no accessibility service is registered. -->
+<maru-radio-disabled />
