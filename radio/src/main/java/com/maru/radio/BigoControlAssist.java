@@ -31,6 +31,7 @@ public final class BigoControlAssist extends AccessibilityService {
     private static final String MODE_STOP = "stop";
     private static final long TIMEOUT_MS = 60000;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable scheduledProcess = this::process;
 
     private String mode = "";
     private int step;
@@ -97,8 +98,8 @@ public final class BigoControlAssist extends AccessibilityService {
     @Override public void onAccessibilityEvent(AccessibilityEvent event) {
         if (!connected || event == null || event.getPackageName() == null
                 || !BIGO.contentEquals(event.getPackageName())) return;
-        handler.removeCallbacksAndMessages(null);
-        handler.postDelayed(this::process, 350);
+        handler.removeCallbacks(scheduledProcess);
+        handler.postDelayed(scheduledProcess, 350);
     }
 
     private void process() {
@@ -120,7 +121,7 @@ public final class BigoControlAssist extends AccessibilityService {
         if (root == null || root.getPackageName() == null
                 || !BIGO.contentEquals(root.getPackageName())) return;
         if (System.currentTimeMillis() - lastOperationAt < 900) {
-            handler.postDelayed(this::process, 550);
+            handler.postDelayed(scheduledProcess, 550);
             return;
         }
         if (MODE_START.equals(mode)) handleStart(root);
@@ -131,7 +132,7 @@ public final class BigoControlAssist extends AccessibilityService {
         step = next;
         lastOperationAt = System.currentTimeMillis();
         pref().edit().putInt("step", next).putString("status", note).apply();
-        handler.postDelayed(this::process, 1300);
+        handler.postDelayed(scheduledProcess, 1300);
     }
 
     private void handleStart(AccessibilityNodeInfo root) {
@@ -151,7 +152,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 return;
             }
             if (tapExact(root, "방송하기")) {
-                close("BIGО 방송하기를 눌렀어요. 실제 라이브 시작 여부를 BIGO 화면에서 확인해 주세요.");
+                close("BIGO 방송하기를 눌렀어요. 실제 라이브 시작 여부를 BIGO 화면에서 확인해 주세요.");
                 return;
             }
         }
@@ -205,7 +206,7 @@ public final class BigoControlAssist extends AccessibilityService {
 
     private boolean isHostScreen(AccessibilityNodeInfo root) {
         return has(root, "시청자")
-                && (has(root, "장탈전") || has(root, "PK") || has(root, "자리"));
+                && (has(root, "쟁탈전") || has(root, "PK") || has(root, "자리"));
     }
 
     private boolean tapAnyExact(AccessibilityNodeInfo root, String... names) {
