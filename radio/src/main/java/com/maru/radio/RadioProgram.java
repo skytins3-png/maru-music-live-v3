@@ -7,7 +7,7 @@ import java.util.Locale;
 
 /** Local-only radio program preferences. No contact, user ID or conversation storage. */
 public final class RadioProgram {
-    public static final String[] NAMES = {"전체", "한국노래", "중국노래", "서양노래", "연주곡"};
+    public static final String[] NAMES = {"전체", "한국노래", "중국노래", "서양노래", "연주곡", "4장르 자동 순환"};
     private static final String PREF = "maru_radio_program";
     private RadioProgram() {}
 
@@ -24,14 +24,14 @@ public final class RadioProgram {
     public static int category(Context context, Originals.Track song) {
         try {
             JSONObject map = new JSONObject(pref(context).getString("map", "{}"));
-            if (map.has(song.hash)) return clamp(map.optInt(song.hash, 0));
+            if (map.has(song.hash)) return Math.min(4, clamp(map.optInt(song.hash, 0)));
         } catch (Exception ignored) {}
         return inferred(song.title);
     }
     public static void classify(Context context, Originals.Track song, int category) {
         try {
             JSONObject map = new JSONObject(pref(context).getString("map", "{}"));
-            map.put(song.hash, clamp(category));
+            map.put(song.hash, Math.min(4, clamp(category)));
             pref(context).edit().putString("map", map.toString()).apply();
         } catch (Exception ignored) {}
     }
@@ -60,5 +60,5 @@ public final class RadioProgram {
         }
         return 3;
     }
-    private static int clamp(int n) { return Math.max(0, Math.min(4, n)); }
+    private static int clamp(int n) { return Math.max(0, Math.min(5, n)); }
 }
