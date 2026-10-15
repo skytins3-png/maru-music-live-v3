@@ -1,4 +1,4 @@
-name: MARU RADIO V1.7 safe separate-install APK
+name: MARU RADIO V1.7.1 BIGO guided handoff APK
 
 on:
   workflow_dispatch:
@@ -49,15 +49,15 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.safev17'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.7'" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.safev171'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.7.1'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.7-SAFE-SEPARATE-INSTALL.apk
-          ls -lh MARU-RADIO-V1.7-SAFE-SEPARATE-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.7.1-GUIDE-INSTALL.apk
+          ls -lh MARU-RADIO-V1.7.1-GUIDE-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.7-SAFE-SEPARATE
-          path: MARU-RADIO-V1.7-SAFE-SEPARATE-INSTALL.apk
+          name: MARU-RADIO-V1.7.1-GUIDE
+          path: MARU-RADIO-V1.7.1-GUIDE-INSTALL.apk
           if-no-files-found: error
