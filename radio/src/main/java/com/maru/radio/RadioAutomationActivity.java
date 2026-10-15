@@ -12,8 +12,6 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 import android.view.View;
@@ -36,7 +34,6 @@ public final class RadioAutomationActivity extends Activity {
     private static final int WHITE = 0xFFF7F1FF;
     private static final int PURPLE = 0xFFB89BFF;
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView scheduleStatus;
     private TextView note;
     private long pendingStartAt;
@@ -240,17 +237,16 @@ public final class RadioAutomationActivity extends Activity {
                     .setAction(RadioPlaybackService.ACTION_PLAY)
                     .putExtra(RadioPlaybackService.EXTRA_HASH, first.hash);
             try {
+                // Both service intents are issued while the user-confirmation Activity
+                // is foreground; do not start a new service after BIGO backgrounds us.
                 startForegroundService(play);
-                handler.postDelayed(() -> {
-                    Intent timer = new Intent(this, RadioPlaybackService.class)
-                            .setAction(RadioPlaybackService.ACTION_SET_TIMER)
-                            .putExtra(RadioPlaybackService.EXTRA_MINUTES,
-                                    RadioProgram.durationMinutes(this))
-                            .putExtra(RadioPlaybackService.EXTRA_END_BIGO,
-                                    RadioProgram.autoEndBigo(this));
-                    try { startService(timer); }
-                    catch (RuntimeException ignored) {}
-                }, 2000L);
+                Intent timer = new Intent(this, RadioPlaybackService.class)
+                        .setAction(RadioPlaybackService.ACTION_SET_TIMER)
+                        .putExtra(RadioPlaybackService.EXTRA_MINUTES,
+                                RadioProgram.durationMinutes(this))
+                        .putExtra(RadioPlaybackService.EXTRA_END_BIGO,
+                                RadioProgram.autoEndBigo(this));
+                startService(timer);
             } catch (RuntimeException ignored) {
                 message("음악 서비스를 시작하지 못했어요. MARU 플레이어를 확인해 주세요.");
             }
