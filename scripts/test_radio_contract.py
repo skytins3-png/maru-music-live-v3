@@ -11,12 +11,12 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.player'" in gradle,
+    "own package": "applicationId 'com.maru.radio.bigo'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
     "original file copying": "getContentResolver().openOutputStream(destination)" in activity,
-    "BIGO direct handoff only": "getLaunchIntentForPackage(\"sg.bigo.live\")" in activity,
+    "BIGO app handoff": "getLaunchIntentForPackage(\"sg.bigo.live\")" in activity,
     "download-first picker": "DocumentsContract.EXTRA_INITIAL_URI" in activity and "primary:Download" in activity,
     "multi-file selection": "Intent.EXTRA_ALLOW_MULTIPLE" in activity,
     "searchable virtual list": "new BaseAdapter()" in activity and "songAdapter.notifyDataSetChanged()" in activity,
@@ -34,8 +34,15 @@ checks = {
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
     "no recording or capture permissions": all(word not in manifest for word in (
-        "RECORD_AUDIO", "MEDIA_PROJECTION", "BIND_ACCESSIBILITY_SERVICE",
+        "RECORD_AUDIO", "MEDIA_PROJECTION",
         "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE")),
+    "accessibility restricted to BIGO": "BigoControlAssist" in manifest and
+        "android.permission.BIND_ACCESSIBILITY_SERVICE" in manifest and
+        'android:exported="true"' in manifest and
+        'android:resource="@xml/bigo_control_config"' in manifest,
+    "user-initiated start/end": "requestBigoStart()" in activity and
+        "BigoControlAssist.queue(this, true)" in activity and
+        "BigoControlAssist.queue(this, false)" in activity,
     "no imported legacy modules": all(word not in activity and word not in store for word in (
         "AutoGreetingService", "ScreenOcrGreetingService", "AdaptiveAiStore",
         "OcrTestActivity", "YouTubePlayerActivity")),
