@@ -116,7 +116,7 @@ public final class RadioActivity extends Activity {
                 "다른 폴더에서 가져오기", this::pickFiles);
 
         card(root, "2  원곡 목록 · 선택 삭제",
-                "검색해서 불필요한 곡에 체크하고 선택 삭제하세요. 삭제 대상은 MARU 보관 사본뿐입니다.",
+                "다운로드 원곡은 복사하지 않고 읽기 권한만 보관합니다. 검색·선택 삭제는 MARU 목록에만 적용됩니다.",
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
@@ -405,18 +405,18 @@ public final class RadioActivity extends Activity {
         }
         new AlertDialog.Builder(this)
             .setTitle("선택한 " + targets.size() + "곡 삭제")
-            .setMessage("MARU RADIO에 복사한 원곡 " + targets.size() + "곡을 삭제할까요?\n\n"
-                    + "Download 폴더와 Suno의 원본 파일은 절대 삭제하지 않습니다.")
+            .setMessage("MARU RADIO 목록에서 " + targets.size() + "곡을 제거할까요?\n\n"
+                    + "Download와 Suno 원본 파일은 그대로 보존합니다.")
             .setPositiveButton("선택 삭제", (dialog, which) -> {
                 stopPreview();
-                say("선택한 " + targets.size() + "곡 정리 중…");
+                say("선택한 " + targets.size() + "곡 목록 정리 중…");
                 files.execute(() -> {
                     int removed = Originals.removeMany(getApplicationContext(), targets);
                     runOnUiThread(() -> {
                         if (isFinishing()) return;
                         selected.clear();
                         refreshSongs();
-                        say("MARU 보관 사본 " + removed + "곡 삭제 · Download 원본 유지");
+                        say("MARU 목록에서 " + removed + "곡 제거 · Download 원본 유지");
                     });
                 });
             })
@@ -454,7 +454,8 @@ public final class RadioActivity extends Activity {
             m.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            m.setDataSource(track.path);
+            if (track.isDownloadReference()) m.setDataSource(this, track.sourceUri());
+            else m.setDataSource(track.path);
             m.setOnPreparedListener(player -> {
                 if (preview == player) {
                     player.setVolume(1f, 1f);
@@ -502,7 +503,7 @@ public final class RadioActivity extends Activity {
 
     private void confirmDelete(Originals.Track t) {
         new AlertDialog.Builder(this).setTitle("MARU 보관곡 삭제")
-            .setMessage(t.title + "\n\nMARU에 보관한 사본만 삭제합니다. Suno 원곡은 삭제되지 않습니다.")
+            .setMessage(t.title + "\n\nMARU 목록에서 제외합니다. Download와 Suno 원곡은 삭제되지 않습니다.")
             .setPositiveButton("삭제", (d, w) -> {
                 stopPreview();
                 Originals.remove(this, t);
@@ -522,7 +523,7 @@ public final class RadioActivity extends Activity {
                     if (clip.getItemAt(n).getUri() != null)
                         chosen.add(clip.getItemAt(n).getUri());
             } else if (data.getData() != null) chosen.add(data.getData());
-            importFiles(chosen);
+            importFiles(chosen, true);
         } else if (requestCode == EXPORT_AUDIO && exporting != null && data.getData() != null) {
             Originals.Track track = exporting;
             exporting = null;
@@ -530,8 +531,11 @@ public final class RadioActivity extends Activity {
             say("선택한 폴더에 원곡 저장 중…");
             files.execute(() -> {
                 String message = "";
-                try (InputStream in = new FileInputStream(track.file());
+                try (InputStream in = track.isDownloadReference()
+                            ? getContentResolver().openInputStream(track.sourceUri())
+                            : new FileInputStream(track.file());
                      OutputStream out = getContentResolver().openOutputStream(destination)) {
+                    if (in == null) throw new Exception("원곡 읽기 권한이 만료됐어요.");
                     if (out == null) throw new Exception("저장할 수 없는 위치예요.");
                     byte[] buf = new byte[32 * 1024];
                     int count;
@@ -564,10 +568,10 @@ public final class RadioActivity extends Activity {
             ArrayList<Uri> many = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
             if (many != null) shared.addAll(many);
         }
-        if (!shared.isEmpty()) importFiles(shared);
+        if (!shared.isEmpty()) importFiles(shared, false);
     }
 
-    private void importFiles(List<Uri> items) {
+    private void importFiles(List<Uri> items, boolean fromDocumentPicker) {
         if (items.isEmpty()) {
             say("오디오 파일을 선택해 주세요. Suno 공유 링크만으로는 가져올 수 없어요.");
             return;
@@ -580,7 +584,7 @@ public final class RadioActivity extends Activity {
         say("총 " + items.size() + "곡 확인 시작 · 다운로드 원본은 그대로 유지");
         files.execute(() -> {
             Originals.BatchResult result = Originals.importBatch(
-                    getApplicationContext(), items, (done, total) -> {
+                    getApplicationContext(), items, fromDocumentPicker, (done, total) -> {
                         if (done == total || done % 5 == 0) {
                             runOnUiThread(() -> {
                                 if (!isFinishing()) say("원곡 확인 " + done + " / " + total + "곡");
