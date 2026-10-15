@@ -35,6 +35,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
+    public static final String ACTION_CANCEL_WALL_END = "com.maru.radio.CANCEL_WALL_END";
     public static final String ACTION_SET_WALL_END = "com.maru.radio.SET_WALL_END";
     public static final String EXTRA_END_AT = "end_epoch_millis";
     public static final String EXTRA_MINUTES = "minutes";
@@ -55,13 +56,35 @@ public final class RadioPlaybackService extends Service {
     private String error = "";
     private int generation;
     private final Handler timerHandler = new Handler(Looper.getMainLooper());
-    private long timerDeadline;
+    // Independent timers: a chosen duration must never overwrite the chosen clock time.
+    private long minutesDeadline;
+    private long wallEndAt;
+
+    private boolean deadlineReached() {
+        return (minutesDeadline > 0L && SystemClock.elapsedRealtime() >= minutesDeadline)
+                || (wallEndAt > 0L && System.currentTimeMillis() >= wallEndAt);
+    }
+
+    private void rescheduleTimerCheck() {
+        timerHandler.removeCallbacks(timerCheck);
+        // An idle service must not wake the process every second before playback starts.
+        if ((minutesDeadline > 0L || wallEndAt > 0L)
+                && (!queue.isEmpty() && (player != null || loading || ready))) {
+            timerHandler.post(timerCheck);
+        }
+    }
+
+    private void syncWallEndFromSchedule() {
+        // Used for ALL ways of starting playback, not only the scheduled BIGO handoff.
+        wallEndAt = RadioSchedule.endAt(this);
+        rescheduleTimerCheck();
+    }
+
     private final Runnable timerCheck = new Runnable() {
         @Override public void run() {
-            if (timerDeadline == 0L) return;
-            if (SystemClock.elapsedRealtime() >= timerDeadline) {
-                // Only the local music playback stops. BIGO broadcast is not controlled.
-                clearTimer();
+            if (minutesDeadline == 0L && wallEndAt == 0L) return;
+            if (deadlineReached()) {
+                // Only MARU music stops. BIGO live still requires manual termination.
                 stopPlayback();
                 return;
             }
@@ -101,47 +124,50 @@ public final class RadioPlaybackService extends Service {
             return START_NOT_STICKY;
         }
         if (ACTION_CANCEL_TIMER.equals(action)) {
-            clearTimer();
+            minutesDeadline = 0L; // Do not cancel an independently scheduled clock end.
+            rescheduleTimerCheck();
+            updateNotification();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_CANCEL_WALL_END.equals(action)) {
+            wallEndAt = 0L; // Do not cancel an independently selected minute timer.
+            rescheduleTimerCheck();
             updateNotification();
             return START_NOT_STICKY;
         }
         if (ACTION_SET_WALL_END.equals(action)) {
             long endAt = intent.getLongExtra(EXTRA_END_AT, 0L);
-            if (endAt <= System.currentTimeMillis()) {
-                clearTimer();
-                updateNotification();
-                return START_NOT_STICKY;
-            }
-            if (queue.isEmpty() || (!isPlaying() && !loading && !ready)) {
-                error = "먼저 음악을 재생한 뒤 종료 시간을 설정해 주세요.";
-                updateNotification();
-                return START_NOT_STICKY;
-            }
-            timerDeadline = SystemClock.elapsedRealtime()
-                    + (endAt - System.currentTimeMillis());
-            timerHandler.removeCallbacks(timerCheck);
-            timerHandler.post(timerCheck);
+            wallEndAt = endAt > System.currentTimeMillis() ? endAt : 0L;
+            rescheduleTimerCheck();
             updateNotification();
             return START_NOT_STICKY;
         }
         if (ACTION_SET_TIMER.equals(action)) {
+            int minutes = intent.getIntExtra(EXTRA_MINUTES, 0);
+            if (minutes <= 0) {
+                minutesDeadline = 0L;
+                rescheduleTimerCheck();
+                updateNotification();
+                return START_NOT_STICKY;
+            }
             if (queue.isEmpty() || (!isPlaying() && !loading && !ready)) {
                 error = "먼저 음악을 재생한 뒤 방송 시간을 설정해 주세요.";
                 updateNotification();
                 return START_NOT_STICKY;
             }
-            int minutes = intent.getIntExtra(EXTRA_MINUTES, 0);
-            if (minutes <= 0) {
-                clearTimer();
-                updateNotification();
-                return START_NOT_STICKY;
-            }
             minutes = Math.max(5, Math.min(720, minutes));
-            timerDeadline = SystemClock.elapsedRealtime() + minutes * 60000L;
-            timerHandler.removeCallbacks(timerCheck);
-            timerHandler.post(timerCheck);
+            minutesDeadline = SystemClock.elapsedRealtime() + minutes * 60000L;
+            rescheduleTimerCheck();
             updateNotification();
             return START_NOT_STICKY;
+        }
+        if (ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)
+                || ACTION_PREVIOUS.equals(action) || ACTION_TOGGLE.equals(action)) {
+            syncWallEndFromSchedule();
+            if (deadlineReached()) {
+                stopPlayback();
+                return START_NOT_STICKY;
+            }
         }
         if (ACTION_PLAY.equals(action)) {
             refreshQueue(null);
@@ -240,6 +266,7 @@ public final class RadioPlaybackService extends Service {
         error = "";
         ready = false;
         loading = true;
+        rescheduleTimerCheck();
         ensureForeground(); // foreground within 5 seconds of startForegroundService
         if (!requestFocus()) {
             loading = false;
@@ -256,6 +283,10 @@ public final class RadioPlaybackService extends Service {
             else m.setDataSource(t.path);
             m.setOnPreparedListener(p -> {
                 if (ticket != generation || player != p) return;
+                if (deadlineReached()) {
+                    stopPlayback();
+                    return;
+                }
                 loading = false;
                 ready = true;
                 p.setVolume(1f, 1f); // original gain; system volume remains OS-controlled
@@ -287,6 +318,10 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void advanceOnCompletion() {
+        if (deadlineReached()) {
+            stopPlayback();
+            return;
+        }
         String hash = currentIndex >= 0 && currentIndex < queue.size()
                 ? queue.get(currentIndex).hash : null;
         refreshQueue(hash);
@@ -296,12 +331,18 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void clearTimer() {
-        timerDeadline = 0L;
+        minutesDeadline = 0L;
+        wallEndAt = 0L;
         timerHandler.removeCallbacks(timerCheck);
     }
 
     public long timerRemainingMs() {
-        return timerDeadline == 0L ? 0 : Math.max(0, timerDeadline - SystemClock.elapsedRealtime());
+        long durationRemaining = minutesDeadline == 0L ? Long.MAX_VALUE
+                : Math.max(0L, minutesDeadline - SystemClock.elapsedRealtime());
+        long clockRemaining = wallEndAt == 0L ? Long.MAX_VALUE
+                : Math.max(0L, wallEndAt - System.currentTimeMillis());
+        long nearest = Math.min(durationRemaining, clockRemaining);
+        return nearest == Long.MAX_VALUE ? 0L : nearest;
     }
 
     private void stopPlayback() {
