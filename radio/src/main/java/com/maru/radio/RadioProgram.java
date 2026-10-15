@@ -1,0 +1,64 @@
+package com.maru.radio;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import org.json.JSONObject;
+import java.util.Locale;
+
+/** Local-only radio program preferences. No contact, user ID or conversation storage. */
+public final class RadioProgram {
+    public static final String[] NAMES = {"전체", "한국노래", "중국노래", "서양노래", "연주곡"};
+    private static final String PREF = "maru_radio_program";
+    private RadioProgram() {}
+
+    private static SharedPreferences pref(Context context) {
+        return context.getSharedPreferences(PREF, Context.MODE_PRIVATE);
+    }
+
+    public static int active(Context context) {
+        return clamp(pref(context).getInt("category", 0));
+    }
+    public static void select(Context context, int category) {
+        pref(context).edit().putInt("category", clamp(category)).apply();
+    }
+    public static int category(Context context, Originals.Track song) {
+        try {
+            JSONObject map = new JSONObject(pref(context).getString("map", "{}"));
+            if (map.has(song.hash)) return clamp(map.optInt(song.hash, 0));
+        } catch (Exception ignored) {}
+        return inferred(song.title);
+    }
+    public static void classify(Context context, Originals.Track song, int category) {
+        try {
+            JSONObject map = new JSONObject(pref(context).getString("map", "{}"));
+            map.put(song.hash, clamp(category));
+            pref(context).edit().putString("map", map.toString()).apply();
+        } catch (Exception ignored) {}
+    }
+    public static int durationMinutes(Context context) {
+        return Math.max(5, Math.min(720, pref(context).getInt("duration", 60)));
+    }
+    public static void setDurationMinutes(Context context, int minutes) {
+        pref(context).edit().putInt("duration", Math.max(5, Math.min(720, minutes))).apply();
+    }
+    public static boolean autoEndBigo(Context context) {
+        return pref(context).getBoolean("auto_end_bigo", false);
+    }
+    public static void setAutoEndBigo(Context context, boolean value) {
+        pref(context).edit().putBoolean("auto_end_bigo", value).apply();
+    }
+    public static int inferred(String title) {
+        if (title == null) return 3;
+        String n = title.toLowerCase(Locale.ROOT);
+        if (n.contains("instrumental") || n.contains("piano") || n.contains("no vocal")
+            || n.contains("연주") || n.contains("피아노") || n.contains("纯音乐")
+            || n.contains("钢琴") || n.contains("古筝")) return 4;
+        for (int i = 0; i < title.length(); i++) {
+            char ch = title.charAt(i);
+            if (ch >= 0xAC00 && ch <= 0xD7A3) return 1;
+            if (ch >= 0x4E00 && ch <= 0x9FFF) return 2;
+        }
+        return 3;
+    }
+    private static int clamp(int n) { return Math.max(0, Math.min(4, n)); }
+}
