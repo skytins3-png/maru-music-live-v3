@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MARU RADIO 예약</string>
-    <string name="bigo_accessibility_label">MARU BIGO 방송 버튼 지원</string>
-    <string name="bigo_accessibility_description">사용자가 방송 시작 또는 종료를 요청한 경우에만 BIGO LIVE의 화면 버튼을 확인하고 선택합니다. 다른 앱의 화면은 읽지 않으며 방송을 자동으로 예약하거나 시작하지 않습니다. BIGO 화면 변경 시 직접 조작해야 합니다.</string>
+    <string name="app_name">MARU RADIO 안전형</string>
 </resources>
