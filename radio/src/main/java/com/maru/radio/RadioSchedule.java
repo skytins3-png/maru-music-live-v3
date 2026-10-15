@@ -130,7 +130,7 @@ public final class RadioSchedule extends BroadcastReceiver {
         PendingIntent tap = PendingIntent.getActivity(context,
                 isEnd ? END_REQUEST : START_REQUEST, activity,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification note = new Notification.Builder(context, CHANNEL)
+        Notification.Builder builder = new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_radio)
                 .setContentTitle(isEnd ? "MARU 음악 종료 · BIGO 라이브 확인" : "MARU 방송 시작 준비 시간")
                 .setContentText(isEnd
@@ -138,8 +138,17 @@ public final class RadioSchedule extends BroadcastReceiver {
                         : "탭해서 음악 재생 및 BIGO 라이브 시작을 직접 확인하세요.")
                 .setContentIntent(tap)
                 .setAutoCancel(true)
-                .setCategory(Notification.CATEGORY_REMINDER)
-                .build();
+                .setCategory(Notification.CATEGORY_REMINDER);
+        if (isEnd) {
+            // Public launch Intent only: does not control BIGO's live end button.
+            PendingIntent bigoOpen = BigoBroadcastGuide.endBigoShortcut(context);
+            if (bigoOpen != null) {
+                builder.addAction(new Notification.Action.Builder(
+                        android.R.drawable.ic_menu_close_clear_cancel,
+                        "BIGO 열어 종료 확인", bigoOpen).build());
+            }
+        }
+        Notification note = builder.build();
         nm.notify(isEnd ? END_NOTICE : START_NOTICE, note);
     }
 }
