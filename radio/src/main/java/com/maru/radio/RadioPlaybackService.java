@@ -15,6 +15,9 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,6 +33,10 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_PREVIOUS = "com.maru.radio.PREVIOUS";
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
+    public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
+    public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
+    public static final String EXTRA_MINUTES = "minutes";
+    public static final String EXTRA_END_BIGO = "end_bigo";
     public static final String EXTRA_HASH = "hash";
 
     private static final String CHANNEL = "maru_radio_playback";
@@ -46,6 +53,26 @@ public final class RadioPlaybackService extends Service {
     private boolean foreground;
     private String error = "";
     private int generation;
+    private final Handler timerHandler = new Handler(Looper.getMainLooper());
+    private long timerDeadline;
+    private boolean endBigoOnTimer;
+    private final Runnable timerCheck = new Runnable() {
+        @Override public void run() {
+            if (timerDeadline == 0L) return;
+            if (SystemClock.elapsedRealtime() >= timerDeadline) {
+                boolean closeBigo = endBigoOnTimer;
+                clearTimer();
+                if (closeBigo && BigoControlAssist.isConnected(RadioPlaybackService.this)) {
+                    // Only attempt closure if host explicitly approved it when setting timer.
+                    // Actual BIGO LIVE state is unknowable; host must verify it.
+                    BigoControlAssist.queue(RadioPlaybackService.this, false);
+                }
+                stopPlayback();
+                return;
+            }
+            timerHandler.postDelayed(this, 1000L);
+        }
+    };
 
     public final class LocalBinder extends Binder {
         public RadioPlaybackService getService() { return RadioPlaybackService.this; }
@@ -75,21 +102,26 @@ public final class RadioPlaybackService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
-            ++generation;
-            releasePlayer();
-            queue.clear();
-            currentIndex = -1;
-            loading = false;
-            error = "";
-            if (audio != null && focusRequest != null)
-                audio.abandonAudioFocusRequest(focusRequest);
-            if (Build.VERSION.SDK_INT >= 24) {
-                stopForeground(STOP_FOREGROUND_REMOVE);
-            } else {
-                stopForeground(true);
+            stopPlayback();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_CANCEL_TIMER.equals(action)) {
+            clearTimer();
+            updateNotification();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_SET_TIMER.equals(action)) {
+            if (queue.isEmpty() || (!isPlaying() && !loading && !ready)) {
+                error = "먼저 음악을 재생한 뒤 방송 시간을 설정해 주세요.";
+                updateNotification();
+                return START_NOT_STICKY;
             }
-            foreground = false;
-            stopSelf();
+            int minutes = Math.max(5, Math.min(720, intent.getIntExtra(EXTRA_MINUTES, 60)));
+            timerDeadline = SystemClock.elapsedRealtime() + minutes * 60000L;
+            endBigoOnTimer = intent.getBooleanExtra(EXTRA_END_BIGO, false);
+            timerHandler.removeCallbacks(timerCheck);
+            timerHandler.post(timerCheck);
+            updateNotification();
             return START_NOT_STICKY;
         }
         if (ACTION_PLAY.equals(action)) {
@@ -137,7 +169,10 @@ public final class RadioPlaybackService extends Service {
 
     private void refreshQueue(String restoreHash) {
         queue.clear();
-        queue.addAll(Originals.list(this));
+        int category = RadioProgram.active(this);
+        for (Originals.Track track : Originals.list(this)) {
+            if (category == 0 || RadioProgram.category(this, track) == category) queue.add(track);
+        }
         if (restoreHash == null) {
             if (currentIndex >= queue.size()) currentIndex = -1;
             return;
@@ -223,6 +258,34 @@ public final class RadioPlaybackService extends Service {
         playIndex(currentIndex);
     }
 
+    private void clearTimer() {
+        timerDeadline = 0L;
+        endBigoOnTimer = false;
+        timerHandler.removeCallbacks(timerCheck);
+    }
+
+    public long timerRemainingMs() {
+        return timerDeadline == 0L ? 0 : Math.max(0, timerDeadline - SystemClock.elapsedRealtime());
+    }
+
+    private void stopPlayback() {
+        clearTimer();
+        ++generation;
+        releasePlayer();
+        queue.clear();
+        currentIndex = -1;
+        loading = false;
+        error = "";
+        if (audio != null && focusRequest != null)
+            audio.abandonAudioFocusRequest(focusRequest);
+        if (foreground) {
+            if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE);
+            else stopForeground(true);
+        }
+        foreground = false;
+        stopSelf();
+    }
+
     private void pauseOnly() {
         if (player != null && ready && player.isPlaying()) {
             try { player.pause(); } catch (IllegalStateException ignored) {}
@@ -284,7 +347,7 @@ public final class RadioPlaybackService extends Service {
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_radio)
                 .setContentTitle("MARU RADIO · 원곡 재생")
-                .setContentText(currentTitle())
+                .setContentText(currentTitle() + (timerRemainingMs() > 0 ? " · 자동 종료 예약" : ""))
                 .setContentIntent(open)
                 .setOnlyAlertOnce(true)
                 .setOngoing(isPlaying() || loading)
@@ -313,6 +376,7 @@ public final class RadioPlaybackService extends Service {
     }
 
     @Override public void onDestroy() {
+        clearTimer();
         ++generation;
         releasePlayer();
         if (audio != null && focusRequest != null) audio.abandonAudioFocusRequest(focusRequest);
