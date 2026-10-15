@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.automation'" in gradle,
+    "own package": "applicationId 'com.maru.radio.safev16'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -34,24 +34,28 @@ checks = {
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
     "no recording or capture permissions": all(word not in manifest for word in (
-        "RECORD_AUDIO", "MEDIA_PROJECTION",
+        "RECORD_AUDIO", "MEDIA_PROJECTION", "BIND_ACCESSIBILITY_SERVICE",
         "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE")),
     "four song groups": all(n in (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8") for n in ("한국노래", "중국노래", "서양노래", "연주곡")),
     "genre-filtered queue": "RadioProgram.category(this, track) == category" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
     "music auto-end service timer": "SystemClock.elapsedRealtime()" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8") and "ACTION_SET_TIMER" in activity,
-    "optional confirmed BIGO end": "RadioProgram.autoEndBigo(this)" in activity and "BigoControlAssist.isConnected" in activity,
+    "music timer only": "RadioProgram.durationMinutes(this)" in activity and
+        "EXTRA_END_BIGO" not in activity,
     "one-time clock reminder": "RadioSchedule" in manifest and "POST_NOTIFICATIONS" in manifest and
         "new Intent(this, RadioAutomationActivity.class)" in activity,
     "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
-        "handleStartIntent", "beginBroadcast()", "BigoControlAssist.queue(this, true)", "RadioSchedule.set(this, pendingStartAt)")),
+        "handleStartIntent", "beginBroadcast()", "getLaunchIntentForPackage(\"sg.bigo.live\")", "RadioSchedule.set(this, pendingStartAt)")),
     "five-language copy-only replies": "RadioReplies.message(language, event)" in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
-    "accessibility restricted to BIGO": "BigoControlAssist" in manifest and
-        "android.permission.BIND_ACCESSIBILITY_SERVICE" in manifest and
-        'android:exported="true"' in manifest and
-        'android:resource="@xml/bigo_control_config"' in manifest,
-    "user-initiated start/end": "requestBigoStart()" in activity and
-        "BigoControlAssist.queue(this, true)" in activity and
-        "BigoControlAssist.queue(this, false)" in activity,
+    "no accessibility service or permission": all(s not in manifest for s in
+        ("AccessibilityService", "BIND_ACCESSIBILITY_SERVICE", "BigoControlAssist",
+         "@xml/bigo_control_config")),
+    "inert accessibility source": "AccessibilityService" not in
+        (root / "radio/src/main/java/com/maru/radio/BigoControlAssist.java").read_text(encoding="utf-8")
+        .replace("AccessibilityService or", "") and "dispatchGesture" not in
+        (root / "radio/src/main/java/com/maru/radio/BigoControlAssist.java").read_text(encoding="utf-8"),
+    "BIGO open-only buttons": "requestBigoStart()" in activity and
+        "requestBigoEnd()" in activity and "openBigo()" in activity and
+        "BigoControlAssist" not in activity,
     "no imported legacy modules": all(word not in activity and word not in store for word in (
         "AutoGreetingService", "ScreenOcrGreetingService", "AdaptiveAiStore",
         "OcrTestActivity", "YouTubePlayerActivity")),
