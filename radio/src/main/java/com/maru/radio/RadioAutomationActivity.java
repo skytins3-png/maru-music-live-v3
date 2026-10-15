@@ -298,7 +298,7 @@ public final class RadioAutomationActivity extends Activity {
                     .setMessage("MARU 음악의 재생 종료 시각입니다. "
                             + "BIGO 라이브 자체는 자동으로 끝낼 수 없으니 "
                             + "BIGO 오디오 LIVE 화면에서 종료 버튼을 눌러 주세요.")
-                    .setPositiveButton("BIGO 열어 종료하기", (d, w) -> openBigoApp())
+                    .setPositiveButton("BIGO 열어 종료하기", (d, w) -> openBigoEndApp())
                     .setNegativeButton("닫기", null).show();
             return;
         }
@@ -347,13 +347,11 @@ public final class RadioAutomationActivity extends Activity {
     }
 
     private void openBigoApp() {
-        Intent bigo = getPackageManager().getLaunchIntentForPackage("sg.bigo.live");
-        if (bigo == null) {
-            message("BIGO 앱을 찾지 못했어요. 앱이 설치되었는지 확인해 주세요.");
-            return;
-        }
-        try { startActivity(bigo); }
-        catch (RuntimeException e) { message("BIGO를 실행하지 못했어요."); }
+        BigoBroadcastGuide.openBigo(this, false);
+    }
+
+    private void openBigoEndApp() {
+        BigoBroadcastGuide.openBigo(this, true);
     }
 
     private void replyLanguages() {
