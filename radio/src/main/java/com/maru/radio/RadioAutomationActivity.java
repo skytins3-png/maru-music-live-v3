@@ -267,7 +267,7 @@ public final class RadioAutomationActivity extends Activity {
         pendingEndAt = 0;
         try {
             startService(new Intent(this, RadioPlaybackService.class)
-                    .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
+                    .setAction(RadioPlaybackService.ACTION_CANCEL_WALL_END));
         } catch (RuntimeException ignored) {}
         updateStatus();
         message("음악 종료 시각 예약을 취소했어. 자동 종료 없음.");
