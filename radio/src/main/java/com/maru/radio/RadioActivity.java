@@ -148,12 +148,12 @@ public final class RadioActivity extends Activity {
         root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
                 new AlertDialog.Builder(this)
                         .setTitle("V1.6 곡 보관 · V1.7 가져오기")
-                        .setMessage("V1.6은 삭제하지 마세요. V1.7은 서로 다른 앱으로 설치됩니다.\\n\\n"
+                        .setMessage("V1.6은 삭제하지 마세요. V1.7은 서로 다른 앱으로 설치됩니다.\n\n"
                                 + "① 이 앱에서 'Download 바로가기'를 눌러 기존 Suno MP3/WAV를 "
-                                + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\\n\\n"
+                                + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\n\n"
                                 + "② Download에 없는 곡은 기존 V1.6에서 그 곡의 "
                                 + "'BIGO용 저장'으로 Music 폴더에 내보낸 다음 "
-                                + "이 앱에서 '다른 폴더에서 가져오기'로 등록하세요.\\n\\n"
+                                + "이 앱에서 '다른 폴더에서 가져오기'로 등록하세요.\n\n"
                                 + "V1.6만의 장르 분류/예약 설정은 자동으로 이전되지 않으며 "
                                 + "V1.7에서 다시 지정해야 합니다.")
                         .setPositiveButton("확인", null).show()));
