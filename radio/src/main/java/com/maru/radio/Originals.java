@@ -17,6 +17,8 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 
 /** Byte-for-byte import of user-approved audio files; never modifies the source. */
@@ -81,8 +83,46 @@ public final class Originals {
         prefs(ctx).edit().putString(KEY, array.toString()).apply();
     }
 
-    /** Stream to temporary app storage, hash all bytes, and move without transcoding. */
-    public static synchronized boolean importUri(Context ctx, Uri uri) throws Exception {
+    public interface ProgressListener {
+        void onProgress(int done, int total);
+    }
+
+    public static final class BatchResult {
+        public int added;
+        public int duplicates;
+        public int failed;
+        public String lastError = "";
+    }
+
+    /**
+     * One batch / one catalog read: scales to 192+ user-selected files.
+     * Save every 10 items to preserve progress on an interrupted import.
+     * SHA-256 compares file CONTENT, not filename; same title may be different audio.
+     */
+    public static synchronized BatchResult importBatch(
+            Context ctx, List<Uri> incoming, ProgressListener listener) {
+        BatchResult result = new BatchResult();
+        List<Track> tracks = list(ctx);
+        Set<String> hashes = new HashSet<>();
+        for (Track t : tracks) hashes.add(t.hash);
+        for (int i = 0; i < incoming.size(); i++) {
+            try {
+                if (copyOriginal(ctx, incoming.get(i), tracks, hashes)) result.added++;
+                else result.duplicates++;
+            } catch (Exception ex) {
+                result.failed++;
+                result.lastError = ex.getMessage() == null ? "알 수 없는 파일 오류" : ex.getMessage();
+            }
+            if ((i + 1) % 10 == 0) save(ctx, tracks);
+            if (listener != null) listener.onProgress(i + 1, incoming.size());
+        }
+        save(ctx, tracks);
+        return result;
+    }
+
+    /** Stream only the user-selected file, then compare SHA-256 without transcoding. */
+    private static boolean copyOriginal(Context ctx, Uri uri,
+            List<Track> tracks, Set<String> hashes) throws Exception {
         if (uri == null) throw new IOException("원곡 파일이 선택되지 않았어요.");
         String title = name(ctx.getContentResolver(), uri);
         String mime = ctx.getContentResolver().getType(uri);
@@ -115,34 +155,58 @@ public final class Originals {
             if (size == 0) throw new IOException("비어 있는 파일이에요.");
 
             String digest = hex(hash.digest());
-            List<Track> tracks = list(ctx);
-            for (Track existing : tracks) {
-                if (digest.equals(existing.hash)) return false;
-            }
+            if (hashes.contains(digest)) return false;
             File destination = new File(directory, digest + "--" + safeName(title, mime));
             if (!temp.renameTo(destination))
                 throw new IOException("원곡 저장에 실패했어요.");
 
             tracks.add(new Track(title, destination.getAbsolutePath(), digest));
-            save(ctx, tracks);
+            hashes.add(digest);
             return true;
         } finally {
             if (temp.exists()) temp.delete();
         }
     }
 
-    public static synchronized void remove(Context ctx, Track track) {
+    /** Delete ONLY MARU RADIO private copies; downloaded Suno originals are untouched. */
+    public static synchronized int removeMany(Context ctx, Set<String> hashes) {
+        if (hashes == null || hashes.isEmpty()) return 0;
         List<Track> current = list(ctx);
         List<Track> remaining = new ArrayList<>();
+        int removed = 0;
         for (Track item : current) {
-            if (item.hash.equals(track.hash)) {
-                // The file is known to be within the app's private originals folder.
-                item.file().delete();
+            if (hashes.contains(item.hash)) {
+                if (item.file().delete()) removed++;
+                else remaining.add(item); // Never lose a catalog entry if deletion failed.
             } else {
                 remaining.add(item);
             }
         }
         save(ctx, remaining);
+        return removed;
+    }
+
+    public static synchronized void remove(Context ctx, Track track) {
+        Set<String> one = new HashSet<>();
+        one.add(track.hash);
+        removeMany(ctx, one);
+    }
+
+    /**
+     * Remove old duplicate catalog entries (if any) but do not delete shared
+     * content or source downloads. Normal batch import already prevents these.
+     */
+    public static synchronized int pruneDuplicateCatalogEntries(Context ctx) {
+        List<Track> current = list(ctx);
+        Set<String> seen = new HashSet<>();
+        List<Track> unique = new ArrayList<>();
+        int count = 0;
+        for (Track t : current) {
+            if (seen.add(t.hash)) unique.add(t);
+            else count++;
+        }
+        if (count > 0) save(ctx, unique);
+        return count;
     }
 
     private static String name(ContentResolver resolver, Uri uri) {
