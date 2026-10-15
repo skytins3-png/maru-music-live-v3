@@ -85,7 +85,7 @@ public final class RadioSchedule extends BroadcastReceiver {
         nm.createNotificationChannel(new NotificationChannel(CHANNEL,
                 "MARU RADIO 방송 시작 알림", NotificationManager.IMPORTANCE_HIGH));
 
-        Intent activity = new Intent(context, RadioActivity.class)
+        Intent activity = new Intent(context, RadioAutomationActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(EXTRA_READY, true);
         PendingIntent tap = PendingIntent.getActivity(context, REQUEST, activity,
