@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
@@ -123,7 +124,7 @@ public final class RadioActivity extends Activity {
         t.setText(text);
         t.setTextSize(sp);
         t.setTextColor(color);
-        if (bold) t.setTypeface(null, 1);
+        if (bold) t.setTypeface(null, Typeface.BOLD);
         t.setPadding(0, dp(3), 0, dp(4));
         return t;
     }
@@ -269,7 +270,12 @@ public final class RadioActivity extends Activity {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         String name = Originals.exportFilename(t);
-        String mime = name.toLowerCase().endsWith(".wav") ? "audio/wav" : "audio/*";
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        String mime = lower.endsWith(".wav") ? "audio/wav" :
+                lower.endsWith(".flac") ? "audio/flac" :
+                lower.endsWith(".m4a") ? "audio/mp4" :
+                lower.endsWith(".ogg") ? "audio/ogg" :
+                "audio/mpeg";
         intent.setType(mime);
         intent.putExtra(Intent.EXTRA_TITLE, name);
         startActivityForResult(intent, EXPORT_AUDIO);
