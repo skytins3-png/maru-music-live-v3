@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.bigo'" in gradle,
+    "own package": "applicationId 'com.maru.radio.program'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -36,6 +36,10 @@ checks = {
     "no recording or capture permissions": all(word not in manifest for word in (
         "RECORD_AUDIO", "MEDIA_PROJECTION",
         "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE")),
+    "four song groups": all(n in (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8") for n in ("한국노래", "중국노래", "서양노래", "연주곡")),
+    "genre-filtered queue": "RadioProgram.category(this, track) == category" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
+    "music auto-end service timer": "SystemClock.elapsedRealtime()" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8") and "ACTION_SET_TIMER" in activity,
+    "optional confirmed BIGO end": "RadioProgram.autoEndBigo(this)" in activity and "BigoControlAssist.isConnected" in activity,
     "accessibility restricted to BIGO": "BigoControlAssist" in manifest and
         "android.permission.BIND_ACCESSIBILITY_SERVICE" in manifest and
         'android:exported="true"' in manifest and
