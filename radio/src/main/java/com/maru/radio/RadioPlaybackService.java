@@ -109,7 +109,13 @@ public final class RadioPlaybackService extends Service {
                 updateNotification();
                 return START_NOT_STICKY;
             }
-            int minutes = Math.max(5, Math.min(720, intent.getIntExtra(EXTRA_MINUTES, 60)));
+            int minutes = intent.getIntExtra(EXTRA_MINUTES, 0);
+            if (minutes <= 0) {
+                clearTimer();
+                updateNotification();
+                return START_NOT_STICKY;
+            }
+            minutes = Math.max(5, Math.min(720, minutes));
             timerDeadline = SystemClock.elapsedRealtime() + minutes * 60000L;
             timerHandler.removeCallbacks(timerCheck);
             timerHandler.post(timerCheck);
