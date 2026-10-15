@@ -125,6 +125,30 @@ checks.update({
     "V1.7 no new BIGO accessibility controls": "BIND_ACCESSIBILITY_SERVICE" not in manifest
         and "dispatchGesture" not in service and "dispatchGesture" not in automation,
 })
+# V1.7.3 joint scheduling should neither overwrite a selected stop clock nor
+# advertise automatic control over BIGO's third-party live session.
+clock = (root / "radio/src/main/java/com/maru/radio/RadioClock.java").read_text(encoding="utf-8")
+schedule = (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.7.3 paired clock UI": all(value in automation for value in (
+        "choosePair()", "savePair()", "cancelPair()", "ASK_PAIR_NOTIFICATION",
+        "시작·종료 한번에 자동 예약", "RadioClock.endAfter(now, pendingStartAt",
+        "RadioSchedule.setPair(this, pendingStartAt, pendingEndAt)")),
+    "V1.7.3 pair time atomic preferences": all(value in schedule for value in (
+        "public static void setPair(", "finishAt <= startAt", ".putLong(\"when\", startAt)",
+        ".putLong(\"end_when\", finishAt)", ".putBoolean(\"auto_music\", true)",
+        "manager.cancel(alarm(context, false))", "manager.cancel(alarm(context, true))")),
+    "V1.7.3 end alarm restored despite start failure":
+        schedule.find("if (end > now) arm(context, end, true, false)")
+        < schedule.find("if (start > now) arm(context, start, false,"),
+    "V1.7.3 calendar calculations pure Java": all(value in clock for value in (
+        "nextOccurrence(Calendar now", "endAfter(Calendar now", "Calendar.DAY_OF_MONTH",
+        "while (end.getTimeInMillis() <= startAt)")),
+    "V1.7.3 no BIGO automatic control": "BIND_ACCESSIBILITY_SERVICE" not in manifest
+        and "SYSTEM_ALERT_WINDOW" not in manifest
+        and "BigoBroadcastGuide.showStart(this)" in automation,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
