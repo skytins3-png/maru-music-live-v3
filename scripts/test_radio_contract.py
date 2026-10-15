@@ -85,7 +85,7 @@ checks.update({
         ("chooseClock(true)", "chooseClock(false)", "RadioSchedule.setAutomatic(this, pendingStartAt)",
          "RadioSchedule.set(this, pendingStartAt)", "잠겨 있어도")),
     "V1.7.2 reboot rearm only": "RECEIVE_BOOT_COMPLETED" in manifest
-        and "ACTION_BOOT_COMPLETED" in manifest
+        and "android.intent.action.BOOT_COMPLETED" in manifest
         and "restore(context)" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
     "V1.7.2 end only MARU, no BIGO UI automation": all(x not in manifest for x in
