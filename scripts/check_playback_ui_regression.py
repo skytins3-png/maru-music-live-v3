@@ -12,7 +12,7 @@ required = [
     'showActiveSongMedia();',
     'BitmapFactory.decodeResource', 'smallButton("이전"',
     'smallButton("재생"', 'smallButton("다음"',
-    'smallButton("LIVE"', 'smallButton("설정"',
+    'smallButton("오디오 LIVE"', 'smallButton("설정"',
     '전체화면 이미지 플레이어 열기',
     'if (!localTestMode)',
     'if (localTestMode) return;',

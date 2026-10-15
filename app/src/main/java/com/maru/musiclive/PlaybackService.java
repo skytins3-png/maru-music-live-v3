@@ -669,7 +669,9 @@ public final class PlaybackService extends Service {
             main.postDelayed(volumeRecovery, Math.max(1L, nextExpiry - now));
         if (player == null) return;
         try {
-            float value = ducking.effective() * focusVolume;
+            // Keep the app-controlled playback gain fixed for BIGO coexistence.
+            // This does not bypass Android stream volume or BIGO's capture/microphone mix.
+            float value = bigoCoexistenceMode ? 1f : ducking.effective() * focusVolume;
             player.setVolume(value, value);
         } catch (IllegalStateException ignored) {}
     }
