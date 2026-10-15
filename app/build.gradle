@@ -7,7 +7,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.musiclive.ocr'
+        applicationId 'com.maru.musiclive.ocr.lite'
         minSdk 26
         targetSdk 36
         versionCode 3034
