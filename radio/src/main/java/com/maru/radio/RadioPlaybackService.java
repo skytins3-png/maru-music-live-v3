@@ -35,6 +35,8 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
+    public static final String ACTION_SET_WALL_END = "com.maru.radio.SET_WALL_END";
+    public static final String EXTRA_END_AT = "end_epoch_millis";
     public static final String EXTRA_MINUTES = "minutes";
     public static final String EXTRA_HASH = "hash";
 
@@ -100,6 +102,25 @@ public final class RadioPlaybackService extends Service {
         }
         if (ACTION_CANCEL_TIMER.equals(action)) {
             clearTimer();
+            updateNotification();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_SET_WALL_END.equals(action)) {
+            long endAt = intent.getLongExtra(EXTRA_END_AT, 0L);
+            if (endAt <= System.currentTimeMillis()) {
+                clearTimer();
+                updateNotification();
+                return START_NOT_STICKY;
+            }
+            if (queue.isEmpty() || (!isPlaying() && !loading && !ready)) {
+                error = "먼저 음악을 재생한 뒤 종료 시간을 설정해 주세요.";
+                updateNotification();
+                return START_NOT_STICKY;
+            }
+            timerDeadline = SystemClock.elapsedRealtime()
+                    + (endAt - System.currentTimeMillis());
+            timerHandler.removeCallbacks(timerCheck);
+            timerHandler.post(timerCheck);
             updateNotification();
             return START_NOT_STICKY;
         }
