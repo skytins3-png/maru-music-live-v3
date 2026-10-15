@@ -107,7 +107,7 @@ checks.update({
     "V1.7 prevent next track after deadline": "private void advanceOnCompletion()" in service
         and "if (deadlineReached())" in service
         and "private void rescheduleTimerCheck()" in service,
-    "V1.7 next-day time chooser": "chosen.add(Calendar.DAY_OF_MONTH, 1)" in automation
+    "V1.7 next-day time chooser": "RadioClock.endAfter(now, start, hour, minute)" in automation
         and "RadioSchedule.setEnd(this, pendingEndAt)" in automation,
     "BIGO guided start/end based on user screenshots": all(
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
