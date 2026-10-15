@@ -66,6 +66,7 @@ public final class RadioActivity extends Activity {
     private Originals.Track exporting;
     private RadioPlaybackService radioService;
     private boolean playerBound;
+    private boolean playerBindRequested;
     private TextView playerTitle;
     private TextView playerTime;
     private Button playerToggleButton;
@@ -725,20 +726,27 @@ public final class RadioActivity extends Activity {
 
     @Override protected void onStart() {
         super.onStart();
-        try { bindService(new Intent(this, RadioPlaybackService.class),
-                playerConnection, Context.BIND_AUTO_CREATE); }
-        catch (RuntimeException e) { say("음악 재생 서비스에 연결할 수 없어요."); }
+        try {
+            playerBindRequested = bindService(
+                    new Intent(this, RadioPlaybackService.class),
+                    playerConnection, Context.BIND_AUTO_CREATE);
+        } catch (RuntimeException e) {
+            playerBindRequested = false;
+            say("음악 재생 서비스에 연결할 수 없어요.");
+        }
         playerHandler.removeCallbacks(playerRefresh);
         playerHandler.post(playerRefresh);
     }
 
     @Override protected void onStop() {
         playerHandler.removeCallbacks(playerRefresh);
-        if (playerBound) {
-            unbindService(playerConnection);
-            radioService = null;
-            playerBound = false;
+        if (playerBindRequested) {
+            try { unbindService(playerConnection); }
+            catch (IllegalArgumentException ignored) {}
+            playerBindRequested = false;
         }
+        radioService = null;
+        playerBound = false;
         super.onStop();
         // Do NOT stop foreground music; the user may open BIGO or another app.
     }
