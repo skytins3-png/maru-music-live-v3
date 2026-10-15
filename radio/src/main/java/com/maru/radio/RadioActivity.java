@@ -11,13 +11,21 @@ import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.os.Bundle;
 import android.os.Build;
 import android.graphics.Insets;
 import android.view.WindowInsets;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -26,7 +34,14 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -45,8 +60,18 @@ public final class RadioActivity extends Activity {
     private final ExecutorService files = Executors.newSingleThreadExecutor();
     private MediaPlayer preview;
     private Originals.Track exporting;
-    private LinearLayout songList;
+    private ListView songList;
+    private BaseAdapter songAdapter;
+    private TextView songCount;
     private TextView status;
+    private EditText search;
+    private final List<Originals.Track> allTracks = new ArrayList<>();
+    private final List<Originals.Track> shownTracks = new ArrayList<>();
+    private final Set<String> selected = new HashSet<>();
+    private boolean sameTitleOnly = false;
+    private boolean importInProgress = false;
+    private int sortMode = 0; // 0 = newest imported first, 1 = title, 2 = oldest first
+
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -85,27 +110,90 @@ public final class RadioActivity extends Activity {
         root.addView(label("Suno MP3/WAV 원곡 보관 · 미리듣기", 13, 0xFFB1A6C5, false));
         gap(root, 17);
 
-        card(root, "1  SUNO에서 내 원곡 준비",
-                "Suno에서 MP3/WAV 다운로드 후 가져오기. 링크 공유만으로는 음악이 등록되지 않아요.",
-                "Suno 열기", this::openSuno,
-                "원곡 파일 가져오기", this::pickFiles);
+        card(root, "1  DOWNLOAD에서 원곡 가져오기",
+                "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
+                "Download 바로가기", this::pickDownloads,
+                "다른 폴더에서 가져오기", this::pickFiles);
 
-        card(root, "2  방송할 원곡 선택",
-                "원곡은 무변환 보관. 원하는 곡을 고른 뒤 BIGO용으로 저장하세요.",
-                "원곡 목록 새로고침", this::refreshSongs,
-                null, null);
+        card(root, "2  원곡 목록 · 선택 삭제",
+                "검색해서 불필요한 곡에 체크하고 선택 삭제하세요. 삭제 대상은 MARU 보관 사본뿐입니다.",
+                "곡 목록 새로고침", this::refreshSongs,
+                "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
-        songList = new LinearLayout(this);
-        songList.setOrientation(LinearLayout.VERTICAL);
-        root.addView(songList);
-        gap(root, 8);
+        songCount = label("보관 원곡 0곡", 16, VIOLET, true);
+        root.addView(songCount);
+        search = new EditText(this);
+        search.setSingleLine(true);
+        search.setTextColor(WHITE);
+        search.setHintTextColor(0xFFA79BB8);
+        search.setTextSize(16);
+        search.setHint("곡 제목 검색");
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateVisibleTracks();
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+        root.addView(search);
+
+        LinearLayout bulkTools = new LinearLayout(this);
+        bulkTools.setOrientation(LinearLayout.HORIZONTAL);
+        bulkTools.addView(compactButton("보이는 곡 선택", this::selectShown), new LinearLayout.LayoutParams(0, -2, 1f));
+        bulkTools.addView(compactButton("선택 해제", this::clearSelection), new LinearLayout.LayoutParams(0, -2, 1f));
+        root.addView(bulkTools);
+        LinearLayout cleanupTools = new LinearLayout(this);
+        cleanupTools.setOrientation(LinearLayout.HORIZONTAL);
+        cleanupTools.addView(compactButton("선택 삭제", this::deleteSelected), new LinearLayout.LayoutParams(0, -2, 1f));
+        cleanupTools.addView(compactButton("정렬", this::sortDialog), new LinearLayout.LayoutParams(0, -2, 0.6f));
+        cleanupTools.addView(compactButton("중복 검사", this::pruneCatalogDuplicates), new LinearLayout.LayoutParams(0, -2, 1f));
+        root.addView(cleanupTools);
+
+        songList = new ListView(this);
+        songList.setDividerHeight(dp(2));
+        songList.setBackgroundColor(0xFF19152D);
+        songList.setNestedScrollingEnabled(true);
+        songAdapter = new BaseAdapter() {
+            @Override public int getCount() { return shownTracks.size(); }
+            @Override public Object getItem(int pos) { return shownTracks.get(pos); }
+            @Override public long getItemId(int pos) { return pos; }
+            @Override public View getView(int pos, View old, ViewGroup parent) {
+                Originals.Track t = shownTracks.get(pos);
+                LinearLayout row = new LinearLayout(RadioActivity.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(6), dp(3), dp(3), dp(3));
+                CheckBox choose = new CheckBox(RadioActivity.this);
+                choose.setTextColor(WHITE);
+                choose.setTextSize(14);
+                choose.setMaxLines(2);
+                choose.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                choose.setText(t.title);
+                choose.setChecked(selected.contains(t.hash));
+                choose.setOnCheckedChangeListener((button, checked) -> {
+                    if (checked) selected.add(t.hash);
+                    else selected.remove(t.hash);
+                    updateCount();
+                });
+                row.addView(choose, new LinearLayout.LayoutParams(0, -2, 1f));
+                row.addView(compactButton("▶", () -> togglePreview(t)),
+                        new LinearLayout.LayoutParams(dp(48), dp(50)));
+                row.addView(compactButton("⋮", () -> showTrackActions(t)),
+                        new LinearLayout.LayoutParams(dp(48), dp(50)));
+                return row;
+            }
+        };
+        songList.setAdapter(songAdapter);
+        root.addView(songList, new LinearLayout.LayoutParams(-1, dp(430)));
+        gap(root, 10);
 
         card(root, "3  BIGO 오디오 LIVE",
                 "BIGO 오디오 LIVE의 음악/믹서에 로컬 파일 선택 기능이 있는 경우 저장한 원곡을 불러오세요.",
                 "BIGO LIVE 열기", this::openBigo,
                 "송출 음량 확인 방법", this::broadcastGuide);
 
-        status = label("준비 완료 · 원곡 파일은 변경하지 않아요.", 13,
+        root.addView(compactButton("Suno 열기", this::openSuno));
+        status = label("준비 완료 · 다운로드 원본 파일은 변경하지 않아요.", 13,
                 0xFF9BDEBC, false);
         root.addView(status);
         setContentView(scroll);
@@ -151,6 +239,15 @@ public final class RadioActivity extends Activity {
         return b;
     }
 
+    private Button compactButton(String text, Runnable action) {
+        Button button = button(text, action);
+        button.setTextSize(12);
+        button.setMinimumHeight(dp(45));
+        button.setMinHeight(dp(45));
+        button.setPadding(dp(2), 0, dp(2), 0);
+        return button;
+    }
+
     private void gap(LinearLayout box, int dp) {
         View v = new View(this);
         box.addView(v, new LinearLayout.LayoutParams(1, dp(dp)));
@@ -161,11 +258,38 @@ public final class RadioActivity extends Activity {
     }
 
     private void pickFiles() {
+        chooseAudio(false);
+    }
+
+    private void pickDownloads() {
+        chooseAudio(true);
+    }
+
+    /** Ask the system picker to start in Download; Android providers may override it. */
+    private void chooseAudio(boolean preferDownload) {
+        if (importInProgress) {
+            say("먼저 진행 중인 음악 가져오기가 끝나야 해요.");
+            return;
+        }
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("audio/*");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        startActivityForResult(i, PICK_AUDIO);
+        if (preferDownload) {
+            try {
+                Uri folder = DocumentsContract.buildDocumentUri(
+                        "com.android.externalstorage.documents", "primary:Download");
+                i.putExtra(DocumentsContract.EXTRA_INITIAL_URI, folder);
+            } catch (RuntimeException ignored) {
+                // Users can navigate manually if their document provider has no Download shortcut.
+            }
+        }
+        try {
+            startActivityForResult(i, PICK_AUDIO);
+        } catch (RuntimeException ex) {
+            say("파일 선택기를 열지 못했습니다. '다른 폴더'를 이용해 주세요.");
+        }
     }
 
     private void openSuno() {
