@@ -41,12 +41,6 @@ public final class RadioProgram {
     public static void setDurationMinutes(Context context, int minutes) {
         pref(context).edit().putInt("duration", Math.max(5, Math.min(720, minutes))).apply();
     }
-    public static boolean autoEndBigo(Context context) {
-        return pref(context).getBoolean("auto_end_bigo", false);
-    }
-    public static void setAutoEndBigo(Context context, boolean value) {
-        pref(context).edit().putBoolean("auto_end_bigo", value).apply();
-    }
     public static int inferred(String title) {
         if (title == null) return 3;
         String n = title.toLowerCase(Locale.ROOT);
