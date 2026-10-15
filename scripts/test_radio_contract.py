@@ -66,9 +66,10 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7 distinct package protects V1.6 data": "applicationId 'com.maru.radio.safev171'" in gradle
-        and "applicationId 'com.maru.radio.safev16'" not in gradle,
-    "V1.7 correct Android version": "versionCode 9" in gradle
+    "V1.7.1 separate package protects V1.6 and V1.7 data": "applicationId 'com.maru.radio.safev171'" in gradle
+        and "applicationId 'com.maru.radio.safev16'" not in gradle
+        and "applicationId 'com.maru.radio.safev17'" not in gradle,
+    "V1.7.1 correct Android version": "versionCode 9" in gradle
         and "versionName '1.7.1'" in gradle
         and "MARU RADIO V1.7.1" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
@@ -91,7 +92,7 @@ checks.update({
     "BIGO guided start/end based on user screenshots": all(
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
                  .read_text(encoding="utf-8") for text in (
-        '"믹서"', "마이크 볼륨 1", "Original(원본)", "방송하기",
+        "'믹서'", "마이크 볼륨 1", "Original(원본)", "방송하기",
         "라이브 종료하기", "stopService(new Intent(host, RadioPlaybackService.class))")),
     "BIGO navigation is safe launch-only": all(
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
