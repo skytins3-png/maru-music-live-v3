@@ -258,9 +258,19 @@ public final class BigoControlAssist extends AccessibilityService {
         android.util.DisplayMetrics m = getResources().getDisplayMetrics();
         int width = m.widthPixels;
         int height = m.heightPixels;
-        if (width < 400 || height < 700) return false;
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            WindowManager wm = getSystemService(WindowManager.class);
+            if (wm != null) {
+                Rect full = wm.getMaximumWindowMetrics().getBounds();
+                width = full.width();
+                height = full.height();
+            }
+        }
+        if (width < 400 || height < 700 || width >= height) return false;
         Path path = new Path();
-        path.moveTo(width * fx, height * fy);
+        float x = width * fx, y = height * fy;
+        path.moveTo(x, y);
+        path.lineTo(x, y);
         GestureDescription.Builder b = new GestureDescription.Builder();
         b.addStroke(new GestureDescription.StrokeDescription(path, 0, 100));
         awaitingTap = true;
