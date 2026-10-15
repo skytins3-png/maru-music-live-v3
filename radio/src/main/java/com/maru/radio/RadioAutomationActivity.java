@@ -263,6 +263,13 @@ public final class RadioAutomationActivity extends Activity {
         }
         try {
             RadioSchedule.setPair(this, pendingStartAt, pendingEndAt);
+            // Apply the new end clock to any music that is already playing.
+            // When playback starts later, it also reads this saved end automatically.
+            try {
+                startService(new Intent(this, RadioPlaybackService.class)
+                        .setAction(RadioPlaybackService.ACTION_SET_WALL_END)
+                        .putExtra(RadioPlaybackService.EXTRA_END_AT, pendingEndAt));
+            } catch (RuntimeException ignored) {}
             updateStatus();
             message("✅ MARU 음악 시작·종료를 함께 예약했어. BIGO 방송은 수동 시작·종료야.");
         } catch (RuntimeException e) {
