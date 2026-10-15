@@ -23,6 +23,10 @@ checks = {
     "confirmed bulk delete only of app copies": "Originals.removeMany(" in activity and "new HashSet<>(selected)" in activity,
     "192+ batch import with progress": "Originals.importBatch" in activity and "onProgress" in store,
     "automatic SHA batch dedupe": "hashes.contains(digest)" in store and "save(ctx, tracks)" in store,
+    "picker uses read-only permission": "takePersistableUriPermission" in store and "Intent.FLAG_GRANT_READ_URI_PERMISSION" in store,
+    "no 192 downloads copy by default": "retainDownloadDocument" in store and "isDownloadReference()" in activity,
+    "fallback preserves provider compatibility": "return copyOriginal(ctx, uri, tracks, hashes)" in store,
+    "removal never deletes source downloads": "if (item.isDownloadReference())" in store and "releasePersistableUriPermission" in store,
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
     "no recording or capture permissions": all(word not in manifest for word in (
