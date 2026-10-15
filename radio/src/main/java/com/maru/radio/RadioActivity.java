@@ -520,7 +520,7 @@ public final class RadioActivity extends Activity {
         if (programSummary != null) {
             int minutes = RadioProgram.durationMinutes(this);
             long remaining = radioService == null ? 0 : radioService.timerRemainingMs();
-            programSummary.setText("설정 " + minutes + "분 · "
+            programSummary.setText("음악 자동 종료 " + (minutes == 0 ? "꺼짐" : minutes + "분 설정") + " · "
                     + (remaining <= 0 ? "타이머 중지" :
                     "자동 재생 종료까지 " + (remaining / 60000) + "분 "
                             + ((remaining / 1000) % 60) + "초")
