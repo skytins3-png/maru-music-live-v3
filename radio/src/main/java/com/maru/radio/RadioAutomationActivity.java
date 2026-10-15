@@ -214,7 +214,7 @@ public final class RadioAutomationActivity extends Activity {
                 while (!end.after(start)) end.add(Calendar.DAY_OF_MONTH, 1);
                 pendingEndAt = end.getTimeInMillis();
                 String when = "시작 " + DateFormat.format("M월 d일 HH:mm", start)
-                        + "\\n종료 " + DateFormat.format("M월 d일 HH:mm", end);
+                        + "\n종료 " + DateFormat.format("M월 d일 HH:mm", end);
                 new AlertDialog.Builder(this)
                         .setTitle("MARU 음악 자동 시작·종료 예약")
                         .setMessage(when + "\\n\\n선택한 장르의 MARU 원곡만 예약 시간에 "
