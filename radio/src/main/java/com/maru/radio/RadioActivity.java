@@ -468,22 +468,11 @@ public final class RadioActivity extends Activity {
     }
 
     private void requestBigoStart() {
-        new AlertDialog.Builder(this).setTitle("BIGO 오디오 LIVE 시작")
-                .setMessage("BIGO 앱을 연 뒤 '오디오 라이브'를 선택하고 "
-                        + "'방송하기' 버튼을 직접 눌러 주세요.\n\n"
-                        + "보안을 위해 MARU는 접근성 권한을 요청하지 않으며 "
-                        + "다른 앱의 버튼을 자동 조작하지 않습니다.")
-                .setPositiveButton("BIGO 열기", (d, w) -> openBigo())
-                .setNegativeButton("취소", null).show();
+        BigoBroadcastGuide.showStart(this);
     }
 
     private void requestBigoEnd() {
-        new AlertDialog.Builder(this).setTitle("BIGO 라이브 종료")
-                .setMessage("BIGO를 열고 현재 방송 화면 오른쪽 위 X를 누른 뒤 "
-                        + "'라이브 종료하기'를 직접 선택해 주세요.\n\n"
-                        + "음악 타이머 종료는 BIGO 방송을 자동 종료하지 않습니다.")
-                .setPositiveButton("BIGO 열기", (d, w) -> openBigo())
-                .setNegativeButton("취소", null).show();
+        BigoBroadcastGuide.showEnd(this);
     }
 
     private void broadcastGuide() {
