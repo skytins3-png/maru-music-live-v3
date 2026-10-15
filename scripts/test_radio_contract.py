@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.catalog'" in gradle,
+    "own package": "applicationId 'com.maru.radio.player'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -23,6 +23,10 @@ checks = {
     "confirmed bulk delete only of app copies": "Originals.removeMany(" in activity and "new HashSet<>(selected)" in activity,
     "192+ batch import with progress": "Originals.importBatch" in activity and "onProgress" in store,
     "automatic SHA batch dedupe": "hashes.contains(digest)" in store and "save(ctx, tracks)" in store,
+    "foreground media service": ".RadioPlaybackService" in manifest and "foregroundServiceType=\"mediaPlayback\"" in manifest,
+    "visible player buttons": '"▶ 재생"' in activity and '"⏸ 일시정지"' in activity and "ACTION_NEXT" in activity and "ACTION_PREVIOUS" in activity,
+    "play across app transitions": "Do NOT stop foreground music" in activity and "startForegroundService(i)" in activity,
+    "seek control": "radioService.seekTo" in activity,
     "picker uses read-only permission": "takePersistableUriPermission" in store and "Intent.FLAG_GRANT_READ_URI_PERMISSION" in store,
     "no 192 downloads copy by default": "retainDownloadDocument" in store and "isDownloadReference()" in activity,
     "fallback preserves provider compatibility": "return copyOriginal(ctx, uri, tracks, hashes)" in store,
