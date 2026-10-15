@@ -3,13 +3,17 @@ package com.maru.radio;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ClipData;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.ServiceConnection;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.media.AudioAttributes;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.text.Editable;
@@ -27,6 +31,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.LinearLayout;
+import android.widget.SeekBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
@@ -58,8 +63,35 @@ public final class RadioActivity extends Activity {
     private static final int WHITE = 0xFFF7F1FF;
 
     private final ExecutorService files = Executors.newSingleThreadExecutor();
-    private MediaPlayer preview;
     private Originals.Track exporting;
+    private RadioPlaybackService radioService;
+    private boolean playerBound;
+    private boolean playerBindRequested;
+    private TextView playerTitle;
+    private TextView playerTime;
+    private Button playerToggleButton;
+    private SeekBar playerSeek;
+    private boolean playerSeeking;
+    private final Handler playerHandler = new Handler(Looper.getMainLooper());
+    private final Runnable playerRefresh = new Runnable() {
+        @Override public void run() {
+            updatePlayerStatus();
+            if (playerBound && !isFinishing()) playerHandler.postDelayed(this, 750L);
+        }
+    };
+    private final ServiceConnection playerConnection = new ServiceConnection() {
+        @Override public void onServiceConnected(ComponentName name, IBinder service) {
+            radioService = ((RadioPlaybackService.LocalBinder) service).getService();
+            playerBound = true;
+            updatePlayerStatus();
+        }
+        @Override public void onServiceDisconnected(ComponentName name) {
+            playerBound = false;
+            radioService = null;
+            updatePlayerStatus();
+        }
+    };
+
     private ListView songList;
     private BaseAdapter songAdapter;
     private TextView songCount;
@@ -107,8 +139,57 @@ public final class RadioActivity extends Activity {
 
         root.addView(label("MARU RADIO", 31, VIOLET, true));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
-        root.addView(label("Suno MP3/WAV 원곡 보관 · 미리듣기", 13, 0xFFB1A6C5, false));
-        gap(root, 17);
+        root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
+        gap(root, 8);
+
+        LinearLayout playerCard = new LinearLayout(this);
+        playerCard.setOrientation(LinearLayout.VERTICAL);
+        playerCard.setPadding(dp(15), dp(12), dp(15), dp(11));
+        GradientDrawable playerBg = new GradientDrawable();
+        playerBg.setColor(PANEL);
+        playerBg.setCornerRadius(dp(16));
+        playerCard.setBackground(playerBg);
+        LinearLayout.LayoutParams playerCardParams =
+                new LinearLayout.LayoutParams(-1, -2);
+        playerCardParams.bottomMargin = dp(14);
+        root.addView(playerCard, playerCardParams);
+        playerCard.addView(label("🎵 원곡 플레이어", 20, VIOLET, true));
+        playerTitle = label("보관곡을 선택하면 여기에서 재생돼요.", 15, WHITE, false);
+        playerTitle.setMaxLines(2);
+        playerTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        playerCard.addView(playerTitle);
+        LinearLayout playbackButtons = new LinearLayout(this);
+        playbackButtons.setOrientation(LinearLayout.HORIZONTAL);
+        playbackButtons.setGravity(Gravity.CENTER);
+        playbackButtons.addView(compactButton("⏮ 이전", () ->
+                playerAction(RadioPlaybackService.ACTION_PREVIOUS)),
+                new LinearLayout.LayoutParams(0, dp(55), 1));
+        playerToggleButton = compactButton("▶ 재생", this::togglePlayer);
+        playerToggleButton.setTextSize(17);
+        playbackButtons.addView(playerToggleButton,
+                new LinearLayout.LayoutParams(0, dp(55), 1.35f));
+        playbackButtons.addView(compactButton("다음 ⏭", () ->
+                playerAction(RadioPlaybackService.ACTION_NEXT)),
+                new LinearLayout.LayoutParams(0, dp(55), 1));
+        playerCard.addView(playbackButtons);
+        playerSeek = new SeekBar(this);
+        playerSeek.setMax(1000);
+        playerSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar seekBar) { playerSeeking = true; }
+            @Override public void onProgressChanged(SeekBar seekBar, int progress,
+                    boolean fromUser) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+                playerSeeking = false;
+                if (radioService != null) radioService.seekTo(seekBar.getProgress());
+                updatePlayerStatus();
+            }
+        });
+        playerCard.addView(playerSeek);
+        playerTime = label("00:00 / 00:00", 12, 0xFFCCC2DF, false);
+        playerCard.addView(playerTime);
+        playerCard.addView(compactButton("■ 재생 종료", () ->
+                playerAction(RadioPlaybackService.ACTION_STOP)));
+        gap(root, 8);
 
         card(root, "1  DOWNLOAD에서 원곡 가져오기",
                 "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
@@ -176,7 +257,7 @@ public final class RadioActivity extends Activity {
                     updateCount();
                 });
                 row.addView(choose, new LinearLayout.LayoutParams(0, -2, 1f));
-                row.addView(compactButton("▶", () -> togglePreview(t)),
+                row.addView(compactButton("▶", () -> playTrack(t)),
                         new LinearLayout.LayoutParams(dp(48), dp(50)));
                 row.addView(compactButton("⋮", () -> showTrackActions(t)),
                         new LinearLayout.LayoutParams(dp(48), dp(50)));
@@ -301,7 +382,7 @@ public final class RadioActivity extends Activity {
     }
 
     private void openBigo() {
-        stopPreview();
+        // Foreground playback continues while switching to BIGO.
         Intent open = getPackageManager().getLaunchIntentForPackage("sg.bigo.live");
         if (open == null) {
             new AlertDialog.Builder(this).setMessage(
@@ -408,7 +489,9 @@ public final class RadioActivity extends Activity {
             .setMessage("MARU RADIO 목록에서 " + targets.size() + "곡을 제거할까요?\n\n"
                     + "Download와 Suno 원본 파일은 그대로 보존합니다.")
             .setPositiveButton("선택 삭제", (dialog, which) -> {
-                stopPreview();
+                if (radioService != null && targets.contains(radioService.currentHash())) {
+                    playerAction(RadioPlaybackService.ACTION_STOP);
+                }
                 say("선택한 " + targets.size() + "곡 목록 정리 중…");
                 files.execute(() -> {
                     int removed = Originals.removeMany(getApplicationContext(), targets);
@@ -439,50 +522,82 @@ public final class RadioActivity extends Activity {
 
     private void showTrackActions(Originals.Track track) {
         new AlertDialog.Builder(this).setTitle(track.title)
-                .setItems(new String[]{"미리듣기", "BIGO용 저장", "이 곡 삭제"}, (dialog, which) -> {
-                    if (which == 0) togglePreview(track);
+                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "이 곡 삭제"}, (dialog, which) -> {
+                    if (which == 0) playTrack(track);
                     else if (which == 1) export(track);
                     else confirmDelete(track);
                 })
                 .setNegativeButton("닫기", null).show();
     }
 
-    private void togglePreview(Originals.Track track) {
-        stopPreview();
+    private void playTrack(Originals.Track track) {
+        if (track == null) { say("원곡을 먼저 가져와 주세요."); return; }
+        Intent i = new Intent(this, RadioPlaybackService.class)
+                .setAction(RadioPlaybackService.ACTION_PLAY)
+                .putExtra(RadioPlaybackService.EXTRA_HASH, track.hash);
         try {
-            final MediaPlayer m = new MediaPlayer();
-            m.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            if (track.isDownloadReference()) m.setDataSource(this, track.sourceUri());
-            else m.setDataSource(track.path);
-            m.setOnPreparedListener(player -> {
-                if (preview == player) {
-                    player.setVolume(1f, 1f);
-                    player.start();
-                    say("미리듣기 중: " + track.title);
-                }
-            });
-            m.setOnCompletionListener(player -> stopPreview());
-            m.setOnErrorListener((player, what, extra) -> {
-                stopPreview();
-                say("원곡 재생에 실패했어요.");
-                return true;
-            });
-            preview = m;
-            m.prepareAsync();
-        } catch (Exception e) {
-            stopPreview();
-            say("원곡을 열 수 없어요.");
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i);
+            else startService(i);
+            say("선택 원곡 재생: " + track.title);
+            if (playerTitle != null) playerTitle.setText(track.title);
+        } catch (RuntimeException error) {
+            say("음악 재생을 시작하지 못했어요. 앱을 다시 열고 재생해 주세요.");
         }
     }
 
-    private void stopPreview() {
-        if (preview != null) {
-            try { preview.reset(); preview.release(); }
-            catch (Exception ignored) {}
-            preview = null;
+    private void playerAction(String action) {
+        if (RadioPlaybackService.ACTION_NEXT.equals(action)
+                || RadioPlaybackService.ACTION_PREVIOUS.equals(action)) {
+            if (radioService == null || radioService.currentHash().isEmpty()) {
+                if (!shownTracks.isEmpty()) playTrack(shownTracks.get(0));
+                else say("먼저 원곡을 가져와 주세요.");
+                return;
+            }
         }
+        Intent intent = new Intent(this, RadioPlaybackService.class).setAction(action);
+        try {
+            startService(intent);
+        } catch (RuntimeException error) {
+            say("재생 조작을 수행하지 못했어요.");
+        }
+        updatePlayerStatus();
+    }
+
+    private void togglePlayer() {
+        if (radioService != null && !radioService.currentHash().isEmpty()) {
+            playerAction(RadioPlaybackService.ACTION_TOGGLE);
+        } else if (!shownTracks.isEmpty()) {
+            playTrack(shownTracks.get(0));
+        } else {
+            say("원곡을 먼저 가져와 주세요.");
+        }
+    }
+
+    private static String minutes(int ms) {
+        int sec = Math.max(0, ms / 1000);
+        return String.format(java.util.Locale.ROOT, "%02d:%02d", sec / 60, sec % 60);
+    }
+
+    private void updatePlayerStatus() {
+        if (playerTitle == null || playerToggleButton == null) return;
+        if (radioService == null) {
+            playerToggleButton.setText("▶ 재생");
+            if (playerTitle.getText().length() == 0)
+                playerTitle.setText("목록에서 음악을 선택하세요.");
+            return;
+        }
+        String title = radioService.currentTitle();
+        boolean playing = radioService.isPlaying();
+        playerTitle.setText((radioService.isLoading() ? "불러오는 중 · "
+                : playing ? "재생 중 · " : "일시정지 · ") + title);
+        playerToggleButton.setText(playing ? "⏸ 일시정지" : "▶ 재생");
+        int duration = radioService.durationMs();
+        if (!playerSeeking && playerSeek != null) {
+            playerSeek.setMax(Math.max(duration, 1000));
+            playerSeek.setProgress(radioService.positionMs());
+        }
+        if (playerTime != null) playerTime.setText(
+                minutes(radioService.positionMs()) + " / " + minutes(duration));
     }
 
     private void export(Originals.Track t) {
@@ -505,7 +620,9 @@ public final class RadioActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("MARU 보관곡 삭제")
             .setMessage(t.title + "\n\nMARU 목록에서 제외합니다. Download와 Suno 원곡은 삭제되지 않습니다.")
             .setPositiveButton("삭제", (d, w) -> {
-                stopPreview();
+                if (radioService != null && t.hash.equals(radioService.currentHash())) {
+                    playerAction(RadioPlaybackService.ACTION_STOP);
+                }
                 Originals.remove(this, t);
                 refreshSongs();
                 say("MARU 보관 목록에서 삭제했어요.");
@@ -607,14 +724,35 @@ public final class RadioActivity extends Activity {
         if (status != null) status.setText(message);
     }
 
+    @Override protected void onStart() {
+        super.onStart();
+        try {
+            playerBindRequested = bindService(
+                    new Intent(this, RadioPlaybackService.class),
+                    playerConnection, Context.BIND_AUTO_CREATE);
+        } catch (RuntimeException e) {
+            playerBindRequested = false;
+            say("음악 재생 서비스에 연결할 수 없어요.");
+        }
+        playerHandler.removeCallbacks(playerRefresh);
+        playerHandler.post(playerRefresh);
+    }
+
     @Override protected void onStop() {
+        playerHandler.removeCallbacks(playerRefresh);
+        if (playerBindRequested) {
+            try { unbindService(playerConnection); }
+            catch (IllegalArgumentException ignored) {}
+            playerBindRequested = false;
+        }
+        radioService = null;
+        playerBound = false;
         super.onStop();
-        // Preview audio is not a broadcast source. Never mix it into BIGO's microphone.
-        stopPreview();
+        // Do NOT stop foreground music; the user may open BIGO or another app.
     }
 
     @Override protected void onDestroy() {
-        stopPreview();
+        playerHandler.removeCallbacks(playerRefresh);
         files.shutdown();
         super.onDestroy();
     }
