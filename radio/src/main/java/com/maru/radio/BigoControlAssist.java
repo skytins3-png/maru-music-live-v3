@@ -32,6 +32,7 @@ public final class BigoControlAssist extends AccessibilityService {
     private static final long TIMEOUT_MS = 60000;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable scheduledProcess = this::process;
+    private boolean connected;
     // Respond promptly to the user's explicit request even when BIGO's host
     // screen is otherwise idle (no new accessibility event at timer expiry).
     private final SharedPreferences.OnSharedPreferenceChangeListener pendingListener =
@@ -47,7 +48,6 @@ public final class BigoControlAssist extends AccessibilityService {
     private long expires;
     private long lastOperationAt;
     private boolean awaitingTap;
-    private boolean connected;
 
     public static boolean isConnected(Context context) {
         return context.getSharedPreferences(PREF, MODE_PRIVATE)
