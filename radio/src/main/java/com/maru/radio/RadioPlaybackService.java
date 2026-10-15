@@ -307,10 +307,9 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void updateNotification() {
-        if (foreground) {
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null) nm.notify(NOTIFICATION_ID, makeNotification());
-        }
+        // Updating an existing foreground-service notification does not require
+        // requesting broad POST_NOTIFICATIONS permission on Android 13+.
+        if (foreground) ensureForeground();
     }
 
     @Override public void onDestroy() {
