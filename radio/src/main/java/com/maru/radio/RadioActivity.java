@@ -539,7 +539,7 @@ public final class RadioActivity extends Activity {
         NumberPicker picker = new NumberPicker(this);
         picker.setMinValue(5);
         picker.setMaxValue(720);
-        picker.setValue(currentMinutes);
+        picker.setValue(currentMinutes == 0 ? 60 : currentMinutes);
         picker.setWrapSelectorWheel(false);
         content.addView(picker);
         new AlertDialog.Builder(this)
