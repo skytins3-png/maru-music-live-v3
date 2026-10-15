@@ -124,6 +124,54 @@ public final class RadioSchedule extends BroadcastReceiver {
     }
     public static void setEnd(Context context, long at) { schedule(context, at, true, false); }
 
+    /**
+     * Atomic user choice: schedule the start and end together or restore the old pair.
+     * This avoids a half-saved music schedule if Android denies an exact alarm.
+     */
+    public static void setPair(Context context, long startAt, long finishAt) {
+        checkTime(startAt);
+        checkTime(finishAt);
+        if (finishAt <= startAt)
+            throw new IllegalArgumentException("종료 시각은 시작 시각보다 늦어야 해요.");
+        if (!notificationsAllowed(context))
+            throw new SecurityException("알림 권한이 필요합니다.");
+        if (!canAutoStart(context))
+            throw new SecurityException("정확한 알람 권한을 먼저 허용해 주세요.");
+
+        SharedPreferences old = pref(context);
+        long oldStart = old.getLong("when", 0L);
+        long oldEnd = old.getLong("end_when", 0L);
+        boolean oldAuto = old.getBoolean("auto_music", false);
+        AlarmManager manager = context.getSystemService(AlarmManager.class);
+        if (manager == null) throw new IllegalStateException("시스템 알람을 찾을 수 없어요.");
+        try {
+            // End is armed first so the playback is never left without an end request.
+            arm(context, finishAt, true, false);
+            arm(context, startAt, false, true);
+            boolean saved = old.edit().putLong("when", startAt)
+                    .putLong("end_when", finishAt)
+                    .putBoolean("auto_music", true)
+                    .remove("last_end_at").commit();
+            if (!saved) throw new IllegalStateException("예약 저장에 실패했습니다.");
+        } catch (RuntimeException failure) {
+            manager.cancel(alarm(context, false));
+            manager.cancel(alarm(context, true));
+            long now = System.currentTimeMillis();
+            try {
+                if (oldStart > now) arm(context, oldStart, false, oldAuto);
+            } catch (RuntimeException ignored) {}
+            try {
+                if (oldEnd > now) arm(context, oldEnd, true, false);
+            } catch (RuntimeException ignored) {}
+            throw failure;
+        }
+    }
+
+    public static void cancelPair(Context context) {
+        cancel(context);
+        cancelEnd(context);
+    }
+
     private static void cancelOne(Context context, boolean end) {
         AlarmManager manager = context.getSystemService(AlarmManager.class);
         if (manager != null) manager.cancel(alarm(context, end));
@@ -143,11 +191,14 @@ public final class RadioSchedule extends BroadcastReceiver {
         long start = sp.getLong("when", 0L);
         long end = sp.getLong("end_when", 0L);
         long now = System.currentTimeMillis();
+        // One denied start alarm must not prevent the selected end alarm from rearming.
+        try {
+            if (end > now) arm(context, end, true, false);
+        } catch (RuntimeException ignored) {}
         try {
             if (start > now) arm(context, start, false, sp.getBoolean("auto_music", false));
-            if (end > now) arm(context, end, true, false);
         } catch (RuntimeException ignored) {
-            // No silently downgraded auto-start: user must restore exact-alarm access.
+            // Never silently downgrade an unauthorized automatic start.
         }
     }
 
