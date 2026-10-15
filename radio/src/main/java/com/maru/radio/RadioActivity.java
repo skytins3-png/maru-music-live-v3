@@ -543,7 +543,7 @@ public final class RadioActivity extends Activity {
         picker.setWrapSelectorWheel(false);
         content.addView(picker);
         new AlertDialog.Builder(this)
-                .setTitle("음악 자동 종료 시간")
+                .setTitle("선택한 시간 뒤 음악 종료")
                 .setView(content)
                 .setPositiveButton("타이머 시작", (dialog, which) -> {
                     int chosen = picker.getValue();
