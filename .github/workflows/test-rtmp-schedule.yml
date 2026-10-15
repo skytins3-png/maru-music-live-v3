@@ -1,0 +1,31 @@
+name: Test opt-in RTMP scheduling (no broadcast)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'tools/rtmp_scheduled_radio.py'
+      - 'tools/test_rtmp_scheduled_radio.py'
+      - '.github/workflows/test-rtmp-schedule.yml'
+  push:
+    branches:
+      - feat/bigo-official-rtmp-scheduler-20261016
+    paths:
+      - 'tools/rtmp_scheduled_radio.py'
+      - 'tools/test_rtmp_scheduled_radio.py'
+      - '.github/workflows/test-rtmp-schedule.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-no-network:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and offline unit tests (no stream URL, no RTMP request)
+        run: |
+          python -m py_compile tools/rtmp_scheduled_radio.py
+          python tools/test_rtmp_scheduled_radio.py
