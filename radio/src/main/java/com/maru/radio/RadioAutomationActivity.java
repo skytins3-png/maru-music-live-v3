@@ -30,6 +30,7 @@ import java.util.List;
 public final class RadioAutomationActivity extends Activity {
     private static final int ASK_NOTIFICATION = 501;
     private static final int ASK_END_NOTIFICATION = 502;
+    private static final int ASK_PAIR_NOTIFICATION = 503;
     private static final int BG = 0xFF110E21;
     private static final int PANEL = 0xFF281F43;
     private static final int WHITE = 0xFFF7F1FF;
@@ -42,6 +43,7 @@ public final class RadioAutomationActivity extends Activity {
     private long pendingEndAt;
     private boolean pendingAutoMusic;
     private boolean waitingExactAccess;
+    private boolean waitingPairExactAccess;
 
     @Override protected void onCreate(Bundle savedState) {
         super.onCreate(savedState);
@@ -51,12 +53,14 @@ public final class RadioAutomationActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (waitingExactAccess) {
+        if (waitingExactAccess || waitingPairExactAccess) {
+            boolean pair = waitingPairExactAccess;
             waitingExactAccess = false;
+            waitingPairExactAccess = false;
             if (RadioSchedule.canAutoStart(this) && pendingStartAt > System.currentTimeMillis()) {
-                saveSchedule();
+                if (pair) savePair(); else saveSchedule();
             } else {
-                message("정확한 알람이 허용되지 않았어요. 음악 자동 시작은 예약되지 않았습니다.");
+                message("정확한 알람이 허용되지 않았어요. 자동 음악 예약은 저장되지 않았습니다.");
             }
         }
         updateStatus();
@@ -131,6 +135,7 @@ public final class RadioAutomationActivity extends Activity {
                 14, 0xFFDDD2E8));
         scheduleStatus = label("음악 시작 예약 없음", 16, PURPLE);
         schedule.addView(scheduleStatus);
+        schedule.addView(button("⏯ 시작·종료 한번에 자동 예약", this::choosePair));
         schedule.addView(button("🎵 음악 자동 시작 시간 지정", () -> chooseClock(true)));
         schedule.addView(button("🔔 알림만 예약 (직접 재생)", () -> chooseClock(false)));
         schedule.addView(button("시작 예약 취소", this::cancelSchedule));
@@ -145,6 +150,7 @@ public final class RadioAutomationActivity extends Activity {
         time.addView(endStatus);
         time.addView(button("⏰ 종료 시각 지정", this::chooseEndClock));
         time.addView(button("종료 예약 취소", this::cancelEndSchedule));
+        time.addView(button("⏹ 시작·종료 예약 모두 취소", this::cancelPair));
         time.addView(button("재생 후 음악 종료 타이머 설정", () -> {
             startActivity(new Intent(this, RadioActivity.class));
             finish();
@@ -186,6 +192,104 @@ public final class RadioAutomationActivity extends Activity {
     }
 
     private void message(String value) { if (note != null) note.setText(value); }
+
+    private void choosePair() {
+        // Pick the NEXT occurrence of each clock time, then advance the end to
+        // the following day when necessary. No hard-coded one-hour period.
+        Calendar now = Calendar.getInstance();
+        new TimePickerDialog(this, (v, startHour, startMin) -> {
+            Calendar start = Calendar.getInstance();
+            start.set(Calendar.HOUR_OF_DAY, startHour);
+            start.set(Calendar.MINUTE, startMin);
+            start.set(Calendar.SECOND, 0);
+            start.set(Calendar.MILLISECOND, 0);
+            if (!start.after(now)) start.add(Calendar.DAY_OF_MONTH, 1);
+            pendingStartAt = start.getTimeInMillis();
+            new TimePickerDialog(this, (v2, endHour, endMin) -> {
+                Calendar end = Calendar.getInstance();
+                end.set(Calendar.HOUR_OF_DAY, endHour);
+                end.set(Calendar.MINUTE, endMin);
+                end.set(Calendar.SECOND, 0);
+                end.set(Calendar.MILLISECOND, 0);
+                while (!end.after(start)) end.add(Calendar.DAY_OF_MONTH, 1);
+                pendingEndAt = end.getTimeInMillis();
+                String when = "시작 " + DateFormat.format("M월 d일 HH:mm", start)
+                        + "\\n종료 " + DateFormat.format("M월 d일 HH:mm", end);
+                new AlertDialog.Builder(this)
+                        .setTitle("MARU 음악 자동 시작·종료 예약")
+                        .setMessage(when + "\\n\\n선택한 장르의 MARU 원곡만 예약 시간에 "
+                                + "재생·종료합니다. BIGO 방송하기, 믹서, 실제 방송 종료는 "
+                                + "직접 조작해야 해요. 정확한 알람 허용이 필요합니다.")
+                        .setPositiveButton("두 시간 예약 저장", (d, w) -> savePair())
+                        .setNegativeButton("취소", null).show();
+            }, start.get(Calendar.HOUR_OF_DAY),
+                    start.get(Calendar.MINUTE), true).show();
+        }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true).show();
+    }
+
+    private boolean hasProgramTracks() {
+        int selected = RadioProgram.active(this);
+        for (Originals.Track track : Originals.list(this)) {
+            if (selected == 0 || selected == 5
+                    || RadioProgram.category(this, track) == selected) return true;
+        }
+        return false;
+    }
+
+    private void savePair() {
+        if (pendingStartAt <= System.currentTimeMillis() || pendingEndAt <= pendingStartAt) {
+            message("예약할 시작·종료 시각이 올바르지 않아요. 두 시간을 다시 지정해 주세요.");
+            return;
+        }
+        if (!hasProgramTracks()) {
+            message("선택한 장르에 원곡이 없어요. 먼저 Download에서 음악을 가져와 주세요.");
+            return;
+        }
+        if (!RadioSchedule.notificationsAllowed(this)) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        ASK_PAIR_NOTIFICATION);
+            } else message("알림 권한을 먼저 허용해 주세요.");
+            return;
+        }
+        if (!RadioSchedule.canAutoStart(this)) {
+            new AlertDialog.Builder(this).setTitle("음악 자동 예약 권한")
+                    .setMessage("Android의 '알람 및 리마인더' 정확한 알람을 허용한 뒤 "
+                            + "MARU 시작·종료를 함께 예약할 수 있어요.")
+                    .setPositiveButton("설정에서 허용", (d, w) -> {
+                        try {
+                            waitingPairExactAccess = true;
+                            startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    .setData(android.net.Uri.parse("package:" + getPackageName())));
+                        } catch (RuntimeException ex) {
+                            waitingPairExactAccess = false;
+                            message("시스템 알람 설정을 열 수 없어요.");
+                        }
+                    })
+                    .setNegativeButton("취소", null).show();
+            return;
+        }
+        try {
+            RadioSchedule.setPair(this, pendingStartAt, pendingEndAt);
+            updateStatus();
+            message("✅ MARU 음악 시작·종료를 함께 예약했어. BIGO 방송은 수동 시작·종료야.");
+        } catch (RuntimeException e) {
+            message("두 시간 예약 실패: 알람 접근·저장 설정을 확인해 주세요.");
+        }
+    }
+
+    private void cancelPair() {
+        RadioSchedule.cancelPair(this);
+        pendingStartAt = 0L;
+        pendingEndAt = 0L;
+        try {
+            // Cancel only clock-based stop, not the independently chosen duration timer.
+            startService(new Intent(this, RadioPlaybackService.class)
+                    .setAction(RadioPlaybackService.ACTION_CANCEL_WALL_END));
+        } catch (RuntimeException ignored) {}
+        updateStatus();
+        message("시작·종료 예약 모두 취소 완료 · 재생 중인 음악은 유지됩니다.");
+    }
 
     private void chooseClock(boolean autoMusic) {
         pendingAutoMusic = autoMusic;
@@ -342,9 +446,11 @@ public final class RadioAutomationActivity extends Activity {
     @Override public void onRequestPermissionsResult(int request, String[] permissions,
             int[] results) {
         super.onRequestPermissionsResult(request, permissions, results);
-        if (request != ASK_NOTIFICATION && request != ASK_END_NOTIFICATION) return;
+        if (request != ASK_NOTIFICATION && request != ASK_END_NOTIFICATION
+                && request != ASK_PAIR_NOTIFICATION) return;
         if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
-            if (request == ASK_END_NOTIFICATION) saveEndSchedule();
+            if (request == ASK_PAIR_NOTIFICATION) savePair();
+            else if (request == ASK_END_NOTIFICATION) saveEndSchedule();
             else saveSchedule();
         } else message("알림 권한을 허용하지 않아 예약하지 않았어요.");
     }
