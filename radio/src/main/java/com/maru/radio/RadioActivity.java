@@ -219,6 +219,10 @@ public final class RadioActivity extends Activity {
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 0.85f));
         programCard.addView(timerButtons);
+        programCard.addView(compactButton("📅 시작 시각 예약 · 다국어 댓글 답변", () ->
+                startActivity(new Intent(this, RadioAutomationActivity.class))));
+        programCard.addView(label("미래 시작은 알림 후 직접 확인 · 자동 댓글 수집은 미지원",
+                12, 0xFFCCC0DA, false));
         gap(root, 8);
 
         LinearLayout bigoStartEnd = new LinearLayout(this);
@@ -663,7 +667,8 @@ public final class RadioActivity extends Activity {
                 search.getText().toString().trim().toLowerCase(Locale.ROOT);
         int activeCategory = RadioProgram.active(this);
         for (Originals.Track t : sorted) {
-            if (activeCategory != 0 && RadioProgram.category(this, t) != activeCategory) continue;
+            if (activeCategory != 0 && activeCategory != 5
+                    && RadioProgram.category(this, t) != activeCategory) continue;
             if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;

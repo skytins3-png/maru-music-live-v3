@@ -170,8 +170,26 @@ public final class RadioPlaybackService extends Service {
     private void refreshQueue(String restoreHash) {
         queue.clear();
         int category = RadioProgram.active(this);
-        for (Originals.Track track : Originals.list(this)) {
-            if (category == 0 || RadioProgram.category(this, track) == category) queue.add(track);
+        List<Originals.Track> tracks = Originals.list(this);
+        if (category == 5) {
+            // Interleave a song from each available group:
+            // KR → CN → Western → Instrumental, then the next song of each.
+            List<List<Originals.Track>> groups = new ArrayList<>();
+            for (int genre = 1; genre <= 4; genre++) {
+                List<Originals.Track> bucket = new ArrayList<>();
+                for (Originals.Track track : tracks)
+                    if (RadioProgram.category(this, track) == genre) bucket.add(track);
+                groups.add(bucket);
+            }
+            int max = 0;
+            for (List<Originals.Track> bucket : groups)
+                max = Math.max(max, bucket.size());
+            for (int index = 0; index < max; index++)
+                for (List<Originals.Track> bucket : groups)
+                    if (index < bucket.size()) queue.add(bucket.get(index));
+        } else {
+            for (Originals.Track track : tracks)
+                if (category == 0 || RadioProgram.category(this, track) == category) queue.add(track);
         }
         if (restoreHash == null) {
             if (currentIndex >= queue.size()) currentIndex = -1;

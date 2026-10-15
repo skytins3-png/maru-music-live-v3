@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.program'" in gradle,
+    "own package": "applicationId 'com.maru.radio.automation'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -40,6 +40,11 @@ checks = {
     "genre-filtered queue": "RadioProgram.category(this, track) == category" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
     "music auto-end service timer": "SystemClock.elapsedRealtime()" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8") and "ACTION_SET_TIMER" in activity,
     "optional confirmed BIGO end": "RadioProgram.autoEndBigo(this)" in activity and "BigoControlAssist.isConnected" in activity,
+    "one-time clock reminder": "RadioSchedule" in manifest and "POST_NOTIFICATIONS" in manifest and
+        "new Intent(this, RadioAutomationActivity.class)" in activity,
+    "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
+        "handleStartIntent", "beginBroadcast()", "BigoControlAssist.queue(this, true)", "RadioSchedule.set(this, pendingStartAt)")),
+    "five-language copy-only replies": "RadioReplies.message(language, event)" in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
     "accessibility restricted to BIGO": "BigoControlAssist" in manifest and
         "android.permission.BIND_ACCESSIBILITY_SERVICE" in manifest and
         'android:exported="true"' in manifest and
