@@ -198,21 +198,13 @@ public final class RadioAutomationActivity extends Activity {
         // the following day when necessary. No hard-coded one-hour period.
         Calendar now = Calendar.getInstance();
         new TimePickerDialog(this, (v, startHour, startMin) -> {
+            pendingStartAt = RadioClock.nextOccurrence(now, startHour, startMin);
             Calendar start = Calendar.getInstance();
-            start.set(Calendar.HOUR_OF_DAY, startHour);
-            start.set(Calendar.MINUTE, startMin);
-            start.set(Calendar.SECOND, 0);
-            start.set(Calendar.MILLISECOND, 0);
-            if (!start.after(now)) start.add(Calendar.DAY_OF_MONTH, 1);
-            pendingStartAt = start.getTimeInMillis();
+            start.setTimeInMillis(pendingStartAt);
             new TimePickerDialog(this, (v2, endHour, endMin) -> {
+                pendingEndAt = RadioClock.endAfter(now, pendingStartAt, endHour, endMin);
                 Calendar end = Calendar.getInstance();
-                end.set(Calendar.HOUR_OF_DAY, endHour);
-                end.set(Calendar.MINUTE, endMin);
-                end.set(Calendar.SECOND, 0);
-                end.set(Calendar.MILLISECOND, 0);
-                while (!end.after(start)) end.add(Calendar.DAY_OF_MONTH, 1);
-                pendingEndAt = end.getTimeInMillis();
+                end.setTimeInMillis(pendingEndAt);
                 String when = "시작 " + DateFormat.format("M월 d일 HH:mm", start)
                         + "\n종료 " + DateFormat.format("M월 d일 HH:mm", end);
                 new AlertDialog.Builder(this)
@@ -295,13 +287,9 @@ public final class RadioAutomationActivity extends Activity {
         pendingAutoMusic = autoMusic;
         Calendar now = Calendar.getInstance();
         new TimePickerDialog(this, (view, hour, min) -> {
+            pendingStartAt = RadioClock.nextOccurrence(now, hour, min);
             Calendar chosen = Calendar.getInstance();
-            chosen.set(Calendar.HOUR_OF_DAY, hour);
-            chosen.set(Calendar.MINUTE, min);
-            chosen.set(Calendar.SECOND, 0);
-            chosen.set(Calendar.MILLISECOND, 0);
-            if (!chosen.after(now)) chosen.add(Calendar.DAY_OF_MONTH, 1);
-            pendingStartAt = chosen.getTimeInMillis();
+            chosen.setTimeInMillis(pendingStartAt);
             new AlertDialog.Builder(this).setTitle(
                             autoMusic ? "MARU 원곡 자동 재생 예약" : "음악 시작 알림 예약")
                     .setMessage("예약 시각: " + DateFormat.format("M월 d일 HH:mm", chosen)
@@ -379,18 +367,12 @@ public final class RadioAutomationActivity extends Activity {
     private void chooseEndClock() {
         Calendar now = Calendar.getInstance();
         new TimePickerDialog(this, (view, hour, minute) -> {
-            Calendar chosen = Calendar.getInstance();
-            chosen.set(Calendar.HOUR_OF_DAY, hour);
-            chosen.set(Calendar.MINUTE, minute);
-            chosen.set(Calendar.SECOND, 0);
-            chosen.set(Calendar.MILLISECOND, 0);
-            if (!chosen.after(now)) chosen.add(Calendar.DAY_OF_MONTH, 1);
             long start = RadioSchedule.scheduledAt(this);
-            // If the next start is in the future, make sure the end follows it.
-            if (start > 0 && chosen.getTimeInMillis() <= start) {
-                chosen.add(Calendar.DAY_OF_MONTH, 1);
-            }
-            pendingEndAt = chosen.getTimeInMillis();
+            pendingEndAt = start > 0
+                    ? RadioClock.endAfter(now, start, hour, minute)
+                    : RadioClock.nextOccurrence(now, hour, minute);
+            Calendar chosen = Calendar.getInstance();
+            chosen.setTimeInMillis(pendingEndAt);
             new AlertDialog.Builder(this)
                     .setTitle("MARU 음악 종료 시각")
                     .setMessage("선택: " + DateFormat.format("M월 d일 HH:mm", chosen)
