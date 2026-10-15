@@ -212,7 +212,7 @@ public final class RadioActivity extends Activity {
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
-        timerButtons.addView(compactButton("⏱ 시간 설정 · 시작", this::configureProgramTimer),
+        timerButtons.addView(compactButton("⏱ 음악 종료 시간(선택)", this::configureProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 1.2f));
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 0.85f));
