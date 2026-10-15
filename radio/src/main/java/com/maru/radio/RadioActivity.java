@@ -16,6 +16,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.provider.DocumentsContract;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.os.Bundle;
@@ -69,6 +70,7 @@ public final class RadioActivity extends Activity {
     private boolean playerBindRequested;
     private TextView playerTitle;
     private TextView playerTime;
+    private TextView bigoStatus;
     private Button playerToggleButton;
     private SeekBar playerSeek;
     private boolean playerSeeking;
@@ -191,6 +193,31 @@ public final class RadioActivity extends Activity {
                 playerAction(RadioPlaybackService.ACTION_STOP)));
         gap(root, 8);
 
+        LinearLayout bigoStartEnd = new LinearLayout(this);
+        bigoStartEnd.setOrientation(LinearLayout.VERTICAL);
+        bigoStartEnd.setPadding(dp(14), dp(10), dp(14), dp(10));
+        GradientDrawable bigoBackground = new GradientDrawable();
+        bigoBackground.setColor(0xFF2E204C);
+        bigoBackground.setCornerRadius(dp(14));
+        bigoStartEnd.setBackground(bigoBackground);
+        LinearLayout.LayoutParams bigoBoxParams = new LinearLayout.LayoutParams(-1, -2);
+        bigoBoxParams.bottomMargin = dp(14);
+        root.addView(bigoStartEnd, bigoBoxParams);
+        bigoStartEnd.addView(label("🎙 BIGO 오디오 LIVE 시작 · 종료", 18, WHITE, true));
+        LinearLayout startEndButtons = new LinearLayout(this);
+        startEndButtons.setOrientation(LinearLayout.HORIZONTAL);
+        Button startBigo = button("▶ 방송 시작 지원", this::requestBigoStart);
+        startBigo.setTextSize(15);
+        Button endBigo = button("■ 방송 종료 지원", this::requestBigoEnd);
+        endBigo.setTextSize(15);
+        startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
+        startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
+        bigoStartEnd.addView(startEndButtons);
+        bigoStatus = label("BIGO 버튼 지원: 권한 상태 확인 중…", 12, 0xFFDDD4F5, false);
+        bigoStatus.setMaxLines(3);
+        bigoStartEnd.addView(bigoStatus);
+        bigoStartEnd.addView(compactButton("BIGO 접근성 지원 설정 / 상태 확인", this::showBigoAssistInfo));
+
         card(root, "1  DOWNLOAD에서 원곡 가져오기",
                 "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
                 "Download 바로가기", this::pickDownloads,
@@ -279,6 +306,7 @@ public final class RadioActivity extends Activity {
         root.addView(status);
         setContentView(scroll);
         refreshSongs();
+        refreshBigoAssistStatus();
     }
 
     private void card(LinearLayout root, String title, String body,
@@ -395,6 +423,75 @@ public final class RadioActivity extends Activity {
         } catch (Exception e) {
             say("BIGO를 열 수 없어요.");
         }
+    }
+
+    private void requestBigoStart() {
+        if (!BigoControlAssist.isConnected(this)) {
+            showBigoAssistInfo();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO 오디오 LIVE 시작")
+                .setMessage("방송을 시작하면 다른 사람이 들을 수 있어요.\n\n"
+                        + "MARU는 BIGO 화면의 오디오 LIVE → 방송하기 버튼을 "
+                        + "사용자가 요청한 이번 한 번만 찾아 누릅니다.\n\n"
+                        + "BIGO 화면이 바뀌었으면 버튼을 직접 눌러야 할 수도 있습니다.")
+                .setPositiveButton("시작 지원 실행", (d, w) -> {
+                    BigoControlAssist.queue(this, true);
+                    refreshBigoAssistStatus();
+                    openBigo();
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
+    private void requestBigoEnd() {
+        if (!BigoControlAssist.isConnected(this)) {
+            showBigoAssistInfo();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO 방송 종료")
+                .setMessage("현재 BIGO 방송을 종료하시겠어요?\n\n"
+                        + "MARU가 BIGO의 종료 X와 '라이브 종료하기'를 찾습니다. "
+                        + "화면에 버튼이 보이지 않으면 BIGO에서 직접 눌러 주세요. "
+                        + "MARU는 실제 종료 여부를 확인할 수 없습니다.")
+                .setPositiveButton("종료 지원 실행", (d, w) -> {
+                    BigoControlAssist.queue(this, false);
+                    refreshBigoAssistStatus();
+                    openBigo();
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
+    private void refreshBigoAssistStatus() {
+        if (bigoStatus == null) return;
+        boolean connected = BigoControlAssist.isConnected(this);
+        bigoStatus.setText((connected ? "● BIGO 시작·종료 지원 켜짐 · "
+                : "○ 지원 꺼짐 · 접근성에서 직접 활성화 필요 · ")
+                + BigoControlAssist.lastStatus(this));
+    }
+
+    private void showBigoAssistInfo() {
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO 방송 시작·종료 지원")
+                .setMessage("자동 방송 버튼 조작에는 Android 접근성 허용이 필요합니다.\n\n"
+                        + "이 권한으로 BIGO의 화면 글자와 버튼을 읽고 터치할 수 있으므로 "
+                        + "형이 신뢰하는 앱에만 켜야 합니다. "
+                        + "MARU는 BIGO 앱으로 범위를 제한하며 형이 '시작' 또는 '종료'를 "
+                        + "명시적으로 눌렀을 때만 최대 60초 동안 동작합니다. "
+                        + "채팅 내용이나 계정 정보를 저장하거나 보내지 않습니다.\n\n"
+                        + "설정 → 접근성 → 설치된 앱 → 'MARU BIGO 방송 버튼 지원'을 켜세요. "
+                        + "언제든 꺼도 됩니다.\n\n"
+                        + "BIGО UI가 바뀌면 자동 조작에 실패할 수 있어요. "
+                        + "방송 시작·종료는 화면에서 최종 확인해 주세요.")
+                .setPositiveButton("접근성 설정 열기", (d, w) -> {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                    } catch (Exception e) {
+                        say("휴대폰 설정에서 접근성을 직접 열어 주세요.");
+                    }
+                })
+                .setNegativeButton("취소", null).show();
     }
 
     private void broadcastGuide() {
@@ -579,6 +676,7 @@ public final class RadioActivity extends Activity {
     }
 
     private void updatePlayerStatus() {
+        refreshBigoAssistStatus();
         if (playerTitle == null || playerToggleButton == null) return;
         if (radioService == null) {
             playerToggleButton.setText("▶ 재생");
