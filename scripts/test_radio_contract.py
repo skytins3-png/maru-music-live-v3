@@ -60,6 +60,32 @@ checks = {
         "AutoGreetingService", "ScreenOcrGreetingService", "AdaptiveAiStore",
         "OcrTestActivity", "YouTubePlayerActivity")),
 }
+
+# V1.7 regression guards: opt-in only, independent timers, safe app handoff.
+service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8")
+automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
+program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
+        and 'picker.setValue(currentMinutes == 0 ? 5 : currentMinutes)' in activity,
+    "V1.7 timer only after explicit choice": 'RadioProgram.setDurationMinutes(this, chosen)' in activity
+        and '타이머는 시작하지 않았어' in activity,
+    "V1.7 independent deadline fields": "private long minutesDeadline;" in service
+        and "private long wallEndAt;" in service
+        and "Math.min(durationRemaining, clockRemaining)" in service,
+    "V1.7 cancel duration without canceling clock": "minutesDeadline = 0L; // Do not cancel" in service
+        and "wallEndAt = 0L; // Do not cancel" in service
+        and ".setAction(RadioPlaybackService.ACTION_CANCEL_WALL_END)" in automation,
+    "V1.7 clock applies normal playback": "syncWallEndFromSchedule();" in service
+        and "ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)" in service,
+    "V1.7 prevent next track after deadline": "private void advanceOnCompletion()" in service
+        and "if (deadlineReached())" in service
+        and "private void rescheduleTimerCheck()" in service,
+    "V1.7 next-day time chooser": "chosen.add(Calendar.DAY_OF_MONTH, 1)" in automation
+        and "RadioSchedule.setEnd(this, pendingEndAt)" in automation,
+    "V1.7 no new BIGO accessibility controls": "BIND_ACCESSIBILITY_SERVICE" not in manifest
+        and "dispatchGesture" not in service and "dispatchGesture" not in automation,
+})
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
