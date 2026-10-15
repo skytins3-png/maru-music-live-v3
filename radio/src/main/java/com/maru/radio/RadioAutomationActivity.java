@@ -217,7 +217,7 @@ public final class RadioAutomationActivity extends Activity {
                         + "\n종료 " + DateFormat.format("M월 d일 HH:mm", end);
                 new AlertDialog.Builder(this)
                         .setTitle("MARU 음악 자동 시작·종료 예약")
-                        .setMessage(when + "\\n\\n선택한 장르의 MARU 원곡만 예약 시간에 "
+                        .setMessage(when + "\n\n선택한 장르의 MARU 원곡만 예약 시간에 "
                                 + "재생·종료합니다. BIGO 방송하기, 믹서, 실제 방송 종료는 "
                                 + "직접 조작해야 해요. 정확한 알람 허용이 필요합니다.")
                         .setPositiveButton("두 시간 예약 저장", (d, w) -> savePair())
