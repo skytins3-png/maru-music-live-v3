@@ -11,13 +11,21 @@ import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.os.Bundle;
 import android.os.Build;
 import android.graphics.Insets;
 import android.view.WindowInsets;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -26,7 +34,14 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -45,8 +60,18 @@ public final class RadioActivity extends Activity {
     private final ExecutorService files = Executors.newSingleThreadExecutor();
     private MediaPlayer preview;
     private Originals.Track exporting;
-    private LinearLayout songList;
+    private ListView songList;
+    private BaseAdapter songAdapter;
+    private TextView songCount;
     private TextView status;
+    private EditText search;
+    private final List<Originals.Track> allTracks = new ArrayList<>();
+    private final List<Originals.Track> shownTracks = new ArrayList<>();
+    private final Set<String> selected = new HashSet<>();
+    private boolean sameTitleOnly = false;
+    private boolean importInProgress = false;
+    private int sortMode = 0; // 0 = newest imported first, 1 = title, 2 = oldest first
+
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -85,27 +110,90 @@ public final class RadioActivity extends Activity {
         root.addView(label("Suno MP3/WAV 원곡 보관 · 미리듣기", 13, 0xFFB1A6C5, false));
         gap(root, 17);
 
-        card(root, "1  SUNO에서 내 원곡 준비",
-                "Suno에서 MP3/WAV 다운로드 후 가져오기. 링크 공유만으로는 음악이 등록되지 않아요.",
-                "Suno 열기", this::openSuno,
-                "원곡 파일 가져오기", this::pickFiles);
+        card(root, "1  DOWNLOAD에서 원곡 가져오기",
+                "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
+                "Download 바로가기", this::pickDownloads,
+                "다른 폴더에서 가져오기", this::pickFiles);
 
-        card(root, "2  방송할 원곡 선택",
-                "원곡은 무변환 보관. 원하는 곡을 고른 뒤 BIGO용으로 저장하세요.",
-                "원곡 목록 새로고침", this::refreshSongs,
-                null, null);
+        card(root, "2  원곡 목록 · 선택 삭제",
+                "다운로드 원곡은 복사하지 않고 읽기 권한만 보관합니다. 검색·선택 삭제는 MARU 목록에만 적용됩니다.",
+                "곡 목록 새로고침", this::refreshSongs,
+                "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
-        songList = new LinearLayout(this);
-        songList.setOrientation(LinearLayout.VERTICAL);
-        root.addView(songList);
-        gap(root, 8);
+        songCount = label("보관 원곡 0곡", 16, VIOLET, true);
+        root.addView(songCount);
+        search = new EditText(this);
+        search.setSingleLine(true);
+        search.setTextColor(WHITE);
+        search.setHintTextColor(0xFFA79BB8);
+        search.setTextSize(16);
+        search.setHint("곡 제목 검색");
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                updateVisibleTracks();
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+        root.addView(search);
+
+        LinearLayout bulkTools = new LinearLayout(this);
+        bulkTools.setOrientation(LinearLayout.HORIZONTAL);
+        bulkTools.addView(compactButton("보이는 곡 선택", this::selectShown), new LinearLayout.LayoutParams(0, -2, 1f));
+        bulkTools.addView(compactButton("선택 해제", this::clearSelection), new LinearLayout.LayoutParams(0, -2, 1f));
+        root.addView(bulkTools);
+        LinearLayout cleanupTools = new LinearLayout(this);
+        cleanupTools.setOrientation(LinearLayout.HORIZONTAL);
+        cleanupTools.addView(compactButton("선택 삭제", this::deleteSelected), new LinearLayout.LayoutParams(0, -2, 1f));
+        cleanupTools.addView(compactButton("정렬", this::sortDialog), new LinearLayout.LayoutParams(0, -2, 0.6f));
+        cleanupTools.addView(compactButton("중복 검사", this::pruneCatalogDuplicates), new LinearLayout.LayoutParams(0, -2, 1f));
+        root.addView(cleanupTools);
+
+        songList = new ListView(this);
+        songList.setDividerHeight(dp(2));
+        songList.setBackgroundColor(0xFF19152D);
+        songList.setNestedScrollingEnabled(true);
+        songAdapter = new BaseAdapter() {
+            @Override public int getCount() { return shownTracks.size(); }
+            @Override public Object getItem(int pos) { return shownTracks.get(pos); }
+            @Override public long getItemId(int pos) { return pos; }
+            @Override public View getView(int pos, View old, ViewGroup parent) {
+                Originals.Track t = shownTracks.get(pos);
+                LinearLayout row = new LinearLayout(RadioActivity.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(6), dp(3), dp(3), dp(3));
+                CheckBox choose = new CheckBox(RadioActivity.this);
+                choose.setTextColor(WHITE);
+                choose.setTextSize(14);
+                choose.setMaxLines(2);
+                choose.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                choose.setText(t.title);
+                choose.setChecked(selected.contains(t.hash));
+                choose.setOnCheckedChangeListener((button, checked) -> {
+                    if (checked) selected.add(t.hash);
+                    else selected.remove(t.hash);
+                    updateCount();
+                });
+                row.addView(choose, new LinearLayout.LayoutParams(0, -2, 1f));
+                row.addView(compactButton("▶", () -> togglePreview(t)),
+                        new LinearLayout.LayoutParams(dp(48), dp(50)));
+                row.addView(compactButton("⋮", () -> showTrackActions(t)),
+                        new LinearLayout.LayoutParams(dp(48), dp(50)));
+                return row;
+            }
+        };
+        songList.setAdapter(songAdapter);
+        root.addView(songList, new LinearLayout.LayoutParams(-1, dp(430)));
+        gap(root, 10);
 
         card(root, "3  BIGO 오디오 LIVE",
                 "BIGO 오디오 LIVE의 음악/믹서에 로컬 파일 선택 기능이 있는 경우 저장한 원곡을 불러오세요.",
                 "BIGO LIVE 열기", this::openBigo,
                 "송출 음량 확인 방법", this::broadcastGuide);
 
-        status = label("준비 완료 · 원곡 파일은 변경하지 않아요.", 13,
+        root.addView(compactButton("Suno 열기", this::openSuno));
+        status = label("준비 완료 · 다운로드 원본 파일은 변경하지 않아요.", 13,
                 0xFF9BDEBC, false);
         root.addView(status);
         setContentView(scroll);
@@ -151,6 +239,15 @@ public final class RadioActivity extends Activity {
         return b;
     }
 
+    private Button compactButton(String text, Runnable action) {
+        Button button = button(text, action);
+        button.setTextSize(12);
+        button.setMinimumHeight(dp(45));
+        button.setMinHeight(dp(45));
+        button.setPadding(dp(2), 0, dp(2), 0);
+        return button;
+    }
+
     private void gap(LinearLayout box, int dp) {
         View v = new View(this);
         box.addView(v, new LinearLayout.LayoutParams(1, dp(dp)));
@@ -161,11 +258,38 @@ public final class RadioActivity extends Activity {
     }
 
     private void pickFiles() {
+        chooseAudio(false);
+    }
+
+    private void pickDownloads() {
+        chooseAudio(true);
+    }
+
+    /** Ask the system picker to start in Download; Android providers may override it. */
+    private void chooseAudio(boolean preferDownload) {
+        if (importInProgress) {
+            say("먼저 진행 중인 음악 가져오기가 끝나야 해요.");
+            return;
+        }
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("audio/*");
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        startActivityForResult(i, PICK_AUDIO);
+        if (preferDownload) {
+            try {
+                Uri folder = DocumentsContract.buildDocumentUri(
+                        "com.android.externalstorage.documents", "primary:Download");
+                i.putExtra(DocumentsContract.EXTRA_INITIAL_URI, folder);
+            } catch (RuntimeException ignored) {
+                // Users can navigate manually if their document provider has no Download shortcut.
+            }
+        }
+        try {
+            startActivityForResult(i, PICK_AUDIO);
+        } catch (RuntimeException ex) {
+            say("파일 선택기를 열지 못했습니다. '다른 폴더'를 이용해 주세요.");
+        }
     }
 
     private void openSuno() {
@@ -206,39 +330,121 @@ public final class RadioActivity extends Activity {
 
     private void refreshSongs() {
         if (songList == null) return;
-        songList.removeAllViews();
-        List<Originals.Track> tracks = Originals.list(this);
-        if (tracks.isEmpty()) {
-            TextView empty = label("등록된 원곡 없음 · 위에서 가져오기를 눌러주세요.", 14,
-                    0xFFB8AABF, false);
-            songList.addView(empty);
+        allTracks.clear();
+        allTracks.addAll(Originals.list(this));
+        updateVisibleTracks();
+    }
+
+    private void updateCount() {
+        if (songCount == null) return;
+        songCount.setText("보관 " + allTracks.size() + "곡 · 표시 "
+                + shownTracks.size() + "곡 · 선택 " + selected.size() + "곡");
+    }
+
+    private void updateVisibleTracks() {
+        shownTracks.clear();
+        List<Originals.Track> sorted = new ArrayList<>(allTracks);
+        if (sortMode == 0) Collections.reverse(sorted);
+        else if (sortMode == 1) Collections.sort(sorted,
+                (a, b) -> a.title.compareToIgnoreCase(b.title));
+        Map<String, Integer> nameCounts = new HashMap<>();
+        for (Originals.Track t : allTracks) {
+            String normalized = t.title.trim().toLowerCase(Locale.ROOT);
+            nameCounts.put(normalized, nameCounts.containsKey(normalized)
+                    ? nameCounts.get(normalized) + 1 : 1);
+        }
+        String query = search == null ? "" :
+                search.getText().toString().trim().toLowerCase(Locale.ROOT);
+        for (Originals.Track t : sorted) {
+            if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
+            String normalized = t.title.trim().toLowerCase(Locale.ROOT);
+            if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;
+            shownTracks.add(t);
+        }
+        if (songAdapter != null) songAdapter.notifyDataSetChanged();
+        updateCount();
+    }
+
+    private void sortDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("노래 정렬")
+                .setSingleChoiceItems(new String[]{"최근 추가순", "제목순", "오래된 추가순"},
+                        sortMode, (d, index) -> {
+                            sortMode = index;
+                            d.dismiss();
+                            updateVisibleTracks();
+                        })
+                .setNegativeButton("닫기", null).show();
+    }
+
+    private void toggleSameTitleFilter() {
+        sameTitleOnly = !sameTitleOnly;
+        updateVisibleTracks();
+        say(sameTitleOnly
+                ? "같은 제목의 후보만 표시 중 · 다른 편곡이나 버전일 수 있으니 직접 확인하세요."
+                : "모든 원곡 표시 중 · 내용이 완전히 같은 파일은 자동 제외됩니다.");
+    }
+
+    private void selectShown() {
+        for (Originals.Track t : shownTracks) selected.add(t.hash);
+        if (songAdapter != null) songAdapter.notifyDataSetChanged();
+        updateCount();
+    }
+
+    private void clearSelection() {
+        selected.clear();
+        if (songAdapter != null) songAdapter.notifyDataSetChanged();
+        updateCount();
+    }
+
+    private void deleteSelected() {
+        Set<String> targets = new HashSet<>(selected);
+        if (targets.isEmpty()) {
+            say("삭제할 노래를 먼저 체크해 주세요.");
             return;
         }
-        TextView count = label("보관 원곡 " + tracks.size() + "곡", 17, VIOLET, true);
-        songList.addView(count);
-        for (Originals.Track t : tracks) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(dp(12), dp(10), dp(12), dp(10));
-            GradientDrawable background = new GradientDrawable();
-            background.setColor(0xFF19152D);
-            background.setCornerRadius(dp(12));
-            row.setBackground(background);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-            lp.bottomMargin = dp(8);
-            songList.addView(row, lp);
-            row.addView(label(t.title, 15, WHITE, true));
+        new AlertDialog.Builder(this)
+            .setTitle("선택한 " + targets.size() + "곡 삭제")
+            .setMessage("MARU RADIO 목록에서 " + targets.size() + "곡을 제거할까요?\n\n"
+                    + "Download와 Suno 원본 파일은 그대로 보존합니다.")
+            .setPositiveButton("선택 삭제", (dialog, which) -> {
+                stopPreview();
+                say("선택한 " + targets.size() + "곡 목록 정리 중…");
+                files.execute(() -> {
+                    int removed = Originals.removeMany(getApplicationContext(), targets);
+                    runOnUiThread(() -> {
+                        if (isFinishing()) return;
+                        selected.clear();
+                        refreshSongs();
+                        say("MARU 목록에서 " + removed + "곡 제거 · Download 원본 유지");
+                    });
+                });
+            })
+            .setNegativeButton("취소", null)
+            .show();
+    }
 
-            LinearLayout actions = new LinearLayout(this);
-            actions.setOrientation(LinearLayout.HORIZONTAL);
-            Button listen = button("미리듣기", () -> togglePreview(t));
-            Button export = button("BIGO용 저장", () -> export(t));
-            Button remove = button("삭제", () -> confirmDelete(t));
-            actions.addView(listen, new LinearLayout.LayoutParams(0, -2, 1));
-            actions.addView(export, new LinearLayout.LayoutParams(0, -2, 1.3f));
-            actions.addView(remove, new LinearLayout.LayoutParams(0, -2, 0.85f));
-            row.addView(actions);
-        }
+    private void pruneCatalogDuplicates() {
+        files.execute(() -> {
+            int removed = Originals.pruneDuplicateCatalogEntries(getApplicationContext());
+            runOnUiThread(() -> {
+                if (isFinishing()) return;
+                refreshSongs();
+                say(removed == 0
+                        ? "동일 파일 중복 0곡 · 가져오기 때 SHA-256으로 자동 제외하고 있어요."
+                        : "중복 목록 " + removed + "건 정리 완료 · 원곡 다운로드 파일은 유지");
+            });
+        });
+    }
+
+    private void showTrackActions(Originals.Track track) {
+        new AlertDialog.Builder(this).setTitle(track.title)
+                .setItems(new String[]{"미리듣기", "BIGO용 저장", "이 곡 삭제"}, (dialog, which) -> {
+                    if (which == 0) togglePreview(track);
+                    else if (which == 1) export(track);
+                    else confirmDelete(track);
+                })
+                .setNegativeButton("닫기", null).show();
     }
 
     private void togglePreview(Originals.Track track) {
@@ -248,7 +454,8 @@ public final class RadioActivity extends Activity {
             m.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            m.setDataSource(track.path);
+            if (track.isDownloadReference()) m.setDataSource(this, track.sourceUri());
+            else m.setDataSource(track.path);
             m.setOnPreparedListener(player -> {
                 if (preview == player) {
                     player.setVolume(1f, 1f);
@@ -296,7 +503,7 @@ public final class RadioActivity extends Activity {
 
     private void confirmDelete(Originals.Track t) {
         new AlertDialog.Builder(this).setTitle("MARU 보관곡 삭제")
-            .setMessage(t.title + "\n\nMARU에 보관한 사본만 삭제합니다. Suno 원곡은 삭제되지 않습니다.")
+            .setMessage(t.title + "\n\nMARU 목록에서 제외합니다. Download와 Suno 원곡은 삭제되지 않습니다.")
             .setPositiveButton("삭제", (d, w) -> {
                 stopPreview();
                 Originals.remove(this, t);
@@ -316,7 +523,7 @@ public final class RadioActivity extends Activity {
                     if (clip.getItemAt(n).getUri() != null)
                         chosen.add(clip.getItemAt(n).getUri());
             } else if (data.getData() != null) chosen.add(data.getData());
-            importFiles(chosen);
+            importFiles(chosen, true);
         } else if (requestCode == EXPORT_AUDIO && exporting != null && data.getData() != null) {
             Originals.Track track = exporting;
             exporting = null;
@@ -324,8 +531,11 @@ public final class RadioActivity extends Activity {
             say("선택한 폴더에 원곡 저장 중…");
             files.execute(() -> {
                 String message = "";
-                try (InputStream in = new FileInputStream(track.file());
+                try (InputStream in = track.isDownloadReference()
+                            ? getContentResolver().openInputStream(track.sourceUri())
+                            : new FileInputStream(track.file());
                      OutputStream out = getContentResolver().openOutputStream(destination)) {
+                    if (in == null) throw new Exception("원곡 읽기 권한이 만료됐어요.");
                     if (out == null) throw new Exception("저장할 수 없는 위치예요.");
                     byte[] buf = new byte[32 * 1024];
                     int count;
@@ -358,33 +568,37 @@ public final class RadioActivity extends Activity {
             ArrayList<Uri> many = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
             if (many != null) shared.addAll(many);
         }
-        if (!shared.isEmpty()) importFiles(shared);
+        if (!shared.isEmpty()) importFiles(shared, false);
     }
 
-    private void importFiles(List<Uri> items) {
+    private void importFiles(List<Uri> items, boolean fromDocumentPicker) {
         if (items.isEmpty()) {
             say("오디오 파일을 선택해 주세요. Suno 공유 링크만으로는 가져올 수 없어요.");
             return;
         }
-        say("원곡 " + items.size() + "개 확인 중 · 원본 파일은 변경하지 않아요.");
+        if (importInProgress) {
+            say("이미 원곡을 가져오는 중이에요. 완료될 때까지 기다려 주세요.");
+            return;
+        }
+        importInProgress = true;
+        say("총 " + items.size() + "곡 확인 시작 · 다운로드 원본은 그대로 유지");
         files.execute(() -> {
-            int added = 0, duplicate = 0;
-            String failure = "";
-            for (Uri uri : items) {
-                try {
-                    if (Originals.importUri(getApplicationContext(), uri)) added++;
-                    else duplicate++;
-                } catch (Exception ex) {
-                    failure = ex.getMessage();
-                }
-            }
-            final int addedCount = added, duplicates = duplicate;
-            final String error = failure;
+            Originals.BatchResult result = Originals.importBatch(
+                    getApplicationContext(), items, fromDocumentPicker, (done, total) -> {
+                        if (done == total || done % 5 == 0) {
+                            runOnUiThread(() -> {
+                                if (!isFinishing()) say("원곡 확인 " + done + " / " + total + "곡");
+                            });
+                        }
+                    });
             runOnUiThread(() -> {
+                importInProgress = false;
                 if (isFinishing()) return;
                 refreshSongs();
-                say("원곡 " + addedCount + "곡 추가 · 중복 " + duplicates
-                        + "곡 제외" + (error.isEmpty() ? "" : " · " + error));
+                say("선택 " + items.size() + "곡 · 추가 " + result.added
+                        + "곡 · 동일 파일 제외 " + result.duplicates
+                        + "곡 · 오류 " + result.failed + "곡"
+                        + (result.failed == 0 ? "" : " · " + result.lastError));
             });
         });
     }

@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
+import android.content.Intent;
+import android.content.UriPermission;
 import android.provider.OpenableColumns;
 
 import org.json.JSONArray;
@@ -17,6 +19,8 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 
 /** Byte-for-byte import of user-approved audio files; never modifies the source. */
@@ -34,6 +38,8 @@ public final class Originals {
             this.path = path;
             this.hash = hash;
         }
+        public boolean isDownloadReference() { return path.startsWith("content://"); }
+        public Uri sourceUri() { return Uri.parse(path); }
         public File file() { return new File(path); }
     }
 
@@ -48,17 +54,27 @@ public final class Originals {
         try {
             JSONArray array = new JSONArray(prefs(ctx).getString(KEY, "[]"));
             File root = new File(ctx.getFilesDir(), "originals").getCanonicalFile();
+            Set<String> retainedUris = new HashSet<>();
+            for (UriPermission permission : ctx.getContentResolver().getPersistedUriPermissions()) {
+                if (permission.isReadPermission()) retainedUris.add(permission.getUri().toString());
+            }
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.optJSONObject(i);
                 if (item == null) continue;
                 String path = item.optString("path", "");
                 String hash = item.optString("hash", "");
                 String title = item.optString("title", "Suno 원곡");
-                File file = new File(path).getCanonicalFile();
-                if (hash.length() == 64 && file.isFile()
-                        && file.getParentFile().equals(root)
-                        && file.getName().startsWith(hash + "--")) {
-                    tracks.add(new Track(title, file.getAbsolutePath(), hash));
+                if (hash.length() != 64) continue;
+                if (path.startsWith("content://")) {
+                    // SAF document: keep only the URI access granted explicitly by the user.
+                    if (retainedUris.contains(path))
+                        tracks.add(new Track(title, path, hash));
+                } else {
+                    File file = new File(path).getCanonicalFile();
+                    if (file.isFile() && file.getParentFile().equals(root)
+                            && file.getName().startsWith(hash + "--")) {
+                        tracks.add(new Track(title, file.getAbsolutePath(), hash));
+                    }
                 }
             }
         } catch (Exception ignored) {
@@ -81,8 +97,92 @@ public final class Originals {
         prefs(ctx).edit().putString(KEY, array.toString()).apply();
     }
 
-    /** Stream to temporary app storage, hash all bytes, and move without transcoding. */
-    public static synchronized boolean importUri(Context ctx, Uri uri) throws Exception {
+    public interface ProgressListener {
+        void onProgress(int done, int total);
+    }
+
+    public static final class BatchResult {
+        public int added;
+        public int duplicates;
+        public int failed;
+        public String lastError = "";
+    }
+
+    /**
+     * One batch / one catalog read: scales to 192+ user-selected files.
+     * Save every 10 items to preserve progress on an interrupted import.
+     * SHA-256 compares file CONTENT, not filename; same title may be different audio.
+     */
+    public static synchronized BatchResult importBatch(
+            Context ctx, List<Uri> incoming, boolean fromDocumentPicker, ProgressListener listener) {
+        BatchResult result = new BatchResult();
+        List<Track> tracks = list(ctx);
+        Set<String> hashes = new HashSet<>();
+        for (Track t : tracks) hashes.add(t.hash);
+        for (int i = 0; i < incoming.size(); i++) {
+            try {
+                Uri uri = incoming.get(i);
+                boolean added = fromDocumentPicker
+                        ? retainDownloadDocument(ctx, uri, tracks, hashes)
+                        : copyOriginal(ctx, uri, tracks, hashes);
+                if (added) result.added++;
+                else result.duplicates++;
+            } catch (Exception ex) {
+                result.failed++;
+                result.lastError = ex.getMessage() == null ? "알 수 없는 파일 오류" : ex.getMessage();
+            }
+            if ((i + 1) % 10 == 0) save(ctx, tracks);
+            if (listener != null) listener.onProgress(i + 1, incoming.size());
+        }
+        save(ctx, tracks);
+        return result;
+    }
+
+    /**
+     * For files selected through Android ACTION_OPEN_DOCUMENT, retain a read-only
+     * URI instead of duplicating ~1GB of MP3s in app storage (e.g. 192 songs).
+     * If the provider cannot persist access, fallback to copying that file.
+     */
+    private static boolean retainDownloadDocument(Context ctx, Uri uri,
+            List<Track> tracks, Set<String> hashes) throws Exception {
+        if (uri == null) throw new IOException("선택한 음악 파일을 찾을 수 없어요.");
+        String title = name(ctx.getContentResolver(), uri);
+        String mime = ctx.getContentResolver().getType(uri);
+        if (!audioFile(title, mime)) throw new IOException("오디오 파일만 가져올 수 있어요.");
+        MessageDigest hash = MessageDigest.getInstance("SHA-256");
+        long size = 0;
+        try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new IOException("선택한 음악을 열 수 없어요.");
+            byte[] buf = new byte[32 * 1024];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                if (n == 0) continue;
+                size += n;
+                if (size > MAX_BYTES) throw new IOException("한 곡 최대 300MB까지 가져올 수 있어요.");
+                hash.update(buf, 0, n);
+            }
+        }
+        if (size == 0L) throw new IOException("비어 있는 음악 파일이에요.");
+        String fingerprint = hex(hash.digest());
+        if (hashes.contains(fingerprint)) return false;
+        try {
+            // Stay well below the older Android 128 persisted-URI grant limit.
+            if (ctx.getContentResolver().getPersistedUriPermissions().size() >= 96) {
+                return copyOriginal(ctx, uri, tracks, hashes);
+            }
+            ctx.getContentResolver().takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (SecurityException | IllegalArgumentException ex) {
+            return copyOriginal(ctx, uri, tracks, hashes);
+        }
+        tracks.add(new Track(title, uri.toString(), fingerprint));
+        hashes.add(fingerprint);
+        return true;
+    }
+
+    /** Transient ACTION_SEND share grants are copied; persistent SAF picks are not. */
+    private static boolean copyOriginal(Context ctx, Uri uri,
+            List<Track> tracks, Set<String> hashes) throws Exception {
         if (uri == null) throw new IOException("원곡 파일이 선택되지 않았어요.");
         String title = name(ctx.getContentResolver(), uri);
         String mime = ctx.getContentResolver().getType(uri);
@@ -115,34 +215,68 @@ public final class Originals {
             if (size == 0) throw new IOException("비어 있는 파일이에요.");
 
             String digest = hex(hash.digest());
-            List<Track> tracks = list(ctx);
-            for (Track existing : tracks) {
-                if (digest.equals(existing.hash)) return false;
-            }
+            if (hashes.contains(digest)) return false;
             File destination = new File(directory, digest + "--" + safeName(title, mime));
             if (!temp.renameTo(destination))
                 throw new IOException("원곡 저장에 실패했어요.");
 
             tracks.add(new Track(title, destination.getAbsolutePath(), digest));
-            save(ctx, tracks);
+            hashes.add(digest);
             return true;
         } finally {
             if (temp.exists()) temp.delete();
         }
     }
 
-    public static synchronized void remove(Context ctx, Track track) {
+    /** Delete ONLY MARU RADIO private copies; downloaded Suno originals are untouched. */
+    public static synchronized int removeMany(Context ctx, Set<String> hashes) {
+        if (hashes == null || hashes.isEmpty()) return 0;
         List<Track> current = list(ctx);
         List<Track> remaining = new ArrayList<>();
+        int removed = 0;
         for (Track item : current) {
-            if (item.hash.equals(track.hash)) {
-                // The file is known to be within the app's private originals folder.
-                item.file().delete();
+            if (hashes.contains(item.hash)) {
+                if (item.isDownloadReference()) {
+                    // Only stop tracking the source. Never delete Downloads/MediaStore.
+                    try {
+                        ctx.getContentResolver().releasePersistableUriPermission(
+                                item.sourceUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    } catch (SecurityException | IllegalArgumentException ignored) {}
+                    removed++;
+                } else if (item.file().delete()) {
+                    removed++;
+                } else {
+                    remaining.add(item); // Never lose a catalog entry if deletion failed.
+                }
             } else {
                 remaining.add(item);
             }
         }
         save(ctx, remaining);
+        return removed;
+    }
+
+    public static synchronized void remove(Context ctx, Track track) {
+        Set<String> one = new HashSet<>();
+        one.add(track.hash);
+        removeMany(ctx, one);
+    }
+
+    /**
+     * Remove old duplicate catalog entries (if any) but do not delete shared
+     * content or source downloads. Normal batch import already prevents these.
+     */
+    public static synchronized int pruneDuplicateCatalogEntries(Context ctx) {
+        List<Track> current = list(ctx);
+        Set<String> seen = new HashSet<>();
+        List<Track> unique = new ArrayList<>();
+        int count = 0;
+        for (Track t : current) {
+            if (seen.add(t.hash)) unique.add(t);
+            else count++;
+        }
+        if (count > 0) save(ctx, unique);
+        return count;
     }
 
     private static String name(ContentResolver resolver, Uri uri) {
