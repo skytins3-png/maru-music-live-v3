@@ -1,0 +1,62 @@
+name: MARU RADIO V1 lightweight Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feat/maru-radio-clean-20261015
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-radio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Check clean original-audio app contract
+        run: python3 scripts/test_radio_contract.py
+
+      - name: Build only the new radio module
+        run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
+
+      - name: Verify correct app and signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
+            "$SIGNER" verify --verbose "$apk"
+            "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.original'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO'" /tmp/radio-badging.txt
+            ! grep -Eq "BIND_ACCESSIBILITY_SERVICE|RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE" /tmp/radio-badging.txt
+          done
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1-INSTALL.apk
+          ls -lh MARU-RADIO-V1-INSTALL.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-RADIO-V1-NEW-INSTALL
+          path: MARU-RADIO-V1-INSTALL.apk
+          if-no-files-found: error
