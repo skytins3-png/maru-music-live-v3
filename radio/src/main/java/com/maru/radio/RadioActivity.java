@@ -12,6 +12,9 @@ import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.graphics.Insets;
+import android.view.WindowInsets;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -62,23 +65,33 @@ public final class RadioActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BACKGROUND);
+        // One UI / Android 15+ force edge-to-edge for targetSdk 35+.
+        // Keep first heading below the status bar, and buttons above gesture navigation.
+        if (Build.VERSION.SDK_INT >= 35) {
+            scroll.setOnApplyWindowInsetsListener((view, insets) -> {
+                Insets safe = insets.getInsets(
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                view.setPadding(0, safe.top, 0, safe.bottom);
+                return insets;
+            });
+        }
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(30), dp(20), dp(35));
+        root.setPadding(dp(18), dp(12), dp(18), dp(26));
         scroll.addView(root);
 
         root.addView(label("MARU RADIO", 31, VIOLET, true));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
-        root.addView(label("새로 제작한 음악 전용 경량 앱", 13, 0xFFB1A6C5, false));
+        root.addView(label("Suno MP3/WAV 원곡 보관 · 미리듣기", 13, 0xFFB1A6C5, false));
         gap(root, 17);
 
         card(root, "1  SUNO에서 내 원곡 준비",
-                "Suno에서 만든 원곡을 MP3/WAV로 저장하세요. 파일을 선택하거나 다른 앱의 '공유'로 MARU RADIO에 보낼 수 있어요.",
+                "Suno에서 MP3/WAV 다운로드 후 가져오기. 링크 공유만으로는 음악이 등록되지 않아요.",
                 "Suno 열기", this::openSuno,
                 "원곡 파일 가져오기", this::pickFiles);
 
         card(root, "2  방송할 원곡 선택",
-                "원곡은 그대로 보관하고 미리듣기만 제공합니다. BIGO 송출 전에 선택한 음악을 휴대폰의 음악 폴더에 저장하세요.",
+                "원곡은 무변환 보관. 원하는 곡을 고른 뒤 BIGO용으로 저장하세요.",
                 "원곡 목록 새로고침", this::refreshSongs,
                 null, null);
 
@@ -88,7 +101,7 @@ public final class RadioActivity extends Activity {
         gap(root, 8);
 
         card(root, "3  BIGO 오디오 LIVE",
-                "BIGO 안에서 '도구 → 음악/믹서'의 로컬 파일 선택이 있을 때 저장한 원곡을 불러오세요. BIGO가 제공하는 기능에 따라 사용 여부가 달라집니다.",
+                "BIGO 오디오 LIVE의 음악/믹서에 로컬 파일 선택 기능이 있는 경우 저장한 원곡을 불러오세요.",
                 "BIGO LIVE 열기", this::openBigo,
                 "송출 음량 확인 방법", this::broadcastGuide);
 
