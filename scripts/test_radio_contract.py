@@ -11,12 +11,18 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.original'" in gradle,
+    "own package": "applicationId 'com.maru.radio.catalog'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
     "original file copying": "getContentResolver().openOutputStream(destination)" in activity,
     "BIGO direct handoff only": "getLaunchIntentForPackage(\"sg.bigo.live\")" in activity,
+    "download-first picker": "DocumentsContract.EXTRA_INITIAL_URI" in activity and "primary:Download" in activity,
+    "multi-file selection": "Intent.EXTRA_ALLOW_MULTIPLE" in activity,
+    "searchable virtual list": "new BaseAdapter()" in activity and "songAdapter.notifyDataSetChanged()" in activity,
+    "confirmed bulk delete only of app copies": "Originals.removeMany(" in activity and "new HashSet<>(selected)" in activity,
+    "192+ batch import with progress": "Originals.importBatch" in activity and "onProgress" in store,
+    "automatic SHA batch dedupe": "hashes.contains(digest)" in store and "save(ctx, tracks)" in store,
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
     "no recording or capture permissions": all(word not in manifest for word in (
