@@ -49,10 +49,10 @@ checks = {
     "no accessibility service or permission": all(s not in manifest for s in
         ("AccessibilityService", "BIND_ACCESSIBILITY_SERVICE", "BigoControlAssist",
          "@xml/bigo_control_config")),
-    "inert accessibility source": "AccessibilityService" not in
+    "inert accessibility source": all(term not in
         (root / "radio/src/main/java/com/maru/radio/BigoControlAssist.java").read_text(encoding="utf-8")
-        .replace("AccessibilityService or", "") and "dispatchGesture" not in
-        (root / "radio/src/main/java/com/maru/radio/BigoControlAssist.java").read_text(encoding="utf-8"),
+        for term in ("extends AccessibilityService", "dispatchGesture", "onAccessibilityEvent",
+                     "import android.accessibilityservice")),
     "BIGO open-only buttons": "requestBigoStart()" in activity and
         "requestBigoEnd()" in activity and "openBigo()" in activity and
         "BigoControlAssist" not in activity,
