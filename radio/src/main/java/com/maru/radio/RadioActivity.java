@@ -667,7 +667,8 @@ public final class RadioActivity extends Activity {
                 search.getText().toString().trim().toLowerCase(Locale.ROOT);
         int activeCategory = RadioProgram.active(this);
         for (Originals.Track t : sorted) {
-            if (activeCategory != 0 && RadioProgram.category(this, t) != activeCategory) continue;
+            if (activeCategory != 0 && activeCategory != 5
+                    && RadioProgram.category(this, t) != activeCategory) continue;
             if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;
