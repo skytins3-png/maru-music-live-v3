@@ -125,12 +125,15 @@ public final class RadioDjVoice {
             clip.setOnPreparedListener(p -> {
                 if (ticket == generation && !closed) {
                     status = "형이 녹음한 인사 음성 재생";
-                    p.start();
+                    try { p.start(); }
+                    catch (RuntimeException e) {
+                        fallbackGreeting(ticket, fallback, after);
+                    }
                 }
             });
             clip.setOnCompletionListener(p -> complete(ticket));
             clip.setOnErrorListener((p, what, extra) -> {
-                complete(ticket);
+                fallbackGreeting(ticket, fallback, after);
                 return true;
             });
             clip.prepareAsync();
@@ -138,6 +141,14 @@ public final class RadioDjVoice {
             cancel();
             say(fallback, after);
         }
+    }
+
+    private void fallbackGreeting(int ticket, String EnglishText, Runnable after) {
+        if (ticket != generation || closed) return;
+        // A missing / corrupted / revoked recording must not stall the show.
+        cancel();
+        status = "녹음 파일이 재생되지 않아 영어 TTS로 대신 인사합니다.";
+        say(EnglishText, RadioDjLanguagePolicy.ENGLISH, after);
     }
 
     private void startSpeech(int ticket) {
