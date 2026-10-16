@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
@@ -28,6 +29,7 @@ import java.util.List;
  */
 public final class RadioDjActivity extends Activity {
     private static final int REQUEST_GREETING_AUDIO = 801;
+    private static final int REQUEST_SPOKEN_QUERY = 802;
     private static final int WHITE = 0xFFF6F1FF, PURPLE = 0xFFBAA0FF;
     private TextView status;
     private EditText comment;
@@ -180,6 +182,7 @@ public final class RadioDjActivity extends Activity {
                 + "현재 BIGO 댓글을 자동 읽는 공식 연결은 없습니다.", 13, 0xFFDBD0E7));
         comment = input("예: 가을 남자 노래 틀어줘 / 오늘 피곤해");
         body.addView(comment);
+        body.addView(button("🎤 말로 댓글/신청곡 입력 (외부 음성 인식)", this::recognizeSpokenQuery));
         body.addView(button("✨ 대화 답변하고 읽어주기", this::replyToComment));
         body.addView(button("🎼 입력한 제목으로 보관 원곡 찾아 재생", this::requestSong));
         body.addView(button("⭐ 많이 신청된 노래 확인", () ->
@@ -275,6 +278,22 @@ public final class RadioDjActivity extends Activity {
         send(RadioPlaybackService.ACTION_DJ_REQUEST,speech,song.hash);
     }
 
+    private void recognizeSpokenQuery() {
+        // User-invoked system speech recognition dialog: no always-on listening,
+        // own app RECORD_AUDIO permission, or BIGO room audio monitoring.
+        Intent speech = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(RecognizerIntent.EXTRA_PROMPT, "마루 DJ에게 말해 주세요.");
+        String[] langs = {"ko-KR", "zh-CN", "en-US", "ja-JP", "ru-RU"};
+        speech.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
+                langs[RadioDjSettings.language(this)]);
+        try { startActivityForResult(speech, REQUEST_SPOKEN_QUERY); }
+        catch (RuntimeException e) {
+            oneLine("사용 가능한 시스템 음성 인식기가 없어요. 글자로 입력해 주세요.");
+        }
+    }
+
     private void pickRecordedGreeting() {
         Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT)
                 .addCategory(Intent.CATEGORY_OPENABLE).setType("audio/*");
@@ -286,6 +305,17 @@ public final class RadioDjActivity extends Activity {
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request,result,data);
+        if (request == REQUEST_SPOKEN_QUERY) {
+            if (result == RESULT_OK && data != null) {
+                ArrayList<String> phrases = data.getStringArrayListExtra(
+                        RecognizerIntent.EXTRA_RESULTS);
+                if (phrases != null && !phrases.isEmpty()) {
+                    comment.setText(phrases.get(0));
+                    replyToComment(); // explicit user button launched recognition
+                }
+            }
+            return;
+        }
         if (request != REQUEST_GREETING_AUDIO || result != RESULT_OK
                 || data == null || data.getData() == null) return;
         Uri uri = data.getData();
