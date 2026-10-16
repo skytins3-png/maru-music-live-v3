@@ -149,8 +149,12 @@ public final class RadioPlaybackService extends Service {
             final boolean nextIntro = ACTION_DJ_ANNOUNCE_NEXT.equals(action);
             String following = queue.isEmpty() ? ""
                     : queue.get((currentIndex + 1 + queue.size()) % queue.size()).title;
-            final String text = greeting ? RadioDjBrain.opening(announcementCount++)
-                    : nextIntro ? RadioDjBrain.nextSong(following, announcementCount++)
+            int language = RadioDjSettings.language(this);
+            final String text = greeting ? language == 0
+                            ? RadioDjBrain.opening(announcementCount++)
+                            : RadioReplies.message(language, 0)
+                    : nextIntro ? RadioDjBrain.nextSong(following, announcementCount++,
+                            language)
                     : intent.getStringExtra(EXTRA_DJ_TEXT);
             if (text == null || text.trim().isEmpty()) { if (queue.isEmpty()) stopSelf();
                 return START_NOT_STICKY; }
@@ -400,13 +404,19 @@ public final class RadioPlaybackService extends Service {
                     final Runnable next = () -> {
                         if (ticket != generation || player != p) return;
                         if (doNext) {
-                            voice().say(RadioDjBrain.nextSong(t.title, announcementCount++), play);
+                            voice().say(RadioDjBrain.nextSong(t.title,
+                                    announcementCount++, RadioDjSettings.language(this)), play);
                         } else play.run();
                     };
                     if (explicitSpeech != null && !explicitSpeech.isEmpty()) {
                         voice().say(explicitSpeech, play);
                     } else if (doOpening) {
-                        voice().greeting(RadioDjBrain.opening(announcementCount++), next);
+                        int language = RadioDjSettings.language(this);
+                        if (language == 0) {
+                            voice().greeting(RadioDjBrain.opening(announcementCount++), next);
+                        } else {
+                            voice().say(RadioReplies.message(language, 0), next);
+                        }
                     } else next.run();
                 } else {
                     p.start();
