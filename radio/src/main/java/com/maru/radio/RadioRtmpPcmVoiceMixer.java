@@ -61,5 +61,9 @@ public final class RadioRtmpPcmVoiceMixer {
                 pcm[p + 1] = (byte) (fixed >>> 8);
             }
         }
+        if (current != null && index >= current.length) {
+            current = pending.pollFirst();
+            index = 0;
+        }
     }
 }
