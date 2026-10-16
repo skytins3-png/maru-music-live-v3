@@ -81,14 +81,41 @@ public final class RadioDjActivity extends Activity {
         lastReply = words;
         status.setText("🎙 안내 멘트: " + words
                 + "\n시스템 TTS 음성 재생 요청 · BIGO 송출 여부는 별도 확인 필요");
-        Intent service = new Intent(this, RadioPlaybackService.class)
-                .setAction(RadioPlaybackService.ACTION_DJ_SAY)
-                .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, words)
-                .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, language);
+        boolean direct = RadioDirectRtmpService.isActive();
+        Intent service = direct
+                ? new Intent(this, RadioDirectRtmpService.class)
+                    .setAction(RadioDirectRtmpService.ACTION_SAY)
+                    .putExtra(RadioDirectRtmpService.EXTRA_SAY, words)
+                    .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, language)
+                : new Intent(this, RadioPlaybackService.class)
+                    .setAction(RadioPlaybackService.ACTION_DJ_SAY)
+                    .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, words)
+                    .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, language);
         try { startService(service); }
         catch (RuntimeException ex) { oneLine("아나운서 음성 재생 실패"); }
     }
     private void send(String action, String words, String hash) {
+        // Spoken DJ announcements go into direct network PCM when that owner
+        // initiated RTMP route is active; otherwise keep original local flow.
+        if (RadioDirectRtmpService.isActive() && !RadioPlaybackService.ACTION_DJ_REQUEST.equals(action)
+                && !RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
+            java.util.List<RadioDjLanguagePolicy.Line> lines = null;
+            if (RadioPlaybackService.ACTION_DJ_GREETING.equals(action))
+                lines = RadioDjLanguagePolicy.opening();
+            else if (RadioPlaybackService.ACTION_DJ_CLOSING.equals(action))
+                lines = RadioDjLanguagePolicy.closing();
+            else if (RadioPlaybackService.ACTION_DJ_GIFT.equals(action))
+                lines = RadioDjLanguagePolicy.gift(words,
+                        RadioDjSettings.giftLanguageHint(this));
+            if (lines != null) {
+                for (RadioDjLanguagePolicy.Line line : lines)
+                    startService(new Intent(this, RadioDirectRtmpService.class)
+                            .setAction(RadioDirectRtmpService.ACTION_SAY)
+                            .putExtra(RadioDirectRtmpService.EXTRA_SAY, line.text)
+                            .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, line.language));
+                return;
+            }
+        }
         Intent service = new Intent(this, RadioPlaybackService.class).setAction(action);
         if (words != null) service.putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, words);
         if (hash != null) service.putExtra(RadioPlaybackService.EXTRA_HASH, hash);
