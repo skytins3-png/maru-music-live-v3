@@ -94,6 +94,14 @@ jobs:
             scripts/BigoChatRuleSelfTest.java
           java -cp /tmp/maru-chat-tests com.maru.radio.BigoChatRuleSelfTest
 
+      - name: Test direct RTMP PCM music plus Ahwan TTS ducking and digital peak bounds
+        run: |
+          mkdir -p /tmp/maru-rtmp-mix-tests
+          javac -d /tmp/maru-rtmp-mix-tests \
+            radio/src/main/java/com/maru/radio/RadioRtmpPcmVoiceMixer.java \
+            scripts/RadioRtmpPcmVoiceMixerSelfTest.java
+          java -cp /tmp/maru-rtmp-mix-tests com.maru.radio.RadioRtmpPcmVoiceMixerSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
