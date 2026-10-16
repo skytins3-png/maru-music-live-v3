@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 16" in gradle
-        and "versionName '1.9.4-play-review'" in gradle
-        and "MARU RADIO V1.9.4 아환 (Play 검토용)" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 17" in gradle
+        and "versionName '1.9.5-owner-voice-opening'" in gradle
+        and "MARU RADIO V1.9.5 아환 음성 인사" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -348,6 +348,29 @@ checks.update({
         and 'BigoControlAssist.approve(this, false)' in automation,
     "V1.9.4 Android App Bundle smoke build":
         ":radio:bundleRelease" in (root / ".github/workflows/build-radio.yml").read_text(encoding="utf-8"),
+})
+checks.update({
+    "V1.9.5 recorded voice flag is explicit and off by default":
+        "public static boolean recordedOpening(Context ctx)" in dj_settings
+        and 'getBoolean("recorded_opening", false)' in dj_settings
+        and "setRecordedOpening(Context ctx, boolean enabled)" in dj_settings,
+    "V1.9.5 opening uses voice recording with English TTS fallback":
+        "private void playBroadcastOpening(Runnable after)" in service
+        and "RadioDjSettings.recordedOpening(this)" in service
+        and "voice().greeting(RadioDjLanguagePolicy.opening().get(0).text, after)" in service
+        and "playBroadcastOpening(next)" in service
+        and "playBroadcastOpening(afterSpeech)" in service,
+    "V1.9.5 owner explicitly authorizes language of chosen clip":
+        "영어 녹음 · 자동 시작에 사용" in dj_activity
+        and "setRecordedOpening(this, true)" in dj_activity
+        and "useOpening.setChecked(true)" in dj_activity,
+    "V1.9.5 local recorded clip status and preview":
+        "updateGreetingStatus()" in dj_activity
+        and "녹음 인사가 아직 등록되지 않았어" in dj_activity
+        and "Intent.ACTION_OPEN_DOCUMENT" in dj_activity,
+    "V1.9.5 recorded clip media failure falls back to TTS":
+        "fallbackGreeting(ticket, fallback, after)" in dj_voice
+        and "say(EnglishText, RadioDjLanguagePolicy.ENGLISH, after)" in dj_voice,
 })
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
