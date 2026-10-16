@@ -45,6 +45,26 @@ public final class BigoAutomationPolicySelfTest {
         ok(BigoAutomationPolicy.stopNext(BigoAutomationPolicy.Phase.OPEN_END_DIALOG, screenshot)
                         == BigoAutomationPolicy.Phase.OPEN_END_DIALOG,
                 "never end from composer");
+        // Coordinate-only checks from the owner's 709 x 1536 BIGO mixer image.
+        // Digit 1 on unrelated widgets or the viewer-count must NOT grant mic=1.
+        ok(BigoMicLayoutPolicy.isNearMic(709, 1536, 42, 437, 290, 477,
+                        645, 508, 662, 546),
+                "owner mixer screenshot: 1 belongs to the microphone row");
+        ok(!BigoMicLayoutPolicy.isNearMic(709, 1536, 42, 437, 290, 477,
+                        642, 902, 663, 943),
+                "a digit below music effects does not verify microphone");
+        ok(!BigoMicLayoutPolicy.isNearMic(709, 1536, 42, 437, 290, 477,
+                        170, 508, 189, 546),
+                "unrelated left-side numeral is not a microphone value");
+        ok(!BigoMicLayoutPolicy.isNearMic(709, 1536, 42, 437, 290, 477,
+                        647, 39, 662, 57),
+                "status bar digit does not verify microphone");
+        ok(!BigoMicLayoutPolicy.isNearMic(1536, 709, 42, 437, 290, 477,
+                        645, 508, 662, 546),
+                "landscape UI fails safely; coordinates not assumed");
+        ok(!BigoMicLayoutPolicy.isNearMic(709, 1536, 42, 437, 290, 477,
+                        700, 508, 729, 546),
+                "out-of-screen numeral fails safely");
         System.out.println("BIGO screenshot-state unit checks PASS; NOT a live-device test.");
     }
 }
