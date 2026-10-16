@@ -503,9 +503,9 @@ public final class RadioDjActivity extends Activity {
         bigoChatStatus.setText("댓글 동의 " + (consent ? "ON" : "OFF")
                 + " · 접근성 " + (connected ? "연결" : "미연결")
                 + " · TTS " + (voice ? "ON" : "OFF")
-                + "\\n" + check
-                + "\\n" + BigoControlAssist.chatState(this)
-                + "\\n청취자 음성 경로: " + (direct
+                + "\n" + check
+                + "\n" + BigoControlAssist.chatState(this)
+                + "\n청취자 음성 경로: " + (direct
                         ? "독립 RTMP 실험 (서버·청취자 별도 검증)"
                         : "휴대폰 로컬 TTS만 · BIGO 마이크 전달은 별도 확인"));
     }
