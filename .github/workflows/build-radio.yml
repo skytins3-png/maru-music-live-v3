@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.5 Ahwan owner greeting build
+name: MARU RADIO V1.9.6 Ahwan balanced volume build
 
 on:
   workflow_dispatch:
@@ -11,6 +11,7 @@ on:
       - feat/maru-ai-radio-announcer-v19-20261016
       - release/ahwan-v194-accessibility-play-20261016
       - fix/ahwan-v195-owner-recorded-opening-20261016
+      - fix/ahwan-v196-constant-volume-20261016
   pull_request:
     branches: [main]
 
@@ -74,6 +75,14 @@ jobs:
             scripts/RadioDjLanguagePolicySelfTest.java
           java -cp /tmp/maru-dj-language com.maru.radio.RadioDjLanguagePolicySelfTest
 
+      - name: Test dynamic range compressor and limiter policies (JVM)
+        run: |
+          mkdir -p /tmp/maru-volume-tests
+          javac -d /tmp/maru-volume-tests \
+            radio/src/main/java/com/maru/radio/RadioLevelPolicy.java \
+            scripts/RadioLevelPolicySelfTest.java
+          java -cp /tmp/maru-volume-tests com.maru.radio.RadioLevelPolicySelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -90,14 +99,14 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.5 아환 음성 인사'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.6 아환 균일 음량'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY
-          path: MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY
+          path: MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY-INSTALL.apk
           if-no-files-found: error

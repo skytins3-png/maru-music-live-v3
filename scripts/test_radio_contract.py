@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 17" in gradle
-        and "versionName '1.9.5-owner-voice-opening'" in gradle
-        and "MARU RADIO V1.9.5 아환 음성 인사" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 18" in gradle
+        and "versionName '1.9.6-volume-leveling'" in gradle
+        and "MARU RADIO V1.9.6 아환 균일 음량" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -371,6 +371,17 @@ checks.update({
     "V1.9.5 recorded clip media failure falls back to TTS":
         "fallbackGreeting(ticket, fallback, after)" in dj_voice
         and "say(EnglishText, RadioDjLanguagePolicy.ENGLISH, after)" in dj_voice,
+})
+checks.update({
+    "V1.9.6 balanced audio preset": 'getInt("leveling", RadioLevelPolicy.EVEN)' in program,
+    "V1.9.6 attach processing each song": 'leveler.attach(p, RadioProgram.leveling(this))' in service,
+    "V1.9.6 release processing on song change": "leveler.release()" in service,
+    "V1.9.6 stereo compressor with limiter": all(x in
+        (root / "radio/src/main/java/com/maru/radio/RadioLeveler.java").read_text(encoding="utf-8")
+        for x in ("DynamicsProcessing", "getAudioSessionId()", "setMbcBandAllChannelsTo",
+                  "setLimiterAllChannelsTo", "dsp.release()")),
+    "V1.9.6 user profile and viewer caveat": "selectPlaybackLevel" in activity
+        and "RadioProgram.setLeveling(" in activity,
 })
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
