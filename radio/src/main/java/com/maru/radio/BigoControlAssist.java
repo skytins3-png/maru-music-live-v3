@@ -297,6 +297,7 @@ public final class BigoControlAssist extends AccessibilityService {
         ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<>();
         queue.add(root);
         int scanned = 0;
+        int taggedWidgets = 0;
         while (!queue.isEmpty() && scanned++ < 800) {
             AccessibilityNodeInfo n = queue.removeFirst();
             if (n == null) continue;
@@ -304,6 +305,9 @@ public final class BigoControlAssist extends AccessibilityService {
                     && BIGO.contentEquals(n.getPackageName())) {
                 CharSequence desc = n.getContentDescription();
                 CharSequence row = n.getText();
+                if (BigoChatRule.isChatWidget(n.getViewIdResourceName(),
+                        desc == null ? null : desc.toString()))
+                    taggedWidgets++;
                 BigoChatRule.Match reply = BigoChatRule.match(
                         n.getViewIdResourceName(),
                         desc == null ? null : desc.toString(),
@@ -325,7 +329,10 @@ public final class BigoControlAssist extends AccessibilityService {
         }
         if (!chatPrimed) {
             chatPrimed = true;
-            setChatState("BIGO LIVE 댓글 감지 준비됨 · 새 인사/감사 댓글 대기");
+            setChatState(taggedWidgets == 0
+                    ? "호스트 LIVE 확인 · 댓글 위젯 미노출 (실기기 확인 필요)"
+                    : "BIGO 댓글 위젯 " + taggedWidgets
+                        + "개 인식 · 새 인사/감사 댓글 대기");
             return;
         }
         // Max one short fixed-script reply per 15 seconds; drop extras
