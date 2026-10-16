@@ -12,8 +12,8 @@ android {
         minSdk 26
         // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
         targetSdk 36
-        versionCode 17
-        versionName '1.9.5-owner-voice-opening'
+        versionCode 18
+        versionName '1.9.6-volume-leveling'
     }
 
     // Store upload credentials must be supplied by the repository owner through
