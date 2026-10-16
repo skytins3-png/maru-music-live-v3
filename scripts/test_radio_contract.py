@@ -221,9 +221,16 @@ checks.update({
 
     "V1.8 fail closed on screen lock": "km.isKeyguardLocked()" in assist
         and "휴대폰 잠금 상태" in assist,
-    "V1.8 avoid reopening already-set mixer 1":
-        "BigoAutomationPolicy.isMicOneShown(labels)" in assist
+    "V1.8 avoids mistaken mic=1 from unrelated digit":
+        "micLevelOneVerified(root, labels)" in assist
+        and "BigoMicLayoutPolicy.isNearMic(" in assist
+        and "matched == 1" in assist
         and "isReadyToStart(labels)" in assist,
+    "V1.8 Java regression tests for spatial mic confirmation": all(
+        x in (root / "radio/src/main/java/com/maru/radio/BigoMicLayoutPolicy.java").read_text(encoding="utf-8")
+        for x in ("isNearMic(", "digitLeft >= micRight", "micY + screenHeight"))
+        and "BigoMicLayoutPolicy.java" in
+        (root / ".github/workflows/build-radio.yml").read_text(encoding="utf-8"),
     "V1.8 safe anchored BIGO label tap":
         "n.getBoundsInScreen(b)" in assist
         and "n.isVisibleToUser()" in assist
