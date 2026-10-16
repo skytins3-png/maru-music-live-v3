@@ -3,6 +3,7 @@
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="350"
+    android:accessibilityFlags="flagReportViewIds"
     android:packageNames="sg.bigo.live"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="true"

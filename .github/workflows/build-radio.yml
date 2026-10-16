@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.6 Ahwan balanced volume build
+name: MARU RADIO V1.9.7 BIGO chat capture prototype build
 
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ on:
       - release/ahwan-v194-accessibility-play-20261016
       - fix/ahwan-v195-owner-recorded-opening-20261016
       - fix/ahwan-v196-constant-volume-20261016
+      - feat/ahwan-v197-bigo-live-comment-and-audio-validation-20261016
   pull_request:
     branches: [main]
 
@@ -83,6 +84,15 @@ jobs:
             scripts/RadioLevelPolicySelfTest.java
           java -cp /tmp/maru-volume-tests com.maru.radio.RadioLevelPolicySelfTest
 
+      - name: Test BIGO live chat privacy and five-language fixed responses (JVM)
+        run: |
+          mkdir -p /tmp/maru-chat-tests
+          javac -d /tmp/maru-chat-tests \
+            radio/src/main/java/com/maru/radio/RadioDjLanguagePolicy.java \
+            radio/src/main/java/com/maru/radio/BigoChatRule.java \
+            scripts/BigoChatRuleSelfTest.java
+          java -cp /tmp/maru-chat-tests com.maru.radio.BigoChatRuleSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -99,14 +109,14 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.6 아환 균일 음량'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.7 아환 채팅 실험'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY
-          path: MARU-RADIO-V1.9.6-VOLUME-LEVELING-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY
+          path: MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY-INSTALL.apk
           if-no-files-found: error
