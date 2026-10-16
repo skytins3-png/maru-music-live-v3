@@ -102,7 +102,8 @@ checks.update({
         and "wallEndAt = 0L; // Do not cancel" in service
         and ".setAction(RadioPlaybackService.ACTION_CANCEL_WALL_END)" in automation,
     "V1.7 clock applies normal playback": "syncWallEndFromSchedule();" in service
-        and "ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)" in service,
+        and "ACTION_PLAY.equals(action) || ACTION_DJ_REQUEST.equals(action)" in service
+        and "ACTION_NEXT.equals(action)" in service,
     "V1.7 prevent next track after deadline": "private void advanceOnCompletion()" in service
         and "if (deadlineReached())" in service
         and "private void rescheduleTimerCheck()" in service,
@@ -281,7 +282,8 @@ checks.update({
     "V1.9 explicit local-only limited DJ learning": all(x in dj_settings for x in (
         "isMemoryEnabled(Context ctx)", "rememberSong(Context ctx",
         "host_rules", "known.length() >= 20", "clearMemory(Context ctx)"))
-        and "comments" not in dj_settings,
+        and 'getSharedPreferences(STORE, Context.MODE_PRIVATE)' in dj_settings
+        and "context.getContentResolver()" not in dj_settings,
     "V1.9 five-language TTS": all(x in dj_voice for x in (
         "Locale.SIMPLIFIED_CHINESE", "Locale.JAPANESE",
         'new Locale("ru", "RU")', "RadioDjSettings.language(context)")),
