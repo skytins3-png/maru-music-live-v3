@@ -99,7 +99,7 @@ public final class RadioDjActivity extends Activity {
         body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(18),dp(16),dp(18),dp(40));
         scroll.addView(body);
-        body.addView(text("🎙 MARU AI 라디오 아나운서", 25, PURPLE));
+        body.addView(text("🎙 아환 AI 라디오 아나운서", 25, PURPLE));
         body.addView(text("인사 · 신청곡 소개/재생 · 댓글 답변 · 선물 감사 · 진행 멘트", 14, WHITE));
         body.addView(text("현재는 휴대폰 내부 규칙 대화 + Android TTS입니다. "
                 + "형의 실제 목소리로 자유롭게 합성하는 음성 복제 모델은 아직 없습니다. "
@@ -227,7 +227,7 @@ public final class RadioDjActivity extends Activity {
                             RadioDjSettings.clearHostRules(this);
                             oneLine("AI 진행자 학습 기록 초기화 완료");
                         }).setNegativeButton("취소",null).show()));
-        status = text("AI 진행자 준비 완료 · 저장곡 " + Originals.list(this).size()
+        status = text("아환 아나운서 준비 완료 · 저장곡 " + Originals.list(this).size()
                 + "곡 · 오디오는 기기에서만 재생됩니다.", 14, 0xFFB0E4C5);
         body.addView(status);
         body.addView(button("← MARU RADIO 돌아가기", this::finish));
