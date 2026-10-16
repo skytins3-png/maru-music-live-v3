@@ -34,6 +34,24 @@ public final class BigoChatRule {
     }
 
     /**
+     * Some BIGO builds split a public LIVE comment into separately labeled
+     * name and message child views. Only merge two direct children of a
+     * recognized CHAT container: never inspect general or private UI.
+     * Raw text is neither persisted nor logged.
+     */
+    public static Match matchSplitChat(String resource, String description,
+            String name, String message) {
+        if (!isChatWidget(resource, description) || name == null || message == null)
+            return null;
+        String nick = name.trim();
+        String body = message.trim();
+        if (nick.length() == 0 || nick.length() > 30 || body.length() < 2
+                || body.length() > 100 || nick.contains(":") || nick.contains("："))
+            return null;
+        return match(resource, description, nick + ": " + body);
+    }
+
+    /**
      * Only user-name-prefixed text in labeled BIGO chat widgets; no broad
      * accessibility tree scraping, unknown UI, or private message content.
      */
