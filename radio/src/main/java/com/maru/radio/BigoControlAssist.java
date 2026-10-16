@@ -315,13 +315,41 @@ public final class BigoControlAssist extends AccessibilityService {
     }
 
     private boolean click(AccessibilityNodeInfo root, String label) {
+        if (root == null || !BIGO.contentEquals(root.getPackageName())) return false;
         AccessibilityNodeInfo n = find(root, label);
-        if (n == null) return false;
+        if (n == null || !n.isVisibleToUser() || !n.isEnabled()) return false;
+        // Prefer semantic accessibility actions. BIGO sometimes draws a visual
+        // label in a custom view with no clickable Android parent; in that case
+        // tap ONLY the exact visible label bounds instead of guessed coordinates.
         for (AccessibilityNodeInfo p = n; p != null; p = p.getParent()) {
             if (p.isClickable() && p.isEnabled()
                     && p.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
         }
-        return false;
+        Rect b = new Rect();
+        n.getBoundsInScreen(b);
+        int w = getResources().getDisplayMetrics().widthPixels;
+        int h = getResources().getDisplayMetrics().heightPixels;
+        if (b.width() < 12 || b.height() < 12 || b.left < 0 || b.top < 0
+                || b.right > w || b.bottom > h || w < 400 || h < 700 || w >= h)
+            return false;
+        float cx = b.exactCenterX(), cy = b.exactCenterY();
+        Path touch = new Path();
+        touch.moveTo(cx, cy);
+        touch.lineTo(cx, cy);
+        GestureDescription gesture = new GestureDescription.Builder()
+                .addStroke(new GestureDescription.StrokeDescription(touch, 0, 90)).build();
+        waitingGesture = true;
+        boolean requested = dispatchGesture(gesture, new GestureResultCallback() {
+            @Override public void onCompleted(GestureDescription actual) {
+                waitingGesture = false;
+            }
+            @Override public void onCancelled(GestureDescription actual) {
+                waitingGesture = false;
+                abort("BIGO " + label + " 버튼 제스처가 취소됐어요.");
+            }
+        }, handler);
+        if (!requested) waitingGesture = false;
+        return requested;
     }
 
     private AccessibilityNodeInfo find(AccessibilityNodeInfo root, String text) {
