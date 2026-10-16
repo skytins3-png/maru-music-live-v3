@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="app_name">MARU RADIO V1.9.11 전체 기능</string>
+  <string name="app_name">MARU RADIO V1.9.12 댓글 진단</string>
   <string name="bigo_accessibility_label">MARU BIGO 오디오 LIVE 지원 (실험)</string>
   <string name="bigo_accessibility_description">사용자가 미리 예약한 BIGO 오디오 LIVE의 시작과 종료만 BIGO 화면에서 순서대로 누릅니다. BIGO 앱 화면만 확인하며 다른 앱/댓글/암호를 수집하지 않습니다. 예외 상황은 자동으로 중지합니다.</string>
 </resources>
