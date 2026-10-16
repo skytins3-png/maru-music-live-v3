@@ -45,6 +45,27 @@ public final class BigoChatRuleSelfTest {
         check(BigoChatRule.match("sg.bigo.live:id/chat_msg", null,
                 "guest: hallo") == null,
                 "unsupported unknown comment remains silent");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "청취자: 어떤 노래 추천해요?").reply.contains("제목"),
+                "Korean music question gets a short contextual suggestion without reading the comment aloud");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "청취자: 아환 이름이 뭐야?").reply.contains("아환"),
+                "Korean DJ identity answered automatically");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "user: What is your name?").reply.contains("Ahwan"),
+                "English identity answered automatically");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "粉丝: 你叫什么名字？").language == RadioDjLanguagePolicy.CHINESE,
+                "Chinese DJ name answered in Chinese");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "ゲスト: お名前を教えて").language == RadioDjLanguagePolicy.JAPANESE,
+                "Japanese identity answered in Japanese");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "гость: как тебя зовут?").language == RadioDjLanguagePolicy.RUSSIAN,
+                "Russian identity answered in Russian");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "guest: good song").reply != null,
+                "common music comment gets a safe reply");
         BigoChatRule.Match a = BigoChatRule.match("sg.bigo.live:id/chat_msg", null,
                 "guest: hello");
         BigoChatRule.Match b = BigoChatRule.match("sg.bigo.live:id/chat_msg", null,
