@@ -23,7 +23,7 @@ public final class BigoChatRule {
         }
     }
 
-    private static boolean knownChatWidget(String resource, String description) {
+    public static boolean isChatWidget(String resource, String description) {
         String id = resource == null ? "" : resource.toLowerCase(Locale.ROOT);
         String desc = description == null ? "" : description.toLowerCase(Locale.ROOT);
         return id.contains("chat") || id.contains("comment")
@@ -38,7 +38,7 @@ public final class BigoChatRule {
      * accessibility tree scraping, unknown UI, or private message content.
      */
     public static Match match(String resource, String description, String rowText) {
-        if (!knownChatWidget(resource, description)) return null;
+        if (!isChatWidget(resource, description)) return null;
         String row = rowText == null ? "" : rowText.trim();
         if (row.isEmpty() && description != null) {
             row = description.replaceFirst("^(?i:chat|comment|댓글|聊天|채팅)\\s*[:：]\\s*", "");
