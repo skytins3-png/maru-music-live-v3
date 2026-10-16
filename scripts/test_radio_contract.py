@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.ahwanv192'" in gradle,
+    "own package": "applicationId 'com.maru.radio.ahwan'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -64,14 +64,14 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.ahwanv192'" in gradle
+    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.ahwan'" in gradle
         and "applicationId 'com.maru.radio.safev16'" not in gradle
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 15" in gradle
-        and "versionName '1.9.2-language-rules-preview'" in gradle
-        and "MARU RADIO V1.9.2 아환 DJ" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 16" in gradle
+        and "versionName '1.9.4-play-review'" in gradle
+        and "MARU RADIO V1.9.4 아환 (Play 검토용)" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -327,6 +327,27 @@ checks.update({
         "RadioDjSettings.giftLanguageHint(this)" in dj_activity
         and "RadioDjSettings.setGiftLanguageHint(" in dj_activity
         and "ACTION_DJ_GIFT" in dj_activity,
+})
+
+# Store release is NOT an internet-sideload APK; keep accessibility documented,
+# narrow and deterministic, with explicit user consent and proper Play review.
+access_xml = (root / "radio/src/main/res/xml/bigo_control_config.xml").read_text(encoding="utf-8")
+checks.update({
+    "V1.9.4 Android 16 Play target":
+        "targetSdk 36" in gradle,
+    "V1.9.4 review requires owner-managed upload signing":
+        'System.getenv("MARU_UPLOAD_KEYSTORE_PATH")' in gradle
+        and 'System.getenv("MARU_UPLOAD_STORE_PASSWORD")' in gradle
+        and 'System.getenv("MARU_UPLOAD_KEY_ALIAS")' in gradle
+        and 'System.getenv("MARU_UPLOAD_KEY_PASSWORD")' in gradle,
+    "V1.9.4 narrow BIGO package only":
+        'android:packageNames="sg.bigo.live"' in access_xml
+        and 'android:isAccessibilityTool="false"' in access_xml,
+    "V1.9.4 explicit accessibility informed consent":
+        'BigoControlAssist.approve(this, true)' in automation
+        and 'BigoControlAssist.approve(this, false)' in automation,
+    "V1.9.4 Android App Bundle smoke build":
+        ":radio:bundleRelease" in (root / ".github/workflows/build-radio.yml").read_text(encoding="utf-8"),
 })
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)

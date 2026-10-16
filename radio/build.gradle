@@ -7,16 +7,37 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.radio.ahwanv192'
+        // Stable Play Console application ID: do not change it after publishing.
+        applicationId 'com.maru.radio.ahwan'
         minSdk 26
-        targetSdk 35
-        versionCode 15
-        versionName '1.9.2-language-rules-preview'
+        // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
+        targetSdk 36
+        versionCode 16
+        versionName '1.9.4-play-review'
+    }
+
+    // Store upload credentials must be supplied by the repository owner through
+    // GitHub Actions Secrets. Never commit keystore files or passwords.
+    // When unavailable, debug key is used strictly for CI compilation tests;
+    // that CI build must NEVER be submitted to Google Play as a release.
+    signingConfigs {
+        if (System.getenv("MARU_UPLOAD_KEYSTORE_PATH")
+                && System.getenv("MARU_UPLOAD_STORE_PASSWORD")
+                && System.getenv("MARU_UPLOAD_KEY_ALIAS")
+                && System.getenv("MARU_UPLOAD_KEY_PASSWORD")) {
+            releaseUpload {
+                storeFile file(System.getenv("MARU_UPLOAD_KEYSTORE_PATH"))
+                storePassword System.getenv("MARU_UPLOAD_STORE_PASSWORD")
+                keyAlias System.getenv("MARU_UPLOAD_KEY_ALIAS")
+                keyPassword System.getenv("MARU_UPLOAD_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.findByName("releaseUpload") != null
+                    ? signingConfigs.releaseUpload : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
@@ -29,4 +50,4 @@ android {
     }
 }
 
-// Deliberately no libraries: Android SDK only. No OCR, AI, WebView, or recording.
+// Standard Android SDK only; no additional third-party SDK or hidden control.

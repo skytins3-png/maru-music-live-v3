@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.2 Ahwan language rules APK
+name: MARU RADIO V1.9.4 Ahwan Play review build
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ on:
       - fix/radio-no-fixed-hour-start-end-v17-20261015
       - experiment/mobile-audio-live-e2e-v18-20261016
       - feat/maru-ai-radio-announcer-v19-20261016
+      - release/ahwan-v194-accessibility-play-20261016
   pull_request:
     branches: [main]
 
@@ -75,6 +76,9 @@ jobs:
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
+      - name: Bundle Android App Bundle for structural validation only
+        run: gradle --no-daemon :radio:bundleRelease
+
       - name: Verify correct app and signing
         shell: bash
         run: |
@@ -84,15 +88,15 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.ahwanv192'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.2 아환 DJ'" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.4 아환 (Play 검토용)'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES
-          path: MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES-INSTALL.apk
+          name: MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY
+          path: MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY-INSTALL.apk
           if-no-files-found: error
