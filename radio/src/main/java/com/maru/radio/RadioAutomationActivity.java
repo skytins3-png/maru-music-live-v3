@@ -38,6 +38,7 @@ public final class RadioAutomationActivity extends Activity {
 
     private TextView scheduleStatus;
     private TextView endStatus;
+    private TextView bigoStatus;
     private TextView note;
     private long pendingStartAt;
     private long pendingEndAt;
@@ -156,6 +157,21 @@ public final class RadioAutomationActivity extends Activity {
             finish();
         }));
 
+        LinearLayout bigo = card(content);
+        bigo.addView(label("🔒 BIGO 오디오 LIVE 자동 버튼 (실험·선택)", 19, WHITE));
+        bigo.addView(label("선택사항. BIGO 화면만 읽어 음성 LIVE → 믹서 → "
+                + "마이크1 → Original → 방송하기 / 방송 종료 순서로 자동 누르기를 "
+                + "시도합니다. 오직 사용자가 지정한 시작·종료 시간에만 최대 90초 동작해요. "
+                + "잠금 화면·앱 변경·예상 밖 화면에서는 실패하며 실제 송출 보장이 없습니다. "
+                + "댓글·비밀번호 등은 수집·보관·전송하지 않습니다. "
+                + "Android 접근성 설정을 따로 허용해야 합니다. "
+                + "Play Protect 경고가 나면 설치를 중단하세요.",
+                13, 0xFFDDD2E8));
+        bigoStatus = label("BIGO 자동 조작 동의 안 함", 14, PURPLE);
+        bigo.addView(bigoStatus);
+        bigo.addView(button("⚠️ BIGO 자동화 개인정보 안내·명시적 동의", this::consentBigo));
+        bigo.addView(button("⛔ 동의 철회·BIGO 자동 조작 끄기", this::disableBigo));
+
         LinearLayout replies = card(content);
         replies.addView(label("③ 댓글·선물 다국어 답변", 21, WHITE));
         replies.addView(label("한국어·중국어·영어·일본어·러시아어. "
@@ -188,7 +204,45 @@ public final class RadioAutomationActivity extends Activity {
                         + RadioSchedule.formatted(this));
         if (endStatus != null) endStatus.setText(
                 "MARU 음악 종료 시각: " + RadioSchedule.endFormatted(this)
-                        + " (BIGO 라이브 수동 종료)");
+                        + " (BIGO는 동의·접근성·화면 인식 시에만 자동 시도)");
+        if (bigoStatus != null) bigoStatus.setText(
+                "동의: " + (BigoControlAssist.approved(this) ? "허용" : "안 함")
+                + " / Android 접근성: " + (BigoControlAssist.connected(this)
+                        ? "켜짐" : "꺼짐")
+                + "\n최근 상태: " + BigoControlAssist.status(this));
+    }
+
+    private void consentBigo() {
+        new AlertDialog.Builder(this)
+            .setTitle("BIGO 접근성 사용·개인정보 안내")
+            .setMessage("MARU는 예약 시각에 사용자의 BIGO 오디오 LIVE 버튼을 "
+                    + "자동 조작하기 위해 Android 접근성 화면 읽기 및 화면 누르기를 "
+                    + "사용합니다. BIGO 화면의 글자와 버튼 정보를 잠시 확인하지만 "
+                    + "채팅·비밀번호·연락처를 저장하거나 외부로 보내지 않습니다. "
+                    + "BIGO 외의 앱 화면은 받지 않습니다.\\n\\n"
+                    + "오디오 LIVE 준비 화면·믹서·마이크 볼륨 1·Original·방송하기 "
+                    + "및 BIGO 종료 버튼만 지정된 순서로 찾습니다. "
+                    + "화면을 정확히 확인할 수 없다면 조작을 멈춥니다. "
+                    + "잠금 상태나 기기 보안 제한을 우회하지 않습니다.\\n\\n"
+                    + "동의를 철회하면 자동화 요청을 즉시 취소할 수 있습니다. "
+                    + "이 기능은 BIGO에서 승인/검증한 기능이 아니며 실제 방송 "
+                    + "시작·종료, 음악 송출은 반드시 휴대폰에서 검증해야 합니다.")
+            .setPositiveButton("동의하고 접근성 설정 열기", (d, w) -> {
+                BigoControlAssist.approve(this, true);
+                updateStatus();
+                try { startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); }
+                catch (RuntimeException e) {
+                    message("Android 접근성 설정을 열 수 없어요.");
+                }
+            })
+            .setNegativeButton("동의하지 않음", null)
+            .show();
+    }
+
+    private void disableBigo() {
+        BigoControlAssist.approve(this, false);
+        updateStatus();
+        message("BIGO 자동 제어 동의 철회됨. Android 접근성 설정에서도 서비스를 꺼 주세요.");
     }
 
     private void message(String value) { if (note != null) note.setText(value); }
