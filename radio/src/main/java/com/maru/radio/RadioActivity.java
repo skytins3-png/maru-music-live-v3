@@ -56,6 +56,11 @@ import java.util.concurrent.Executors;
  * This app prepares actual original audio files. BIGO controls live broadcast mixing.
  */
 public final class RadioActivity extends Activity {
+    public static final String EXTRA_MENU_ACTION = "com.maru.radio.EXTRA_MENU_ACTION";
+    private ScrollView mainScroll;
+    private View playerSection;
+    private View programSection;
+    private View songsSection;
     private static final int PICK_AUDIO = 101;
     private static final int EXPORT_AUDIO = 102;
     private static final int BACKGROUND = 0xFF110E21;
@@ -113,16 +118,19 @@ public final class RadioActivity extends Activity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         build();
         acceptShare(getIntent());
+        routeMenuAction(getIntent());
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         acceptShare(intent);
+        routeMenuAction(intent);
     }
 
     private void build() {
         ScrollView scroll = new ScrollView(this);
+        mainScroll = scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BACKGROUND);
         // One UI / Android 15+ force edge-to-edge for targetSdk 35+.
@@ -141,6 +149,8 @@ public final class RadioActivity extends Activity {
         scroll.addView(root);
 
         root.addView(label("MARU RADIO", 31, VIOLET, true));
+        root.addView(compactButton("☰ 전체 기능 목록 · 아환·방송·원곡 전부 보기",
+                () -> startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
         root.addView(label("V1.9.8 전체 음악 목록 · RTMP 실험판 · 기존 앱은 삭제하지 마세요.", 13,
@@ -174,6 +184,7 @@ public final class RadioActivity extends Activity {
                 new LinearLayout.LayoutParams(-1, -2);
         playerCardParams.bottomMargin = dp(14);
         root.addView(playerCard, playerCardParams);
+        playerSection = playerCard;
         playerCard.addView(label("🎵 원곡 플레이어", 20, VIOLET, true));
         playerTitle = label("보관곡을 선택하면 여기에서 재생돼요.", 15, WHITE, false);
         playerTitle.setMaxLines(2);
@@ -222,6 +233,7 @@ public final class RadioActivity extends Activity {
         LinearLayout.LayoutParams programParams = new LinearLayout.LayoutParams(-1, -2);
         programParams.bottomMargin = dp(14);
         root.addView(programCard, programParams);
+        programSection = programCard;
         programCard.addView(label("📻 방송 편성 · 시간 설정", 19, WHITE, true));
         programCategoryButton = compactButton("노래 분류 선택", this::selectProgramCategory);
         programCategoryButton.setTextSize(15);
@@ -312,8 +324,11 @@ public final class RadioActivity extends Activity {
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
-        root.addView(compactButton("📋 전체 목록 크게 보기 · 장르 필터 해제", this::openAllSongs));
+        root.addView(compactButton("📋 전체 목록 크게 보기 · 152곡 등 등록곡 모두 보기", this::openAllSongs));
+        root.addView(label("방송할 장르와 음악 보관 목록은 별개예요. 편성을 서양노래로 선택해도 저장한 노래 전체를 보여줍니다.",
+                12, 0xFFCCBFE1, false));
         songCount = label("보관 원곡 0곡", 16, VIOLET, true);
+        songsSection = songCount;
         root.addView(songCount);
         search = new EditText(this);
         search.setSingleLine(true);
@@ -653,6 +668,39 @@ public final class RadioActivity extends Activity {
         startActivity(new Intent(this, RadioAllSongsActivity.class));
     }
 
+    /** Only explicit local menu taps are dispatched; never auto-go-live. */
+    private void routeMenuAction(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getStringExtra(EXTRA_MENU_ACTION);
+        if (action == null || action.isEmpty()) return;
+        intent.removeExtra(EXTRA_MENU_ACTION);
+        switch (action) {
+            case "player": scrollToSection(playerSection); break;
+            case "program": scrollToSection(programSection); break;
+            case "genre": scrollToSection(programSection); selectProgramCategory(); break;
+            case "timer": scrollToSection(programSection); configureProgramTimer(); break;
+            case "cancel_timer": scrollToSection(programSection); cancelProgramTimer(); break;
+            case "level": scrollToSection(programSection); selectPlaybackLevel(); break;
+            case "download": pickDownloads(); break;
+            case "folder": pickFiles(); break;
+            case "song_manage": scrollToSection(songsSection); break;
+            case "bigo_start": requestBigoStart(); break;
+            case "bigo_end": requestBigoEnd(); break;
+            case "bigo_open": openBigo(); break;
+            case "sound_test": broadcastGuide(); break;
+            case "suno": openSuno(); break;
+            default: say("알 수 없는 메뉴입니다. 전체 기능 목록에서 다시 선택하세요.");
+        }
+    }
+
+    private void scrollToSection(View section) {
+        if (section == null || mainScroll == null) return;
+        mainScroll.post(() -> {
+            if (isFinishing()) return;
+            mainScroll.smoothScrollTo(0, Math.max(0, section.getTop() - dp(30)));
+        });
+    }
+
     private void refreshSongs() {
         if (songList == null) return;
         allTracks.clear();
@@ -680,10 +728,10 @@ public final class RadioActivity extends Activity {
         }
         String query = search == null ? "" :
                 search.getText().toString().trim().toLowerCase(Locale.ROOT);
-        int activeCategory = RadioProgram.active(this);
+        // Do not silently filter the storage list by broadcast genre:
+        // screenshots showed 152 imported songs but only 34 displayed due to
+        // 'Western music' selected in the unrelated broadcast scheduler.
         for (Originals.Track t : sorted) {
-            if (activeCategory != 0 && activeCategory != 5
-                    && RadioProgram.category(this, t) != activeCategory) continue;
             if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;
