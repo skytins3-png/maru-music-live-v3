@@ -33,6 +33,8 @@ public final class RadioDjActivity extends Activity {
     private static final int WHITE = 0xFFF6F1FF, PURPLE = 0xFFBAA0FF;
     private TextView status;
     private TextView greetingStatus;
+    private TextView bigoChatStatus;
+    private CheckBox bigoChatEnabled;
     private CheckBox useRecordedGreeting;
     private CheckBox useOpening;
     private EditText comment;
@@ -222,9 +224,58 @@ public final class RadioDjActivity extends Activity {
         updateGreetingStatus();
 
         gap(body);
-        body.addView(text("💬 실시간 대화 대본 · 요청곡", 19, PURPLE));
-        body.addView(text("댓글 내용은 형이 직접 입력하거나 붙여넣습니다. "
-                + "현재 BIGO 댓글을 자동 읽는 공식 연결은 없습니다.", 13, 0xFFDBD0E7));
+        body.addView(text("💬 BIGO 댓글 자동 감지 · 실험", 19, PURPLE));
+        body.addView(text("BIGO 공식 댓글 API 연결이 아닌, 별도 동의 후 BIGO "
+                + "호스트 LIVE 화면에서 인식되는 채팅 표시만 읽습니다. "
+                + "안녕/감사/선물 같은 정해진 댓글에 한해 15초 이상 간격으로 "
+                + "휴대폰 TTS로 응답을 시도합니다. "
+                + "댓글·이름은 저장하지 않으며 BIGO 채팅창에 글을 쓰지 않습니다. "
+                + "실제 댓글 인식과 청취자에게 음성 전달은 아직 검증이 필요해요.",
+                13, 0xFFDBD0E7));
+        bigoChatEnabled = new CheckBox(this);
+        bigoChatEnabled.setText("🔍 BIGO 방송 댓글 자동 읽기·짧은 음성 답변 허용");
+        bigoChatEnabled.setTextColor(WHITE);
+        bigoChatEnabled.setChecked(BigoControlAssist.commentReplies(this));
+        bigoChatEnabled.setOnCheckedChangeListener((b, checked) -> {
+            if (!checked) {
+                BigoControlAssist.setCommentReplies(this, false);
+                updateBigoChatStatus();
+                return;
+            }
+            bigoChatEnabled.setChecked(false);
+            if (!BigoControlAssist.approved(this)) {
+                oneLine("먼저 방송 시간 설정에서 BIGO 접근성 동의를 켜 주세요.");
+                updateBigoChatStatus();
+                return;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("BIGO 댓글 화면 읽기 별도 동의")
+                    .setMessage("BIGO 호스트 LIVE 화면이 열려 있는 동안에만 "
+                            + "이름: 댓글 형태의 채팅 영역을 읽고, "
+                            + "안녕·감사·선물처럼 정해진 문구에 한정해 "
+                            + "아환 TTS를 휴대폰에서 재생합니다. "
+                            + "일반 댓글·닉네임·비밀번호는 저장하거나 전송하지 않습니다. "
+                            + "자동 답변은 BIGO 채팅 게시가 아닙니다. "
+                            + "청취자에게 실제 소리가 전달되는지는 별도로 시험해야 합니다. "
+                            + "Android 접근성 기능이 추가로 켜져 있어야 합니다.")
+                    .setPositiveButton("위 범위에 동의", (dialog, which) -> {
+                        if (BigoControlAssist.setCommentReplies(this, true))
+                            bigoChatEnabled.setChecked(true);
+                        updateBigoChatStatus();
+                    })
+                    .setNegativeButton("동의하지 않음", null)
+                    .show();
+        });
+        body.addView(bigoChatEnabled);
+        bigoChatStatus = text("", 13, 0xFFB0E4C5);
+        body.addView(bigoChatStatus);
+        body.addView(button("BIGO 댓글 연결 상태 확인", this::updateBigoChatStatus));
+        updateBigoChatStatus();
+        gap(body);
+        body.addView(text("💬 직접 대화 대본 · 요청곡", 19, PURPLE));
+        body.addView(text("형이 직접 입력하거나 붙여넣은 댓글은 기존대로 처리할 수 있어요. "
+                + "실험 자동 댓글 감지는 호스트 LIVE 실제 화면에서 별도 확인해야 합니다.",
+                13, 0xFFDBD0E7));
         comment = input("예: 가을 남자 노래 틀어줘 / 오늘 피곤해");
         body.addView(comment);
         body.addView(button("🎤 말로 댓글/신청곡 입력 (외부 음성 인식)", this::recognizeSpokenQuery));
@@ -372,6 +423,22 @@ public final class RadioDjActivity extends Activity {
         catch (RuntimeException e) {
             oneLine("사용 가능한 시스템 음성 인식기가 없어요. 글자로 입력해 주세요.");
         }
+    }
+
+    private void updateBigoChatStatus() {
+        if (bigoChatStatus == null) return;
+        bigoChatStatus.setText("동의: "
+                + (BigoControlAssist.commentReplies(this) ? "댓글 감지 ON" : "OFF")
+                + " | Android 서비스: "
+                + (BigoControlAssist.connected(this) ? "연결됨" : "연결 안 됨")
+                + "\\n" + BigoControlAssist.chatState(this));
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (bigoChatEnabled != null)
+            bigoChatEnabled.setChecked(BigoControlAssist.commentReplies(this));
+        updateBigoChatStatus();
     }
 
     private void updateGreetingStatus() {
