@@ -246,8 +246,7 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
             // Silent local output: the decoder is routed to AAC, not AudioTrack.
             // Every source PCM block gets gain-riding and a -0.75 dBFS peak limiter.
             stream = new GenericStream(this, this, new BitmapSource(card()), source);
-            if (!stream.prepareVideo(640, 360, 320000, 10, 2, 0,
-                    -1, -1, 0, 0, 320000)
+            if (!stream.prepareVideo(640, 360, 320000, 10, 2, 0)
                     || !stream.prepareAudio(sampleRate, stereo, 128000, false, false)) {
                 stopAndClose("기기 인코더가 음성/정지화면을 지원하지 않아요.");
                 return;
