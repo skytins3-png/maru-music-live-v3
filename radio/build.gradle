@@ -7,11 +7,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.radio.ahwanv192'
+        applicationId 'com.maru.radio.ahwansafev193'
         minSdk 26
         targetSdk 35
-        versionCode 15
-        versionName '1.9.2-language-rules-preview'
+        versionCode 16
+        versionName '1.9.3-ahwan-safe-preview'
     }
 
     buildTypes {
