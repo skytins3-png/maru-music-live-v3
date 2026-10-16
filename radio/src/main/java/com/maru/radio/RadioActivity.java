@@ -224,6 +224,13 @@ public final class RadioActivity extends Activity {
         programCard.addView(programCategoryButton);
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
+        programCard.addView(compactButton("🔊 음악 음량 균일화 · 높이 선택",
+                this::selectPlaybackLevel));
+        programCard.addView(label("기본: 음량 균일. 곡마다 갑자기 작거나 크게 "
+                + "나오는 현상을 줄이도록 부드러운 압축과 피크 리미터를 적용해요. "
+                + "원본 MP3/WAV는 바꾸지 않습니다. "
+                + "휴대폰 음량·BIGO 실제 시청자 송출음은 직접 검증이 필요해요.",
+                12, 0xFFCCBFE1, false));
         CheckBox audioCoexist = new CheckBox(this);
         audioCoexist.setText("BIGO와 음악 동시 재생 시도 (실험)");
         audioCoexist.setTextColor(WHITE);
@@ -510,6 +517,37 @@ public final class RadioActivity extends Activity {
                 + "주의: Suno 앱에서 바로 재생한 소리를 MARU가 BIGO 마이크로 보내거나 "
                 + "휴대폰 볼륨을 0으로 해도 송출을 고정하는 기능은 구현되어 있지 않습니다.")
             .setPositiveButton("확인", null).show();
+    }
+
+    private void selectPlaybackLevel() {
+        int current = RadioProgram.leveling(this);
+        new AlertDialog.Builder(this)
+            .setTitle("음악 음량 균일화 · MARU 내부 재생")
+            .setSingleChoiceItems(RadioLevelPolicy.NAMES, current,
+                    (dialog, selected) -> {
+                        RadioProgram.setLeveling(this, selected);
+                        // A bound, currently active music session can update
+                        // immediately; otherwise it applies on next song.
+                        if (radioService != null && radioService.isPlaying()) {
+                            try {
+                                startService(new Intent(this, RadioPlaybackService.class)
+                                        .setAction(RadioPlaybackService.ACTION_APPLY_LEVELING));
+                            } catch (RuntimeException ignored) {}
+                        }
+                        String state = radioService == null
+                                ? "음악 재생할 때 적용됩니다."
+                                : radioService.levelingStatus();
+                        new AlertDialog.Builder(this)
+                            .setTitle("설정 저장됨")
+                            .setMessage(RadioLevelPolicy.NAMES[RadioProgram.leveling(this)]
+                                    + "\n" + state
+                                    + "\n\n※ MARU 내부 음량 보정이며 "
+                                    + "BIGO 시청자의 실제 송출 음량을 보장하지 않습니다.")
+                            .setPositiveButton("확인", null).show();
+                        dialog.dismiss();
+                    })
+            .setNegativeButton("취소", null)
+            .show();
     }
 
     private void selectProgramCategory() {
