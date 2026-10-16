@@ -1,4 +1,4 @@
-name: MARU RADIO V1.8 experimental BIGO mobile UI APK
+name: MARU RADIO V1.9 AI DJ preview APK
 
 on:
   workflow_dispatch:
@@ -8,6 +8,7 @@ on:
       - feat/maru-radio-clean-20261015
       - fix/radio-no-fixed-hour-start-end-v17-20261015
       - experiment/mobile-audio-live-e2e-v18-20261016
+      - feat/maru-ai-radio-announcer-v19-20261016
   pull_request:
     branches: [main]
 
@@ -55,6 +56,14 @@ jobs:
             scripts/BigoAutomationPolicySelfTest.java
           java -cp /tmp/maru-ui-policy com.maru.radio.BigoAutomationPolicySelfTest
 
+      - name: Test DJ dialogue and catalog song matching (offline JVM)
+        run: |
+          mkdir -p /tmp/maru-dj-test
+          javac -d /tmp/maru-dj-test \
+            radio/src/main/java/com/maru/radio/RadioDjBrain.java \
+            scripts/RadioDjBrainSelfTest.java
+          java -cp /tmp/maru-dj-test com.maru.radio.RadioDjBrainSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -67,15 +76,15 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.experimentv18'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.8 실험판'" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.aidjv19'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9 AI DJ 미리보기'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.8-EXPERIMENT-BIGO-INSTALL.apk
-          ls -lh MARU-RADIO-V1.8-EXPERIMENT-BIGO-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9-AI-DJ-PREVIEW-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9-AI-DJ-PREVIEW-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.8-EXPERIMENT-BIGO
-          path: MARU-RADIO-V1.8-EXPERIMENT-BIGO-INSTALL.apk
+          name: MARU-RADIO-V1.9-AI-DJ-PREVIEW
+          path: MARU-RADIO-V1.9-AI-DJ-PREVIEW-INSTALL.apk
           if-no-files-found: error
