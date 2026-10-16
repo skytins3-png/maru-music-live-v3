@@ -284,6 +284,12 @@ checks.update({
         "host_rules", "known.length() >= 20", "clearMemory(Context ctx)"))
         and 'getSharedPreferences(STORE, Context.MODE_PRIVATE)' in dj_settings
         and "context.getContentResolver()" not in dj_settings,
+    "V1.9 explicit user speech input with no app microphone permission": all(x in dj_activity for x in (
+        "RecognizerIntent.ACTION_RECOGNIZE_SPEECH",
+        "REQUEST_SPOKEN_QUERY",
+        "startActivityForResult(speech, REQUEST_SPOKEN_QUERY)",
+        "comment.setText(phrases.get(0))"))
+        and "RECORD_AUDIO" not in manifest,
     "V1.9 five-language TTS": all(x in dj_voice for x in (
         "Locale.SIMPLIFIED_CHINESE", "Locale.JAPANESE",
         'new Locale("ru", "RU")', "RadioDjSettings.language(context)")),
