@@ -176,6 +176,8 @@ public final class RadioDjActivity extends Activity {
         body.addView(button("■ 방송 종료 인사 (영어만)", () ->
                 send(RadioPlaybackService.ACTION_DJ_CLOSING, null, null)));
         body.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
+        body.addView(button("▶ 녹음된 인사 개인 미리듣기 (자동 방송과 별개)", () ->
+                send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null)));
         body.addView(button("🗑 등록한 인사 음성 해제", () -> {
             RadioDjSettings.setVoiceClip(this,null);
             oneLine("녹음 인사 클립 연결을 해제했어. 원본 파일은 삭제하지 않았어.");
