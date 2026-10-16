@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.10 independent phone audio-to-RTMP build
+name: MARU RADIO V1.9.11 independent phone audio-to-RTMP build
 
 on:
   workflow_dispatch:
@@ -126,14 +126,14 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.10 전체 기능'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.11 전체 기능'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.10-RTMP-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.10-RTMP-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.11-RTMP-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.11-RTMP-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.10-RTMP-CI-ONLY
-          path: MARU-RADIO-V1.9.10-RTMP-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.11-RTMP-CI-ONLY
+          path: MARU-RADIO-V1.9.11-RTMP-CI-ONLY-INSTALL.apk
           if-no-files-found: error
