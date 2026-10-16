@@ -46,6 +46,14 @@ jobs:
             scripts/RadioClockSelfTest.java
           java -cp /tmp/radio-clock-tests com.maru.radio.RadioClockSelfTest
 
+      - name: Test BIGO mock screenshot labels (never starts an actual LIVE)
+        run: |
+          mkdir -p /tmp/maru-ui-policy
+          javac -d /tmp/maru-ui-policy \
+            radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java \
+            scripts/BigoAutomationPolicySelfTest.java
+          java -cp /tmp/maru-ui-policy com.maru.radio.BigoAutomationPolicySelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
