@@ -283,6 +283,13 @@ public final class BigoControlAssist extends AccessibilityService {
         boolean mixerBtn = find(root, "믹서") != null;
         boolean original = find(root, "Original") != null
                 || find(root, "원본") != null;
+        // BIGO's own music/BGM input is the only plausible phone-only
+        // integration path until an official cross-app audio API is available.
+        // Detection is read-only and DOES NOT load or play any music.
+        boolean bigoBgm = BigoAutomationPolicy.has(labels, "BGM")
+                || BigoAutomationPolicy.has(labels, "배경 음악")
+                || BigoAutomationPolicy.has(labels, "내 음악")
+                || BigoAutomationPolicy.has(labels, "음악 추가");
         // Only recognized booleans and slider COUNT are persisted.
         // Raw labels, room name, messages, viewers and contact info are discarded.
         String report = "BIGO 화면 안전 점검 (읽기 전용): "
@@ -293,6 +300,8 @@ public final class BigoControlAssist extends AccessibilityService {
                 + " / " + (startBtn ? "방송하기 감지" : "방송하기 미감지")
                 + " / " + (original ? "Original 감지" : "Original 미감지")
                 + " / 값 설정 가능한 슬라이더 " + ranged + "개"
+                + " / BIGO 내부 BGM: " + (bigoBgm ? "메뉴 감지" : "메뉴 미감지")
+                + " (BGM은 BIGO 자체 음원 입력이며 MARU 음악 연결은 검증 안 됨)"
                 + " (실제 방송 시작·종료 및 송출은 검증 안 됨)";
         pref().edit().remove("preflight_expires").putString("status", report).apply();
         handler.removeCallbacks(expiryWatchdog);
@@ -595,7 +604,8 @@ public final class BigoControlAssist extends AccessibilityService {
             "오디오 라이브", "방송하기", "믹서", "마이크 볼륨",
             "1", "Original", "원본", "닫기", "Close", "종료",
             "라이브 종료하기", "추천", "인기", "발견", "홈", "라이브",
-            "자리", "시청자", "명 시청", "방송 시간"
+            "자리", "시청자", "명 시청", "방송 시간",
+            "BGM", "배경 음악", "내 음악", "음악 추가"
     };
 
     private static void addControlLabel(HashSet<String> recognized, CharSequence text) {
