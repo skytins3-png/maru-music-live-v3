@@ -62,11 +62,13 @@ public final class RadioDjVoice {
                         tts.setSpeechRate(0.93f);
                         tts.setPitch(0.96f);
                     }
-                    if (ticket == generation) {
-                        if (ready) startSpeech(ticket);
+                    // A new announcement may have replaced the pending text
+                    // while Android was still initializing the TTS engine.
+                    if (pendingText != null) {
+                        if (ready) startSpeech(generation);
                         else {
                             status = "설치된 한국어 TTS 음성이 없어 안내 멘트 건너뜀";
-                            complete(ticket);
+                            complete(generation);
                         }
                     }
                 }));
