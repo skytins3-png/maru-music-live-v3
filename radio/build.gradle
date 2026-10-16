@@ -12,8 +12,8 @@ android {
         minSdk 26
         // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
         targetSdk 36
-        versionCode 22
-        versionName '1.9.8-full-list-ahwan'
+        versionCode 23
+        versionName '1.9.9-complete-menu'
     }
 
     // Store upload credentials must be supplied by the repository owner through
