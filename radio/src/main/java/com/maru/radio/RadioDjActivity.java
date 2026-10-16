@@ -166,7 +166,8 @@ public final class RadioDjActivity extends Activity {
             oneLine("현재 MARU 재생 대기열의 다음 곡을 소개해요.");
             send(RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT, null, null);
         }));
-        body.addView(button("■ 음악 마무리 멘트", () -> say(RadioDjBrain.closing())));
+        body.addView(button("■ 음악 마무리 멘트", () -> say(
+                RadioDjBrain.closing(RadioDjSettings.language(this)))));
         body.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
         body.addView(button("🗑 등록한 인사 음성 해제", () -> {
             RadioDjSettings.setVoiceClip(this,null);
@@ -255,7 +256,16 @@ public final class RadioDjActivity extends Activity {
             oneLine("🎵 요청곡: " + tracks.get(result.songIndex).title + " / " + result.speech);
             send(RadioPlaybackService.ACTION_DJ_REQUEST,result.speech,
                     tracks.get(result.songIndex).hash);
-        } else say(result.speech);
+        } else {
+            if (RadioDjSettings.language(this) == 0) say(result.speech);
+            else {
+                String lower = input.toLowerCase(java.util.Locale.ROOT);
+                int event = lower.contains("선물") || lower.contains("gift") ? 2
+                        : lower.contains("팔로우") || lower.contains("follow") ? 3
+                        : 1;
+                say(RadioReplies.message(RadioDjSettings.language(this),event));
+            }
+        }
     }
     private void requestSong() {
         String query = comment.getText().toString().trim();
@@ -271,7 +281,8 @@ public final class RadioDjActivity extends Activity {
         }
         Originals.Track song = tracks.get(pos);
         RadioDjSettings.rememberSong(this, song.hash);
-        String speech = "신청하신 " + song.title + "입니다. 즐겁게 들어주세요!";
+        String speech = RadioDjBrain.nextSong(song.title,
+                RadioDjSettings.nextPhraseIndex(this), RadioDjSettings.language(this));
         lastReply = speech;
         oneLine("요청한 목록 원곡 재생: " + song.title
                 + " · TTS 소개 뒤 원곡을 그대로 재생해요.");
