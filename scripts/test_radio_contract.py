@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.8 full-library and Ahwan Android version": "versionCode 22" in gradle
-        and "versionName '1.9.8-full-list-ahwan'" in gradle
-        and "MARU RADIO V1.9.8 독립 음악 송출" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.9 complete-menu Android version": "versionCode 23" in gradle
+        and "versionName '1.9.9-complete-menu'" in gradle
+        and "MARU RADIO V1.9.9 전체 기능" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -479,6 +479,40 @@ checks.update({
         and 'new Intent(this, RadioDjActivity.class)' in all_songs
         and 'AI 아나운서 아환 설정 열기' in activity
         and '.RadioDjActivity' in manifest,
+})
+
+# The main list must never silently shrink when the broadcast program is
+# changed: a user had 152 stored originals but only 34 shown in "Western".
+feature_menu = (root / "radio/src/main/java/com/maru/radio/RadioFeatureMenuActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "All 152-style imported songs visible regardless of active broadcast category":
+        'allTracks.addAll(Originals.list(this))' in activity
+        and 'for (Originals.Track t : sorted)' in activity
+        and 'RadioProgram.category(this, t) != activeCategory' not in activity,
+    "Complete menu entry and routing from main, library and Ahwan":
+        '.RadioFeatureMenuActivity' in manifest
+        and 'this, RadioFeatureMenuActivity.class' in activity
+        and 'this, RadioFeatureMenuActivity.class' in all_songs
+        and 'this, RadioFeatureMenuActivity.class' in dj_activity
+        and 'EXTRA_MENU_ACTION' in activity
+        and 'private void routeMenuAction(Intent intent)' in activity,
+    "Complete menu retains all dedicated activity destinations":
+        'RadioAllSongsActivity.class' in feature_menu
+        and 'RadioDjActivity.class' in feature_menu
+        and 'RadioAutomationActivity.class' in feature_menu
+        and 'RadioDirectRtmpActivity.class' in feature_menu,
+    "Complete menu routes all basic music, DJ, broadcast actions":
+        all(s in feature_menu for s in (
+            'mainAction("player")', 'mainAction("download")',
+            'mainAction("folder")', 'mainAction("song_manage")',
+            'mainAction("genre")', 'mainAction("timer")',
+            'mainAction("cancel_timer")', 'mainAction("level")',
+            'mainAction("program")', 'mainAction("bigo_start")',
+            'mainAction("bigo_end")', 'mainAction("bigo_open")',
+            'mainAction("sound_test")', 'mainAction("suno")')),
+    "No hidden automatic go-live from feature directory":
+        'RadioDirectRtmpService.ACTION_START' not in feature_menu
+        and 'startService(' not in feature_menu,
 })
 
 for name, okay in checks.items():
