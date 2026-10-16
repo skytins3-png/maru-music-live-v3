@@ -171,6 +171,21 @@ checks.update({
 # Runtime guardrails and audio coexistence must be explicit, never imply that
 # media playback is injected into BIGO's microphone or that Android unlocks.
 checks.update({
+    "V1.8 read-only preflight BIGO diagnostics": all(x in assist for x in (
+        "public static boolean requestPreflight(Context ctx)",
+        "private void runPreflight()", "PREFLIGHT_MS = 60_000L",
+        'remove("preflight_expires")', "countRangedSeekbars(root)",
+        "Raw labels, room name, messages, viewers and contact info are discarded",
+        'BIGO.contentEquals(root.getPackageName())')),
+    "V1.8 preflight never triggers broadcast touches": all(x not in
+        assist[assist.index("private void runPreflight()"):
+               assist.index("private int countRangedSeekbars(")] for x in (
+        "dispatchGesture(", "performAction(", "tapXY(", "doStart(", "doEnd(", "queue(")),
+    "V1.8 preflight is user opt-in and visible": all(x in automation for x in (
+        "private void diagnoseBigo()", "BigoControlAssist.requestPreflight(this)",
+        "BIGO 화면 안전 진단", "BigoBroadcastGuide.openBigo(this, false)")),
+    "V1.8 preserve chosen Original effects": "isOriginalAlreadySelected(root)" in assist
+        and "기존 Original 효과 활성화 확인" in assist,
     "V1.8 avoid stale service connectivity":
         "return connectedService.get() != null;" in assist,
     "V1.8 event flood is coalesced":
