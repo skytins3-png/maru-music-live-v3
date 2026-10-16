@@ -65,6 +65,20 @@ public final class RadioDjBrain {
                 + safe + "입니다. 편안하게 들어주세요.";
     }
 
+    /** Bilingual/multilingual next-track headlines in the installed TTS voice. */
+    public static String nextSong(String title, int count, int language) {
+        if (language == 0) return nextSong(title, count);
+        String t = clean(title, 55);
+        if (t.isEmpty()) t = "MARU";
+        switch (language) {
+            case 1: return "接下来请欣赏：" + t + "。希望你喜欢。";
+            case 2: return "Up next on Maru Radio: " + t + ". Enjoy!";
+            case 3: return "続いての曲は、" + t + "。どうぞお楽しみください。";
+            case 4: return "Далее на Мару Радио песня: " + t + ". Приятного прослушивания!";
+            default: return nextSong(t, count);
+        }
+    }
+
     public static String opening(int count) {
         String[] scripts = {
             "안녕하세요! 마루 라디오에 오신 여러분 환영합니다. "
@@ -73,6 +87,16 @@ public final class RadioDjBrain {
             "마루 라디오에 오신 여러분 반갑습니다. 마음 편히 쉬어가세요. 좋은 곡을 들려드릴게요."
         };
         return scripts[Math.floorMod(count, scripts.length)];
+    }
+
+    public static String closing(int language) {
+        switch (language) {
+            case 1: return "感谢您收听马루电台！祝您度过美好的一天。";
+            case 2: return "Thank you for listening to Maru Radio. Have a wonderful day!";
+            case 3: return "マルラジオを聴いてくださり、ありがとうございました。またお会いしましょう。";
+            case 4: return "Спасибо, что слушали Мару Радио. До новых встреч!";
+            default: return closing();
+        }
     }
 
     public static String closing() {
