@@ -174,7 +174,7 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
         canvas.drawText("MARU RADIO", 115, 170, paint);
         paint.setTextSize(26);
         paint.setColor(Color.rgb(179, 175, 220));
-        canvas.drawText("Original music · Ahwan", 160, 220, paint);
+        canvas.drawText("Original music only", 185, 220, paint);
         return bitmap;
     }
 
