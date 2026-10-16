@@ -261,6 +261,12 @@ public final class RadioActivity extends Activity {
         programCard.addView(label("MARU 음악 예약 가능 · BIGO 실제 송출은 휴대폰 검증 필요",
                 12, 0xFFCCC0DA, false));
         gap(root, 8);
+        root.addView(compactButton("📡 독립 송출 · 휴대폰 음소거에도 RTMP 음악", () ->
+                startActivity(new Intent(this, RadioDirectRtmpActivity.class))));
+        root.addView(label("BIGO OBS 서버 주소·스트림 키가 계정에 발급된 경우만 "
+                + "사용할 수 있는 독립 RTMP 음악 송출 실험입니다. "
+                + "아환 음성/댓글을 RTMP와 섞는 기능은 아직 미완성입니다.",
+                12, 0xFFE4D4A9, false));
         root.addView(compactButton("🎙 아환 아나운서 · 인사/댓글/신청곡", () ->
                 startActivity(new Intent(this, RadioDjActivity.class))));
         root.addView(label("AI 진행자 대화·곡 소개: 휴대폰 내부 TTS / 직접 녹음 인사 지원. "
