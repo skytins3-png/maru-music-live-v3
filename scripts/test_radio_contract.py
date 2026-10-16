@@ -194,6 +194,11 @@ checks.update({
     "V1.8 stop callbacks immediately on revoke": all(x in assist for x in (
         "if (!value) edit.remove(\"op\")",
         "service.handler.removeCallbacks(service.work)")),
+    "V1.8 read-only internal BIGO BGM route probing": all(
+        phrase in assist for phrase in (
+            '"BGM", "배경 음악", "내 음악", "음악 추가"',
+            'boolean bigoBgm = BigoAutomationPolicy.has(labels, "BGM")',
+            '" / BIGO 내부 BGM: "', '"메뉴 감지" : "메뉴 미감지"')),
     "V1.8 read-only preflight BIGO diagnostics": all(x in assist for x in (
         "public static boolean requestPreflight(Context ctx)",
         "private void runPreflight()", "PREFLIGHT_MS = 60_000L",
