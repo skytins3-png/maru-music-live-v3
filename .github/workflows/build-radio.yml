@@ -14,7 +14,6 @@ on:
       - fix/ahwan-v196-constant-volume-20261016
       - feat/ahwan-v197-bigo-live-comment-and-audio-validation-20261016
       - feat/maru-v198-independent-rtmp-audio-20261017
-      - feat/maru-v198-independent-rtmp-audio-20261017
   pull_request:
     branches: [main]
 
@@ -102,6 +101,14 @@ jobs:
             radio/src/main/java/com/maru/radio/RadioRtmpPcmVoiceMixer.java \
             scripts/RadioRtmpPcmVoiceMixerSelfTest.java
           java -cp /tmp/maru-rtmp-mix-tests com.maru.radio.RadioRtmpPcmVoiceMixerSelfTest
+
+      - name: Test RTMP network loudness leveling and stereo peak bound (pure JVM)
+        run: |
+          mkdir -p /tmp/maru-rtmp-leveler-tests
+          javac -d /tmp/maru-rtmp-leveler-tests \
+            radio/src/main/java/com/maru/radio/RadioRtmpPcmLeveler.java \
+            scripts/RadioRtmpPcmLevelerSelfTest.java
+          java -cp /tmp/maru-rtmp-leveler-tests com.maru.radio.RadioRtmpPcmLevelerSelfTest
 
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
