@@ -26,6 +26,10 @@ public final class RadioDjBrainSelfTest {
                 "gift thank-you");
         check(RadioDjBrain.respond("팔로우했습니다", catalog, 0).speech.contains("팔로우"),
                 "follow thank-you");
+        check("아환".equals(RadioDjBrain.PRESENTER_NAME), "presenter identity 아환");
+        check(RadioDjBrain.opening(0).contains("아환"), "opening identifies 아환");
+        check(RadioDjBrain.closing().contains("아환"), "closing identifies 아환");
+        check(RadioDjBrain.nextSong("바람의 소리", 1).contains("아환"), "song intro identifies 아환");
         check(!RadioDjBrain.opening(1).equals(RadioDjBrain.opening(2)),
                 "script variants rotate");
         check(RadioDjBrain.nextSong("바람의 소리", 1).contains("바람의 소리"),
