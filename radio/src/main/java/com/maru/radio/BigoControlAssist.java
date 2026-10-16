@@ -46,6 +46,9 @@ public final class BigoControlAssist extends AccessibilityService {
             new WeakReference<>(null);
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable work = this::evaluate;
+    // Crucial when Android disallows background BIGO activity launch and NO
+    // accessibility event arrives: a watchdog still reports the failure.
+    private final Runnable expiryWatchdog = this::checkExpiration;
     private long lastActionAt;
     private boolean waitingGesture;
     private boolean actionInProgress;
@@ -78,7 +81,11 @@ public final class BigoControlAssist extends AccessibilityService {
                 .putString("status", "BIGO 화면 점검 대기 중 · 방송 버튼은 누르지 않음")
                 .apply();
         BigoControlAssist running = connectedService.get();
-        if (running != null) running.handler.postDelayed(running.work, 350L);
+        if (running != null) {
+            running.handler.removeCallbacks(running.expiryWatchdog);
+            running.handler.postDelayed(running.expiryWatchdog, PREFLIGHT_MS + 250L);
+            running.handler.postDelayed(running.work, 350L);
+        }
         return true;
     }
 
@@ -90,7 +97,10 @@ public final class BigoControlAssist extends AccessibilityService {
         edit.apply();
         if (!value) {
             BigoControlAssist service = connectedService.get();
-            if (service != null) service.handler.removeCallbacks(service.work);
+            if (service != null) {
+                service.handler.removeCallbacks(service.work);
+                service.handler.removeCallbacks(service.expiryWatchdog);
+            }
         }
     }
 
@@ -108,7 +118,11 @@ public final class BigoControlAssist extends AccessibilityService {
         // An alarm can fire while BIGO is already foreground: a new window
         // event may not arrive, so wake the connected service on its own loop.
         BigoControlAssist running = connectedService.get();
-        if (running != null) running.handler.postDelayed(running.work, 400L);
+        if (running != null) {
+            running.handler.removeCallbacks(running.expiryWatchdog);
+            running.handler.postDelayed(running.expiryWatchdog, DEADLINE_MS + 250L);
+            running.handler.postDelayed(running.work, 400L);
+        }
         return true;
     }
 
@@ -128,6 +142,7 @@ public final class BigoControlAssist extends AccessibilityService {
         pref().edit().remove("op").remove("expires").remove("phase")
                 .putString("status", message).apply();
         handler.removeCallbacks(work);
+        handler.removeCallbacks(expiryWatchdog);
         waitingGesture = false;
         if (!operation.isEmpty() && approved(this)) notifyResult(operation, message);
     }
@@ -168,6 +183,8 @@ public final class BigoControlAssist extends AccessibilityService {
     }
 
     @Override public boolean onUnbind(Intent i) {
+        handler.removeCallbacks(work);
+        handler.removeCallbacks(expiryWatchdog);
         connectedService = new WeakReference<>(null);
         pref().edit().putBoolean("connected", false)
                 .remove("op").remove("expires").remove("phase")
@@ -223,6 +240,21 @@ public final class BigoControlAssist extends AccessibilityService {
         else doEnd(root, phase, labels);
     }
 
+    private void checkExpiration() {
+        long now = System.currentTimeMillis();
+        String operation = pref().getString("op", "");
+        if (!operation.isEmpty() && now >= pref().getLong("expires", 0L)) {
+            abort("90초 안에 BIGO 화면 자동화가 완료되지 않았어요. "
+                    + "방송 실제 시작·종료 상태를 확인해 주세요.");
+            return;
+        }
+        long preflight = pref().getLong("preflight_expires", 0L);
+        if (preflight > 0L && now >= preflight) {
+            pref().edit().remove("preflight_expires")
+                    .putString("status", "BIGO 읽기 전용 화면 점검 60초 시간 초과").apply();
+        }
+    }
+
     private void runPreflight() {
         long expiry = pref().getLong("preflight_expires", 0L);
         if (expiry <= 0L) return;
@@ -260,6 +292,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 + " / 값 설정 가능한 슬라이더 " + ranged + "개"
                 + " (실제 방송 시작·종료 및 송출은 검증 안 됨)";
         pref().edit().remove("preflight_expires").putString("status", report).apply();
+        handler.removeCallbacks(expiryWatchdog);
     }
 
     private int countRangedSeekbars(AccessibilityNodeInfo root) {
