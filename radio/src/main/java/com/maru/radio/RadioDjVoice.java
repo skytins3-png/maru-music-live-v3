@@ -1,0 +1,167 @@
+package com.maru.radio;
+
+import android.content.Context;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
+import java.util.Locale;
+
+/**
+ * Android offline-capable system TTS + an optional user-recorded greeting clip.
+ * TextToSpeech speaks in the installed system voice, NOT a clone of the host.
+ * No streaming and no recording permissions are requested.
+ */
+public final class RadioDjVoice {
+    private final Context context;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private TextToSpeech tts;
+    private MediaPlayer clip;
+    private boolean ready;
+    private boolean initialized;
+    private int generation;
+    private String pendingText;
+    private Runnable pendingDone;
+    private Runnable timeout;
+    private String status = "시스템 음성 엔진 대기";
+    private boolean closed;
+
+    public RadioDjVoice(Context ctx) {
+        context = ctx.getApplicationContext();
+    }
+
+    public String status() { return status; }
+
+    public void say(String text, Runnable after) {
+        if (closed) { if (after != null) after.run(); return; }
+        cancel();
+        final int ticket = generation;
+        if (!RadioDjSettings.isVoiceEnabled(context) || text == null || text.trim().isEmpty()) {
+            if (after != null) after.run();
+            return;
+        }
+        String safe = text.trim().substring(0, Math.min(text.trim().length(), 230));
+        pendingText = safe;
+        pendingDone = after;
+        timeout = () -> complete(ticket);
+        main.postDelayed(timeout, 15000L);
+        if (ready) startSpeech(ticket);
+        else if (!initialized) {
+            initialized = true;
+            try {
+                tts = new TextToSpeech(context, init -> main.post(() -> {
+                    if (closed) return;
+                    ready = init == TextToSpeech.SUCCESS && tts != null;
+                    if (ready) {
+                        int supported = tts.setLanguage(Locale.KOREAN);
+                        ready = supported != TextToSpeech.LANG_MISSING_DATA
+                                && supported != TextToSpeech.LANG_NOT_SUPPORTED;
+                        tts.setSpeechRate(0.93f);
+                        tts.setPitch(0.96f);
+                    }
+                    if (ticket == generation) {
+                        if (ready) startSpeech(ticket);
+                        else {
+                            status = "설치된 한국어 TTS 음성이 없어 안내 멘트 건너뜀";
+                            complete(ticket);
+                        }
+                    }
+                }));
+            } catch (RuntimeException e) {
+                status = "시스템 음성 엔진 실행 불가";
+                complete(ticket);
+            }
+        }
+    }
+
+    /** User-provided previously-recorded audio: only a fixed greeting, not cloning. */
+    public void greeting(String fallback, Runnable after) {
+        String saved = RadioDjSettings.voiceClip(context);
+        if (saved == null || saved.isEmpty()) { say(fallback, after); return; }
+        cancel();
+        if (closed) { if (after != null) after.run(); return; }
+        final int ticket = generation;
+        pendingDone = after;
+        timeout = () -> complete(ticket);
+        main.postDelayed(timeout, 15000L);
+        try {
+            clip = new MediaPlayer();
+            clip.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            clip.setDataSource(context, Uri.parse(saved));
+            clip.setOnPreparedListener(p -> {
+                if (ticket == generation && !closed) {
+                    status = "형이 녹음한 인사 음성 재생";
+                    p.start();
+                }
+            });
+            clip.setOnCompletionListener(p -> complete(ticket));
+            clip.setOnErrorListener((p, what, extra) -> {
+                complete(ticket);
+                return true;
+            });
+            clip.prepareAsync();
+        } catch (Exception badClip) {
+            cancel();
+            say(fallback, after);
+        }
+    }
+
+    private void startSpeech(int ticket) {
+        if (closed || !ready || ticket != generation || pendingText == null) return;
+        String utterance = "MARU-DJ-" + ticket;
+        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override public void onStart(String id) {}
+            @Override public void onDone(String id) {
+                if (utterance.equals(id)) main.post(() -> complete(ticket));
+            }
+            @Override public void onError(String id) {
+                if (utterance.equals(id)) main.post(() -> complete(ticket));
+            }
+        });
+        status = "Android 한국어 TTS 아나운서";
+        int r = tts.speak(pendingText, TextToSpeech.QUEUE_FLUSH, null, utterance);
+        if (r == TextToSpeech.ERROR) complete(ticket);
+    }
+
+    private void complete(int ticket) {
+        if (ticket != generation) return;
+        Runnable done = pendingDone;
+        pendingDone = null;
+        pendingText = null;
+        main.removeCallbacks(timeout);
+        timeout = null;
+        releaseClip();
+        generation++;
+        if (done != null) main.post(done);
+    }
+
+    private void releaseClip() {
+        if (clip != null) {
+            try { clip.reset(); clip.release(); } catch (RuntimeException ignored) {}
+            clip = null;
+        }
+    }
+
+    public void cancel() {
+        generation++;
+        pendingText = null;
+        pendingDone = null;
+        if (timeout != null) main.removeCallbacks(timeout);
+        timeout = null;
+        if (tts != null) try { tts.stop(); } catch (RuntimeException ignored) {}
+        releaseClip();
+    }
+
+    public void close() {
+        closed = true;
+        cancel();
+        if (tts != null) try { tts.shutdown(); } catch (RuntimeException ignored) {}
+        tts = null;
+        ready = false;
+    }
+}
