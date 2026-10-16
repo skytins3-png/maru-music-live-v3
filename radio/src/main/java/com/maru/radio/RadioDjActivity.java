@@ -331,7 +331,7 @@ public final class RadioDjActivity extends Activity {
         LinearLayout manualTools = new LinearLayout(this);
         manualTools.setOrientation(LinearLayout.VERTICAL);
         manualTools.setVisibility(View.GONE);
-        Button testToggle = button("🧪 수동 테스트·고급 학습 도구 펼치기 (방송에 불필요)", () -> {
+        Button testToggle = button("🧪 수동 테스트·고급 학습 도구 열기/닫기 (방송에 불필요)", () -> {
             boolean opening = manualTools.getVisibility() != View.VISIBLE;
             manualTools.setVisibility(opening ? View.VISIBLE : View.GONE);
         });
