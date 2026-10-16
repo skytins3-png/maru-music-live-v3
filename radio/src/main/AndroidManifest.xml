@@ -20,6 +20,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <activity android:name=".RadioAllSongsActivity" android:exported="false" />
         <activity android:name=".RadioDirectRtmpActivity" android:exported="false" />
         <activity android:name=".RadioDjActivity" android:exported="false" />
         <activity android:name=".RadioAutomationActivity" android:exported="false"
