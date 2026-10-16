@@ -32,6 +32,9 @@ public final class RadioDjActivity extends Activity {
     private static final int REQUEST_SPOKEN_QUERY = 802;
     private static final int WHITE = 0xFFF6F1FF, PURPLE = 0xFFBAA0FF;
     private TextView status;
+    private TextView greetingStatus;
+    private CheckBox useRecordedGreeting;
+    private CheckBox useOpening;
     private EditText comment;
     private EditText teachTrigger;
     private EditText teachAnswer;
@@ -120,12 +123,15 @@ public final class RadioDjActivity extends Activity {
         spoken.setOnCheckedChangeListener((b,checked)->
                 RadioDjSettings.setVoiceEnabled(this,checked));
         body.addView(spoken);
-        CheckBox open = new CheckBox(this);
-        open.setText("곡 재생 시작 시 오프닝 멘트 (선택)");
-        open.setTextColor(WHITE);
-        open.setChecked(RadioDjSettings.opening(this));
-        open.setOnCheckedChangeListener((b,v)->RadioDjSettings.setOpening(this,v));
-        body.addView(open);
+        useOpening = new CheckBox(this);
+        useOpening.setText("곡 재생 시작 시 오프닝 멘트 (선택)");
+        useOpening.setTextColor(WHITE);
+        useOpening.setChecked(RadioDjSettings.opening(this));
+        useOpening.setOnCheckedChangeListener((b,v)->{
+            RadioDjSettings.setOpening(this,v);
+            updateGreetingStatus();
+        });
+        body.addView(useOpening);
         CheckBox between = new CheckBox(this);
         between.setText("곡마다 다음 곡 소개 (원곡 시작 전 TTS)");
         between.setTextColor(WHITE);
@@ -176,16 +182,44 @@ public final class RadioDjActivity extends Activity {
         body.addView(button("■ 방송 종료 인사 (영어만)", () ->
                 send(RadioPlaybackService.ACTION_DJ_CLOSING, null, null)));
         body.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
-        body.addView(button("▶ 녹음된 인사 개인 미리듣기 (자동 방송과 별개)", () ->
-                send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null)));
-        body.addView(button("🗑 등록한 인사 음성 해제", () -> {
-            RadioDjSettings.setVoiceClip(this,null);
-            oneLine("녹음 인사 클립 연결을 해제했어. 원본 파일은 삭제하지 않았어.");
+        greetingStatus = text("", 14, 0xFFB0E4C5);
+        body.addView(greetingStatus);
+        useRecordedGreeting = new CheckBox(this);
+        useRecordedGreeting.setText("✅ 방송 시작 때 형의 녹음 인사를 재생");
+        useRecordedGreeting.setTextColor(WHITE);
+        useRecordedGreeting.setChecked(RadioDjSettings.recordedOpening(this));
+        useRecordedGreeting.setOnCheckedChangeListener((button, checked) -> {
+            if (checked && RadioDjSettings.voiceClip(this).isEmpty()) {
+                useRecordedGreeting.setChecked(false);
+                oneLine("먼저 형의 영어 인사 녹음 파일을 선택해 줘.");
+                return;
+            }
+            RadioDjSettings.setRecordedOpening(this, checked);
+            if (checked && useOpening != null) useOpening.setChecked(true);
+            updateGreetingStatus();
+        });
+        body.addView(useRecordedGreeting);
+        body.addView(button("▶ 형의 녹음 인사 실제 소리 미리듣기", () -> {
+            if (RadioDjSettings.voiceClip(this).isEmpty()) {
+                oneLine("형의 녹음 인사가 아직 등록되지 않았어. 먼저 음성 파일을 골라 줘.");
+                return;
+            }
+            send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null);
         }));
-        body.addView(text("녹음한 인사 파일은 별도 보관합니다. "
-                + "자동 방송 시작은 반드시 영어 TTS를 사용해 "
-                + "형이 선택한 영어-only 시작 규칙을 지킵니다. "
-                + "목소리 복제/노래 가창은 지원하지 않습니다.", 12,0xFFDDCDDB));
+        body.addView(button("🗑 등록한 인사 음성 해제", () -> {
+            RadioDjSettings.setRecordedOpening(this, false);
+            RadioDjSettings.setVoiceClip(this, null);
+            useRecordedGreeting.setChecked(false);
+            updateGreetingStatus();
+            oneLine("녹음 인사 연결만 해제했어. 원본 음성은 삭제하지 않았어.");
+        }));
+        body.addView(text("자동 방송 시작은 영어 인사 규칙이에요. "
+                + "형이 영어로 직접 녹음한 파일을 선택하고 위 항목을 켜면 "
+                + "실제 방송 시작 시 녹음된 형 목소리가 먼저 나옵니다. "
+                + "파일이 없거나 재생 오류면 영어 TTS로 이어집니다. "
+                + "단, 녹음만으로 새 문장까지 형 목소리로 합성할 수는 없어요.",
+                12, 0xFFDDCDDB));
+        updateGreetingStatus();
 
         gap(body);
         body.addView(text("💬 실시간 대화 대본 · 요청곡", 19, PURPLE));
@@ -340,6 +374,16 @@ public final class RadioDjActivity extends Activity {
         }
     }
 
+    private void updateGreetingStatus() {
+        if (greetingStatus == null) return;
+        boolean fileChosen = !RadioDjSettings.voiceClip(this).isEmpty();
+        boolean enabled = RadioDjSettings.recordedOpening(this);
+        greetingStatus.setText("인사 녹음: " + (fileChosen ? "등록됨" : "아직 없음")
+                + "  |  자동 오프닝: " + (enabled ? "형 목소리 사용" : "영어 TTS")
+                + "  |  방송 시작 인사: "
+                + (RadioDjSettings.opening(this) ? "켜짐" : "꺼짐"));
+    }
+
     private void pickRecordedGreeting() {
         Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT)
                 .addCategory(Intent.CATEGORY_OPENABLE).setType("audio/*");
@@ -368,9 +412,39 @@ public final class RadioDjActivity extends Activity {
         try {
             getContentResolver().takePersistableUriPermission(uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try (android.content.res.AssetFileDescriptor probe =
+                    getContentResolver().openAssetFileDescriptor(uri, "r")) {
+                if (probe == null) {
+                    oneLine("이 녹음 파일을 열 수 없어요. 다른 오디오 파일을 선택해 줘.");
+                    return;
+                }
+            } catch (java.io.IOException ex) {
+                oneLine("선택한 녹음 파일을 읽을 수 없어요.");
+                return;
+            }
             RadioDjSettings.setVoiceClip(this, uri);
-            oneLine("형이 직접 녹음한 인사 음성 연결 완료. 인사 멘트에서 재생됩니다. "
-                    + "새 문장을 형 목소리로 합성하는 기능은 아직 없습니다.");
+            updateGreetingStatus();
+            new AlertDialog.Builder(this)
+                    .setTitle("아환 방송 시작에 형의 목소리 사용")
+                    .setMessage("형이 영어로 직접 녹음한 인사 파일인가요? "
+                            + "영어 인사 녹음이라면 자동 방송 시작 때 그 실제 목소리를 "
+                            + "재생할 수 있어요. 한국어 녹음이라면 영어만 사용하도록 "
+                            + "정한 방송 규칙과 달라지므로 미리듣기만 선택해 주세요. "
+                            + "녹음 파일 하나로 새로운 문장까지 목소리를 복제하지는 못합니다.")
+                    .setPositiveButton("영어 녹음 · 자동 시작에 사용", (dialog, which) -> {
+                        RadioDjSettings.setRecordedOpening(this, true);
+                        useRecordedGreeting.setChecked(true);
+                        useOpening.setChecked(true);
+                        updateGreetingStatus();
+                        oneLine("형이 녹음한 인사 파일을 자동 방송 시작에 연결했어.");
+                    })
+                    .setNegativeButton("미리듣기만", (dialog, which) -> {
+                        RadioDjSettings.setRecordedOpening(this, false);
+                        useRecordedGreeting.setChecked(false);
+                        updateGreetingStatus();
+                        oneLine("녹음 인사를 보관했어. 자동 시작은 영어 TTS 그대로야.");
+                    })
+                    .show();
         } catch (SecurityException ex) {
             oneLine("녹음 파일에 대한 장기 읽기 권한을 얻지 못했어요.");
         }
