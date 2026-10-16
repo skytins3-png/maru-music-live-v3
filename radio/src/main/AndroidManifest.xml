@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -19,6 +20,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <activity android:name=".RadioDirectRtmpActivity" android:exported="false" />
         <activity android:name=".RadioDjActivity" android:exported="false" />
         <activity android:name=".RadioAutomationActivity" android:exported="false"
             android:launchMode="singleTop" />
@@ -35,6 +37,10 @@
             </intent-filter>
         </activity>
         <service android:name=".RadioPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <!-- User-started independent RTMP stream; uses file decoding, no mic/camera. -->
+        <service android:name=".RadioDirectRtmpService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
         <!-- EXPERIMENTAL: user must explicitly consent inside MARU and
