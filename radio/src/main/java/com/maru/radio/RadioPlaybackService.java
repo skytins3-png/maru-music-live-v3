@@ -34,6 +34,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_DJ_SAY = "com.maru.radio.DJ_SAY";
+    public static final String ACTION_DJ_GREETING = "com.maru.radio.DJ_GREETING";
     public static final String ACTION_DJ_REQUEST = "com.maru.radio.DJ_REQUEST";
     public static final String EXTRA_DJ_TEXT = "dj_speech";
     public static final String ACTION_APPLY_AUDIO_COEXIST = "com.maru.radio.APPLY_AUDIO_COEXIST";
@@ -140,14 +141,16 @@ public final class RadioPlaybackService extends Service {
             stopPlayback();
             return START_NOT_STICKY;
         }
-        if (ACTION_DJ_SAY.equals(action)) {
-            final String text = intent.getStringExtra(EXTRA_DJ_TEXT);
+        if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_GREETING.equals(action)) {
+            final boolean greeting = ACTION_DJ_GREETING.equals(action);
+            final String text = greeting ? RadioDjBrain.opening(announcementCount++)
+                    : intent.getStringExtra(EXTRA_DJ_TEXT);
             if (text == null || text.trim().isEmpty()) { if (queue.isEmpty()) stopSelf();
                 return START_NOT_STICKY; }
             boolean resume = isPlaying();
             int ticket = generation;
             if (resume) pauseOnly();
-            voice().say(text, () -> {
+            Runnable afterward = () -> {
                 if (ticket == generation && resume && player != null && ready
                         && !deadlineReached()) {
                     try { if (requestFocus()) player.start(); }
@@ -155,7 +158,9 @@ public final class RadioPlaybackService extends Service {
                     updateNotification();
                 }
                 if (queue.isEmpty()) stopSelf();
-            });
+            };
+            if (greeting) voice().greeting(text, afterward);
+            else voice().say(text, afterward);
             return START_NOT_STICKY;
         }
         if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
@@ -220,8 +225,25 @@ public final class RadioPlaybackService extends Service {
                     ? intent.getStringExtra(EXTRA_DJ_TEXT) : "";
             refreshQueue(null);
             String hash = intent.getStringExtra(EXTRA_HASH);
+            boolean requestedFound = false;
             if (hash != null) for (int i = 0; i < queue.size(); i++) {
-                if (hash.equals(queue.get(i).hash)) { currentIndex = i; break; }
+                if (hash.equals(queue.get(i).hash)) {
+                    currentIndex = i;
+                    requestedFound = true;
+                    break;
+                }
+            }
+            if (hash != null && !requestedFound && ACTION_DJ_REQUEST.equals(action)) {
+                // One requested song may be outside the rotating genre. Play once,
+                // then return to the original, unchanged category on completion.
+                for (Originals.Track candidate : Originals.list(this)) {
+                    if (hash.equals(candidate.hash)) {
+                        queue.add(0, candidate);
+                        currentIndex = 0;
+                        requestedFound = true;
+                        break;
+                    }
+                }
             }
             if (currentIndex < 0 && !queue.isEmpty()) currentIndex = 0;
             if (currentIndex >= 0) playIndex(currentIndex);
