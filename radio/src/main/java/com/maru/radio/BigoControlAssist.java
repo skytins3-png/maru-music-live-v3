@@ -288,7 +288,7 @@ public final class BigoControlAssist extends AccessibilityService {
         if (!BigoAutomationPolicy.isHostLive(allLabels(root))) {
             chatPrimed = false;
             chatSeen.clear();
-            setChatState("BIGO 호스트 LIVE 화면 확인 대기");
+            setChatState("BIGO 호스트 LIVE 화면 표식 확인 불가: 방송 종료/시청자 UI가 보이지 않으면 댓글을 읽지 않습니다.");
             return;
         }
         // The first observed screen may contain old comments. Prime only and
@@ -321,6 +321,7 @@ public final class BigoControlAssist extends AccessibilityService {
                     if (reply != null && !chatSeen.contains(reply.transientFingerprint))
                         candidates.add(reply);
                     if (reply == null) {
+                        java.util.ArrayList<String> childTexts = new java.util.ArrayList<>();
                         for (int ci = 0; ci < Math.min(8, n.getChildCount()); ci++) {
                             AccessibilityNodeInfo child = n.getChild(ci);
                             if (child == null) continue;
@@ -329,12 +330,25 @@ public final class BigoControlAssist extends AccessibilityService {
                                 continue;
                             CharSequence text = child.getText();
                             CharSequence childDesc = child.getContentDescription();
+                            String part = text != null ? text.toString()
+                                    : childDesc == null ? "" : childDesc.toString();
+                            if (!part.trim().isEmpty()) childTexts.add(part.trim());
                             reply = BigoChatRule.match(n.getViewIdResourceName(),
                                     desc == null ? null : desc.toString(),
                                     text != null ? text.toString()
                                             : childDesc == null ? null : childDesc.toString());
                             if (reply != null && !chatSeen.contains(reply.transientFingerprint))
                                 candidates.add(reply);
+                        }
+                        // A recognized chat container can have [nickname, message]
+                        // as separate direct children. Never merge unrelated nodes.
+                        if (childTexts.size() == 2) {
+                            BigoChatRule.Match split = BigoChatRule.matchSplitChat(
+                                    n.getViewIdResourceName(),
+                                    desc == null ? null : desc.toString(),
+                                    childTexts.get(0), childTexts.get(1));
+                            if (split != null && !chatSeen.contains(split.transientFingerprint))
+                                candidates.add(split);
                         }
                     }
                 }
@@ -362,7 +376,15 @@ public final class BigoControlAssist extends AccessibilityService {
         // Max one short fixed-script reply per 15 seconds; drop extras
         // so music and listeners aren't overwhelmed by voice announcements.
         long now = System.currentTimeMillis();
-        if (candidates.isEmpty() || now - chatLastHandledAt < 15000L) return;
+        if (candidates.isEmpty()) {
+            if (taggedWidgets == 0)
+                setChatState("BIGO 호스트 화면은 확인됐지만 공개 댓글 UI 식별자 0개 · BIGO 버전/화면 접근성 제한 가능");
+            return;
+        }
+        if (now - chatLastHandledAt < 15000L) {
+            setChatState("댓글 형태 인식됨 · 답변 간격 15초 제한 중");
+            return;
+        }
         BigoChatRule.Match match = candidates.get(candidates.size() - 1);
         boolean directRtmp = RadioDirectRtmpService.isActive();
         Intent spoken = directRtmp
