@@ -288,7 +288,7 @@ public final class BigoControlAssist extends AccessibilityService {
         String report = "BIGO 화면 안전 점검 (읽기 전용): "
                 + (BigoAutomationPolicy.isSetup(labels) ? "방송 준비 인식" : "준비 화면 미확인")
                 + " / " + (BigoAutomationPolicy.isMixer(labels) ? "믹서 인식" : "믹서 미확인")
-                + " / " + (BigoAutomationPolicy.isMicOneShown(labels) ? "마이크 1 표시" : "마이크 1 미확인")
+                + " / " + (micLevelOneVerified(root, labels) ? "마이크 1 표시" : "마이크 1 미확인")
                 + " / " + (mixerBtn ? "믹서 버튼 감지" : "믹서 버튼 미감지")
                 + " / " + (startBtn ? "방송하기 감지" : "방송하기 미감지")
                 + " / " + (original ? "Original 감지" : "Original 미감지")
@@ -315,6 +315,45 @@ public final class BigoControlAssist extends AccessibilityService {
             }
         }
         return n;
+    }
+
+    /** Do not confuse some unrelated BIGO "1" with the MIC volume. */
+    private boolean micLevelOneVerified(AccessibilityNodeInfo root, Set<String> labels) {
+        if (!BigoAutomationPolicy.isMixer(labels)) return false;
+        AccessibilityNodeInfo mic = find(root, "마이크 볼륨");
+        if (mic == null || !mic.isVisibleToUser()) return false;
+        Rect title = new Rect();
+        mic.getBoundsInScreen(title);
+        int width = getResources().getDisplayMetrics().widthPixels;
+        int height = getResources().getDisplayMetrics().heightPixels;
+        ArrayDeque<AccessibilityNodeInfo> nodes = new ArrayDeque<>();
+        nodes.add(root);
+        int count = 0;
+        int matched = 0;
+        while (!nodes.isEmpty() && count++ < 1800) {
+            AccessibilityNodeInfo node = nodes.removeFirst();
+            if (node == null) continue;
+            if (node.isVisibleToUser()
+                    && (node.getText() != null
+                            && "1".equals(BigoAutomationPolicy.normalize(node.getText().toString()))
+                        || node.getContentDescription() != null
+                            && "1".equals(BigoAutomationPolicy.normalize(
+                                    node.getContentDescription().toString())))) {
+                Rect digit = new Rect();
+                node.getBoundsInScreen(digit);
+                if (BigoMicLayoutPolicy.isNearMic(width, height,
+                        title.left, title.top, title.right, title.bottom,
+                        digit.left, digit.top, digit.right, digit.bottom)) {
+                    matched++;
+                    if (matched > 1) return false; // ambiguous mixer values
+                }
+            }
+            for (int n = 0; n < node.getChildCount(); n++) {
+                AccessibilityNodeInfo child = node.getChild(n);
+                if (child != null) nodes.addLast(child);
+            }
+        }
+        return matched == 1;
     }
 
     private boolean isOriginalAlreadySelected(AccessibilityNodeInfo root) {
@@ -366,7 +405,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 if (!BigoAutomationPolicy.isMixer(labels)) return;
                 // The owner's submitted BIGO mixer screenshot ALREADY shows "1".
                 // Avoid changing the slider if it is at the requested value.
-                if (BigoAutomationPolicy.isMicOneShown(labels)) {
+                if (micLevelOneVerified(root, labels)) {
                     advance(BigoAutomationPolicy.Phase.SELECT_ORIGINAL,
                             "화면의 마이크 볼륨 1 확인 · 슬라이더 변경 불필요");
                 } else if (setOneOnMixerSeekbar(root)) {
@@ -379,7 +418,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 if (!BigoAutomationPolicy.isMixer(labels)) return;
                 // Verify the actual rendered number from the user screenshot.
                 // An accepted ACTION_SET_PROGRESS does not prove BIGO changed it.
-                if (!BigoAutomationPolicy.isMicOneShown(labels)) {
+                if (!micLevelOneVerified(root, labels)) {
                     abort("마이크 볼륨이 화면에 1로 표시되는지 확인하지 못했어요.");
                     return;
                 }
