@@ -45,6 +45,15 @@ public final class RadioProgram {
         pref(context).edit().putInt("duration",
                 minutes <= 0 ? 0 : Math.max(5, Math.min(720, minutes))).apply();
     }
+    // Opt-out runtime dynamics on MARU's own MediaPlayer session only.
+    // Default recommendation EVENS music without touching original files.
+    public static int leveling(Context context) {
+        return RadioLevelPolicy.clamp(pref(context).getInt("leveling", RadioLevelPolicy.EVEN));
+    }
+    public static void setLeveling(Context context, int mode) {
+        pref(context).edit().putInt("leveling", RadioLevelPolicy.clamp(mode)).apply();
+    }
+
     // Opt-in audio-focus coexistence while another app (e.g. BIGO) is open.
     // Affects MARU playback focus only; DOES NOT inject music into BIGO's microphone.
     public static boolean concurrentAudio(Context context) {
