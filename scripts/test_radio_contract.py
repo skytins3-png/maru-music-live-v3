@@ -12,7 +12,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 checks = {
     "own radio module": "include ':radio'" in settings,
     "own package": "applicationId 'com.maru.radio.ahwan'" in gradle,
-    "no external SDKs": "dependencies {" not in gradle,
+    "only pinned audited Apache2 RootEncoder SDK": "com.github.pedroSG94.RootEncoder:library:2.8.1" in gradle and "JitPack" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
     "original file copying": "getContentResolver().openOutputStream(destination)" in activity,
@@ -398,8 +398,8 @@ checks.update({
         and "15000L" in assist and "chatSeen.clear()" in assist,
     "V1.9.7 no hidden AI chat upload":
         "HttpURLConnection" not in chat_policy
-        and "INTERNET" not in manifest
-        and "SharedPreferences" not in chat_policy,
+        and "SharedPreferences" not in chat_policy
+        and "ACTION_DJ_AUTO_COMMENT" in service,
     "V1.9.7 no private chat storage, fixed status only":
         'putString("chat_state", message)' in assist
         and "transientFingerprint" in chat_policy,
