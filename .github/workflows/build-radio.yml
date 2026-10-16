@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.4 Ahwan Play review build
+name: MARU RADIO V1.9.5 Ahwan owner greeting build
 
 on:
   workflow_dispatch:
@@ -10,6 +10,7 @@ on:
       - experiment/mobile-audio-live-e2e-v18-20261016
       - feat/maru-ai-radio-announcer-v19-20261016
       - release/ahwan-v194-accessibility-play-20261016
+      - fix/ahwan-v195-owner-recorded-opening-20261016
   pull_request:
     branches: [main]
 
@@ -89,14 +90,14 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.4 아환 (Play 검토용)'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.5 아환 음성 인사'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY
-          path: MARU-RADIO-V1.9.4-PLAY-REVIEW-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY
+          path: MARU-RADIO-V1.9.5-OWNER-VOICE-CI-ONLY-INSTALL.apk
           if-no-files-found: error
