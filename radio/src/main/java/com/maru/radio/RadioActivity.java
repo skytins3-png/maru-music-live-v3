@@ -153,12 +153,12 @@ public final class RadioActivity extends Activity {
                 () -> startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
-        root.addView(label("V1.9.9 전체 기능 · 아환·음악 152곡도 그대로 · 기존 앱 삭제 금지.", 13,
+        root.addView(label("V1.9.9 전체 기능 · 아환·원곡 보관 · 기존 앱 삭제 금지.", 13,
                 0xFFFFD998, false));
         root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
                 new AlertDialog.Builder(this)
                         .setTitle("기존 원곡 보관 · MARU 음악 가져오기")
-                        .setMessage("V1.6은 삭제하지 마세요. V1.7은 서로 다른 앱으로 설치됩니다.\n\n"
+                        .setMessage("기존 앱은 삭제하지 마세요. 서명이 다른 APK는 기존 앱에 덮어쓰기가 제한될 수 있습니다.\n\n"
                                 + "① 이 앱에서 'Download 바로가기'를 눌러 기존 Suno MP3/WAV를 "
                                 + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\n\n"
                                 + "② Download에 없는 곡은 기존 V1.6에서 그 곡의 "
@@ -324,7 +324,7 @@ public final class RadioActivity extends Activity {
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
-        root.addView(compactButton("📋 전체 목록 크게 보기 · 152곡 등 등록곡 모두 보기", this::openAllSongs));
+        root.addView(compactButton("📋 전체 목록 크게 보기 · 등록곡 모두 보기", this::openAllSongs));
         root.addView(label("방송할 장르와 음악 보관 목록은 별개예요. 편성을 서양노래로 선택해도 저장한 노래 전체를 보여줍니다.",
                 12, 0xFFCCBFE1, false));
         songCount = label("보관 원곡 0곡", 16, VIOLET, true);
