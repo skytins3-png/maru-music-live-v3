@@ -72,6 +72,21 @@ public final class BigoChatRuleSelfTest {
                 "guest: hello");
         check(a.transientFingerprint == b.transientFingerprint,
                 "in-memory dedupe key remains stable for identical row");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/live_chat", null,
+                "시청자", "안녕하세요").reply.contains("환영"),
+                "tagged chat container with split Korean name/comment replies");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/comment_row", null,
+                "listener", "great song").language == RadioDjLanguagePolicy.ENGLISH,
+                "tagged chat container with split English name/comment replies");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/profile_name", null,
+                "viewer", "hello") == null,
+                "no split comments outside identified public LIVE chat containers");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/chat_msg", null,
+                "viewer", "https://bad.example") == null,
+                "split comments containing links are ignored");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/chat_msg", null,
+                "someone:else", "hi") == null,
+                "nickname separators cannot fake a chat row");
         System.out.println("BIGO chat parser tests passed. NOT a live-BIGO acceptance test.");
     }
 }
