@@ -12,8 +12,8 @@ android {
         minSdk 26
         // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
         targetSdk 36
-        versionCode 19
-        versionName '1.9.7-bigo-chat-audio-prototype'
+        versionCode 20
+        versionName '1.9.8-independent-rtmp-bridge'
     }
 
     // Store upload credentials must be supplied by the repository owner through
@@ -51,3 +51,10 @@ android {
 }
 
 // Standard Android SDK only; no additional third-party SDK or hidden control.
+
+// Apache-2.0 RootEncoder: video-free microphone capture, static artwork + decoded
+// file audio are sent through RTMP independently of the Android speaker level.
+// Requires an owner-provided authorized BIGO OBS streaming endpoint and key.
+dependencies {
+    implementation 'com.github.pedroSG94.RootEncoder:library:2.8.1'
+}
