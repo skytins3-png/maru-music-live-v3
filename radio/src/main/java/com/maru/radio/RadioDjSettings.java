@@ -44,6 +44,17 @@ public final class RadioDjSettings {
     public static String voiceClip(Context ctx) {
         return prefs(ctx).getString("greeting_clip", "");
     }
+
+    /** Owner opt-in: use the owner's *existing English recording* for
+     * broadcast opening; not a voice clone or language translator.
+     * Disabled by default to preserve English-only broadcast starts.
+     */
+    public static boolean recordedOpening(Context ctx) {
+        return prefs(ctx).getBoolean("recorded_opening", false);
+    }
+    public static void setRecordedOpening(Context ctx, boolean enabled) {
+        prefs(ctx).edit().putBoolean("recorded_opening", enabled).apply();
+    }
     public static void setVoiceClip(Context ctx, Uri uri) {
         prefs(ctx).edit().putString("greeting_clip",
                 uri == null ? "" : uri.toString()).apply();
