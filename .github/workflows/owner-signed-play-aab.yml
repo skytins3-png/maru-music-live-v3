@@ -1,0 +1,62 @@
+name: MARU Ahwan signed Play App Bundle (manual upload only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-play-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MARU_UPLOAD_KEYSTORE_BASE64: ${{ secrets.MARU_UPLOAD_KEYSTORE_BASE64 }}
+      MARU_UPLOAD_STORE_PASSWORD: ${{ secrets.MARU_UPLOAD_STORE_PASSWORD }}
+      MARU_UPLOAD_KEY_ALIAS: ${{ secrets.MARU_UPLOAD_KEY_ALIAS }}
+      MARU_UPLOAD_KEY_PASSWORD: ${{ secrets.MARU_UPLOAD_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/ahwan-v194-accessibility-play-20261016
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Require owner upload key without printing any secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in MARU_UPLOAD_KEYSTORE_BASE64 MARU_UPLOAD_STORE_PASSWORD MARU_UPLOAD_KEY_ALIAS MARU_UPLOAD_KEY_PASSWORD; do
+            if [[ -z "${!key:-}" ]]; then echo "Missing owner-secret: $key"; exit 1; fi
+          done
+          umask 077
+          echo "$MARU_UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/maru-upload.jks"
+          test -s "$RUNNER_TEMP/maru-upload.jks"
+          echo "MARU_UPLOAD_KEYSTORE_PATH=$RUNNER_TEMP/maru-upload.jks" >> "$GITHUB_ENV"
+      - name: Validate source and compile signed Android App Bundle
+        run: |
+          python3 scripts/test_radio_contract.py
+          gradle --no-daemon :radio:lintDebug :radio:bundleRelease
+      - name: Verify signed upload bundle without exposing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB=radio/build/outputs/bundle/release/radio-release.aab
+          test -s "$AAB"
+          jarsigner -verify -strict "$AAB" >/dev/null
+          cp "$AAB" MARU-RADIO-V1.9.4-PLAY-SIGNED-UPLOAD.aab
+          sha256sum MARU-RADIO-V1.9.4-PLAY-SIGNED-UPLOAD.aab
+          rm -f "$RUNNER_TEMP/maru-upload.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-RADIO-V1.9.4-OWNER-SIGNED-PLAY-AAB
+          path: MARU-RADIO-V1.9.4-PLAY-SIGNED-UPLOAD.aab
+          if-no-files-found: error
