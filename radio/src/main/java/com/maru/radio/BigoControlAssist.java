@@ -340,15 +340,22 @@ public final class BigoControlAssist extends AccessibilityService {
         long now = System.currentTimeMillis();
         if (candidates.isEmpty() || now - chatLastHandledAt < 15000L) return;
         BigoChatRule.Match match = candidates.get(candidates.size() - 1);
-        Intent spoken = new Intent(this, RadioPlaybackService.class)
-                .setAction(RadioPlaybackService.ACTION_DJ_AUTO_COMMENT)
-                .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, match.reply)
-                .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, match.language);
+        boolean directRtmp = RadioDirectRtmpService.isActive();
+        Intent spoken = directRtmp
+                ? new Intent(this, RadioDirectRtmpService.class)
+                    .setAction(RadioDirectRtmpService.ACTION_SAY)
+                    .putExtra(RadioDirectRtmpService.EXTRA_SAY, match.reply)
+                    .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, match.language)
+                : new Intent(this, RadioPlaybackService.class)
+                    .setAction(RadioPlaybackService.ACTION_DJ_AUTO_COMMENT)
+                    .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, match.reply)
+                    .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, match.language);
         try {
             startService(spoken);
             chatLastHandledAt = now;
-            setChatState("방송 댓글 새 인사/감사 감지 → 로컬 TTS 답변 요청"
-                    + " · BIGO 청취 전달은 별도 검증 필요");
+            setChatState(directRtmp
+                    ? "새 인사/감사 감지 → RTMP 송출 PCM 음성 전달 요청"
+                    : "새 인사/감사 감지 → 로컬 TTS 답변 (BIGO 전달 미검증)");
         } catch (RuntimeException denied) {
             setChatState("댓글은 감지했지만 Android가 답변 음성 서비스를 제한");
         }
