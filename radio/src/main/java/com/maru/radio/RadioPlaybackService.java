@@ -33,6 +33,9 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_PREVIOUS = "com.maru.radio.PREVIOUS";
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
+    public static final String ACTION_DJ_SAY = "com.maru.radio.DJ_SAY";
+    public static final String ACTION_DJ_REQUEST = "com.maru.radio.DJ_REQUEST";
+    public static final String EXTRA_DJ_TEXT = "dj_speech";
     public static final String ACTION_APPLY_AUDIO_COEXIST = "com.maru.radio.APPLY_AUDIO_COEXIST";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
@@ -48,6 +51,10 @@ public final class RadioPlaybackService extends Service {
     private final List<Originals.Track> queue = new ArrayList<>();
 
     private MediaPlayer player;
+    private RadioDjVoice djVoice;
+    private String requestedDjSpeech = "";
+    private int announcementCount;
+    private boolean openingSpoken;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
     private int currentIndex = -1;
@@ -133,6 +140,24 @@ public final class RadioPlaybackService extends Service {
             stopPlayback();
             return START_NOT_STICKY;
         }
+        if (ACTION_DJ_SAY.equals(action)) {
+            final String text = intent.getStringExtra(EXTRA_DJ_TEXT);
+            if (text == null || text.trim().isEmpty()) { if (queue.isEmpty()) stopSelf();
+                return START_NOT_STICKY; }
+            boolean resume = isPlaying();
+            int ticket = generation;
+            if (resume) pauseOnly();
+            voice().say(text, () -> {
+                if (ticket == generation && resume && player != null && ready
+                        && !deadlineReached()) {
+                    try { if (requestFocus()) player.start(); }
+                    catch (IllegalStateException ignored) {}
+                    updateNotification();
+                }
+                if (queue.isEmpty()) stopSelf();
+            });
+            return START_NOT_STICKY;
+        }
         if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
             // Stop competing for exclusive media focus in opt-in coexist mode.
             // Does not affect volume, microphone permission, or BIGO input.
@@ -181,7 +206,8 @@ public final class RadioPlaybackService extends Service {
             updateNotification();
             return START_NOT_STICKY;
         }
-        if (ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)
+        if (ACTION_PLAY.equals(action) || ACTION_DJ_REQUEST.equals(action)
+                || ACTION_NEXT.equals(action)
                 || ACTION_PREVIOUS.equals(action) || ACTION_TOGGLE.equals(action)) {
             syncWallEndFromSchedule();
             if (deadlineReached()) {
@@ -189,7 +215,9 @@ public final class RadioPlaybackService extends Service {
                 return START_NOT_STICKY;
             }
         }
-        if (ACTION_PLAY.equals(action)) {
+        if (ACTION_PLAY.equals(action) || ACTION_DJ_REQUEST.equals(action)) {
+            requestedDjSpeech = ACTION_DJ_REQUEST.equals(action)
+                    ? intent.getStringExtra(EXTRA_DJ_TEXT) : "";
             refreshQueue(null);
             String hash = intent.getStringExtra(EXTRA_HASH);
             if (hash != null) for (int i = 0; i < queue.size(); i++) {
@@ -289,6 +317,7 @@ public final class RadioPlaybackService extends Service {
 
     private void playIndex(int index) {
         if (index < 0 || index >= queue.size()) return;
+        if (djVoice != null) djVoice.cancel();
         ++generation;
         final int ticket = generation;
         releasePlayer();
@@ -320,8 +349,34 @@ public final class RadioPlaybackService extends Service {
                 loading = false;
                 ready = true;
                 p.setVolume(1f, 1f); // original gain; system volume remains OS-controlled
-                p.start();
-                updateNotification();
+                final String explicitSpeech = requestedDjSpeech;
+                requestedDjSpeech = "";
+                boolean doOpening = RadioDjSettings.opening(this) && !openingSpoken;
+                if (doOpening) openingSpoken = true;
+                boolean doNext = RadioDjSettings.interSong(this);
+                if ((explicitSpeech != null && !explicitSpeech.isEmpty())
+                        || doOpening || doNext) {
+                    final Runnable play = () -> {
+                        if (ticket != generation || player != p) return;
+                        if (deadlineReached()) { stopPlayback(); return; }
+                        try { p.start(); } catch (IllegalStateException ignored) {}
+                        updateNotification();
+                    };
+                    final Runnable next = () -> {
+                        if (ticket != generation || player != p) return;
+                        if (doNext) {
+                            voice().say(RadioDjBrain.nextSong(t.title, announcementCount++), play);
+                        } else play.run();
+                    };
+                    if (explicitSpeech != null && !explicitSpeech.isEmpty()) {
+                        voice().say(explicitSpeech, play);
+                    } else if (doOpening) {
+                        voice().greeting(RadioDjBrain.opening(announcementCount++), next);
+                    } else next.run();
+                } else {
+                    p.start();
+                    updateNotification();
+                }
             });
             m.setOnCompletionListener(p -> {
                 if (ticket != generation || player != p) return;
@@ -360,6 +415,11 @@ public final class RadioPlaybackService extends Service {
         playIndex(currentIndex);
     }
 
+    private RadioDjVoice voice() {
+        if (djVoice == null) djVoice = new RadioDjVoice(this);
+        return djVoice;
+    }
+
     private void clearTimer() {
         minutesDeadline = 0L;
         wallEndAt = 0L;
@@ -376,6 +436,9 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void stopPlayback() {
+        if (djVoice != null) djVoice.cancel();
+        requestedDjSpeech = "";
+        openingSpoken = false;
         clearTimer();
         ++generation;
         releasePlayer();
@@ -483,6 +546,7 @@ public final class RadioPlaybackService extends Service {
     }
 
     @Override public void onDestroy() {
+        if (djVoice != null) { djVoice.close(); djVoice = null; }
         clearTimer();
         ++generation;
         releasePlayer();
