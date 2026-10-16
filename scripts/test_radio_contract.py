@@ -173,6 +173,14 @@ checks.update({
 checks.update({
     "V1.8 avoid stale service connectivity":
         "return connectedService.get() != null;" in assist,
+    "V1.8 event flood is coalesced":
+        "handler.hasCallbacks(work)" in assist
+        and "handler.postDelayed(work, 250L)" in assist,
+    "V1.8 alarm never claims confirmed live":
+        "bigo_ui_attempted" in automation
+        and "bigo_ui_attempted" in schedule
+        and "실제 송출 여부" in automation,
+
     "V1.8 fail closed on screen lock": "km.isKeyguardLocked()" in assist
         and "휴대폰 잠금 상태" in assist,
     "V1.8 avoid reopening already-set mixer 1":
