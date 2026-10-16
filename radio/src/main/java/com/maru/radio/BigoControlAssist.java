@@ -5,6 +5,13 @@ import android.accessibilityservice.GestureDescription;
 import android.content.Context;
 import android.content.Intent;
 import android.app.KeyguardManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.content.SharedPreferences;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -33,6 +40,8 @@ public final class BigoControlAssist extends AccessibilityService {
     private static final long DEADLINE_MS = 90_000L;
     private static final long STEP_GAP_MS = 950L;
     private static final long PREFLIGHT_MS = 60_000L;
+    private static final String STATUS_CHANNEL = "maru_bigo_action_status";
+    private static final int STATUS_NOTIFICATION = 5908;
     private static volatile WeakReference<BigoControlAssist> connectedService =
             new WeakReference<>(null);
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -77,8 +86,12 @@ public final class BigoControlAssist extends AccessibilityService {
         SharedPreferences.Editor edit = ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
                 .putBoolean("approved", value);
         if (!value) edit.remove("op").remove("expires").remove("phase")
-                .remove("preflight_expires");
+                .remove("preflight_expires").putString("status", "BIGO 자동화 동의 철회됨");
         edit.apply();
+        if (!value) {
+            BigoControlAssist service = connectedService.get();
+            if (service != null) service.handler.removeCallbacks(service.work);
+        }
     }
 
     /** Can only be queued by the user's selected MARU schedule after local consent. */
@@ -111,10 +124,40 @@ public final class BigoControlAssist extends AccessibilityService {
     }
 
     private void abort(String message) {
+        String operation = pref().getString("op", "");
         pref().edit().remove("op").remove("expires").remove("phase")
                 .putString("status", message).apply();
         handler.removeCallbacks(work);
         waitingGesture = false;
+        if (!operation.isEmpty() && approved(this)) notifyResult(operation, message);
+    }
+
+    private void notifyResult(String operation, String message) {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) return;
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null) return;
+        manager.createNotificationChannel(new NotificationChannel(STATUS_CHANNEL,
+                "MARU BIGO 자동 방송 결과 확인", NotificationManager.IMPORTANCE_HIGH));
+        Intent show = new Intent(this, RadioAutomationActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent tap = PendingIntent.getActivity(this, STATUS_NOTIFICATION,
+                show, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        String title = "start".equals(operation)
+                ? "BIGO 방송 시작 상태 확인 필요"
+                : "BIGO 방송 종료 상태 확인 필요";
+        Notification note = new Notification.Builder(this, STATUS_CHANNEL)
+                .setSmallIcon(R.drawable.ic_radio)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(new Notification.BigTextStyle().bigText(message
+                        + "\nBIGO의 실제 서버 상태와 시청자 음악 송출은 별도 확인이 필요합니다."))
+                .setContentIntent(tap)
+                .setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_ERROR)
+                .build();
+        manager.notify(STATUS_NOTIFICATION, note);
     }
 
     @Override protected void onServiceConnected() {
