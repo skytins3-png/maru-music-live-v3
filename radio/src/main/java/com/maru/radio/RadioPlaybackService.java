@@ -44,6 +44,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_DJ_REQUEST = "com.maru.radio.DJ_REQUEST";
     public static final String EXTRA_DJ_TEXT = "dj_speech";
     public static final String ACTION_APPLY_AUDIO_COEXIST = "com.maru.radio.APPLY_AUDIO_COEXIST";
+    public static final String ACTION_APPLY_LEVELING = "com.maru.radio.APPLY_LEVELING";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
     public static final String ACTION_CANCEL_WALL_END = "com.maru.radio.CANCEL_WALL_END";
@@ -58,6 +59,7 @@ public final class RadioPlaybackService extends Service {
     private final List<Originals.Track> queue = new ArrayList<>();
 
     private MediaPlayer player;
+    private final RadioLeveler leveler = new RadioLeveler();
     private RadioDjVoice djVoice;
     private String requestedDjSpeech = "";
     private int announcementCount;
@@ -212,6 +214,13 @@ public final class RadioPlaybackService extends Service {
             } else {
                 voice().sayLines(lines, afterSpeech);
             }
+            return START_NOT_STICKY;
+        }
+        if (ACTION_APPLY_LEVELING.equals(action)) {
+            // Live updates apply to this MARU player's session only.
+            if (player != null && ready)
+                leveler.attach(player, RadioProgram.leveling(this));
+            updateNotification();
             return START_NOT_STICKY;
         }
         if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
@@ -422,7 +431,10 @@ public final class RadioPlaybackService extends Service {
                 }
                 loading = false;
                 ready = true;
-                p.setVolume(1f, 1f); // original gain; system volume remains OS-controlled
+                p.setVolume(1f, 1f); // No Android system volume changes.
+                // Attach the same gentle compressor and limiter to each NEW
+                // player's audio session before playback; files stay unchanged.
+                leveler.attach(p, RadioProgram.leveling(this));
                 final String explicitSpeech = requestedDjSpeech;
                 requestedDjSpeech = "";
                 boolean doOpening = RadioDjSettings.opening(this) && !openingSpoken;
@@ -554,6 +566,7 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void releasePlayer() {
+        leveler.release();
         if (player != null) {
             player.reset();
             player.release();
@@ -561,6 +574,8 @@ public final class RadioPlaybackService extends Service {
         }
         ready = false;
     }
+
+    public String levelingStatus() { return leveler.status(); }
 
     public String currentHash() {
         return currentIndex >= 0 && currentIndex < queue.size()
