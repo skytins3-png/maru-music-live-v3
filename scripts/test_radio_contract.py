@@ -69,8 +69,8 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 20" in gradle
-        and "versionName '1.9.8-independent-rtmp-bridge'" in gradle
+    "V1.9.8 full-library Android version": "versionCode 21" in gradle
+        and "versionName '1.9.8-full-originals-list'" in gradle
         and "MARU RADIO V1.9.8 독립 음악 송출" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
