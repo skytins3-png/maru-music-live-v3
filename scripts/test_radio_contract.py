@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.11 hands-free Ahwan Android version": "versionCode 25" in gradle
-        and "versionName '1.9.11-handsfree-ahwan'" in gradle
-        and "MARU RADIO V1.9.11 전체 기능" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.12 BIGO chat visibility Android version": "versionCode 26" in gradle
+        and "versionName '1.9.12-bigo-chat-visibility-diagnostics'" in gradle
+        and "MARU RADIO V1.9.12 댓글 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
