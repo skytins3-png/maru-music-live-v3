@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.ahwanv191'" in gradle,
+    "own package": "applicationId 'com.maru.radio.ahwanv192'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -64,14 +64,14 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.ahwanv191'" in gradle
+    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.ahwanv192'" in gradle
         and "applicationId 'com.maru.radio.safev16'" not in gradle
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 14" in gradle
-        and "versionName '1.9.1-ahwan-preview'" in gradle
-        and "MARU RADIO V1.9.1 아환 아나운서" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 15" in gradle
+        and "versionName '1.9.2-language-rules-preview'" in gradle
+        and "MARU RADIO V1.9.2 아환 DJ" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
