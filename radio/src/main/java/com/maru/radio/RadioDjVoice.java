@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import java.util.Locale;
+import java.util.List;
 
 /**
  * Android offline-capable system TTS + an optional user-recorded greeting clip.
@@ -25,6 +26,7 @@ public final class RadioDjVoice {
     private boolean initializationFailed;
     private int generation;
     private String pendingText;
+    private int pendingLanguage = RadioDjLanguagePolicy.ENGLISH;
     private Runnable pendingDone;
     private Runnable timeout;
     private String status = "시스템 음성 엔진 대기";
@@ -37,6 +39,11 @@ public final class RadioDjVoice {
     public String status() { return status; }
 
     public void say(String text, Runnable after) {
+        say(text, RadioDjLanguagePolicy.ENGLISH, after);
+    }
+
+    /** Speak one segment in an explicitly specified installed Android voice. */
+    public void say(String text, int language, Runnable after) {
         if (closed) { if (after != null) after.run(); return; }
         cancel();
         final int ticket = generation;
@@ -46,6 +53,7 @@ public final class RadioDjVoice {
         }
         String safe = text.trim().substring(0, Math.min(text.trim().length(), 230));
         pendingText = safe;
+        pendingLanguage = Math.max(0,Math.min(4,language));
         pendingDone = after;
         timeout = () -> complete(ticket);
         main.postDelayed(timeout, 15000L);
@@ -78,6 +86,24 @@ public final class RadioDjVoice {
                 complete(ticket);
             }
         }
+    }
+
+    /** Short, deterministic bilingual intros. A new request cancels older speech. */
+    public void sayLines(List<RadioDjLanguagePolicy.Line> lines, Runnable after) {
+        if (lines == null || lines.isEmpty()) {
+            if (after != null) after.run();
+            return;
+        }
+        speakLine(lines, 0, after);
+    }
+
+    private void speakLine(List<RadioDjLanguagePolicy.Line> lines, int index, Runnable after) {
+        if (index >= lines.size()) {
+            if (after != null) after.run();
+            return;
+        }
+        RadioDjLanguagePolicy.Line line = lines.get(index);
+        say(line.text, line.language, () -> speakLine(lines, index + 1, after));
     }
 
     /** User-provided previously-recorded audio: only a fixed greeting, not cloning. */
@@ -118,7 +144,7 @@ public final class RadioDjVoice {
         if (closed || !ready || ticket != generation || pendingText == null) return;
         Locale[] voices = { Locale.KOREAN, Locale.SIMPLIFIED_CHINESE,
                 Locale.US, Locale.JAPANESE, new Locale("ru", "RU") };
-        int index = RadioDjSettings.language(context);
+        int index = pendingLanguage;
         int support = tts.setLanguage(voices[index]);
         if (support == TextToSpeech.LANG_MISSING_DATA
                 || support == TextToSpeech.LANG_NOT_SUPPORTED) {
