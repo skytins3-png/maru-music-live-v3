@@ -15,6 +15,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
+import java.lang.ref.WeakReference;
 
 /**
  * EXPERIMENT ONLY — requires separate explicit consent and Android accessibility opt-in.
@@ -30,6 +31,8 @@ public final class BigoControlAssist extends AccessibilityService {
     private static final String BIGO = "sg.bigo.live";
     private static final long DEADLINE_MS = 90_000L;
     private static final long STEP_GAP_MS = 950L;
+    private static volatile WeakReference<BigoControlAssist> connectedService =
+            new WeakReference<>(null);
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable work = this::evaluate;
     private long lastActionAt;
@@ -69,6 +72,10 @@ public final class BigoControlAssist extends AccessibilityService {
                 .putString("status", start ? "BIGO 오디오 LIVE 화면 찾는 중"
                         : "BIGO 진행 방송 종료 화면 찾는 중")
                 .apply();
+        // An alarm can fire while BIGO is already foreground: a new window
+        // event may not arrive, so wake the connected service on its own loop.
+        BigoControlAssist running = connectedService.get();
+        if (running != null) running.handler.postDelayed(running.work, 400L);
         return true;
     }
 
@@ -92,11 +99,13 @@ public final class BigoControlAssist extends AccessibilityService {
 
     @Override protected void onServiceConnected() {
         super.onServiceConnected();
+        connectedService = new WeakReference<>(this);
         pref().edit().putBoolean("connected", true).apply();
         mark("접근성 기능 연결됨 (자동 조작은 별도 동의 후에만 허용)");
     }
 
     @Override public boolean onUnbind(Intent i) {
+        connectedService = new WeakReference<>(null);
         pref().edit().putBoolean("connected", false)
                 .remove("op").remove("expires").remove("phase")
                 .putString("status", "접근성 서비스가 꺼졌어요.").apply();
@@ -179,6 +188,13 @@ public final class BigoControlAssist extends AccessibilityService {
                 return;
             case SELECT_ORIGINAL:
                 if (!BigoAutomationPolicy.isMixer(labels)) return;
+                // Verify the actual rendered number from the user screenshot.
+                // An accepted ACTION_SET_PROGRESS does not prove BIGO changed it.
+                boolean micOneShown = labels.stream().anyMatch(v -> "1".equals(v.trim()));
+                if (!micOneShown) {
+                    abort("마이크 볼륨이 화면에 1로 표시되는지 확인하지 못했어요.");
+                    return;
+                }
                 if (click(root, "Original") || click(root, "원본"))
                     advance(BigoAutomationPolicy.Phase.CLOSE_MIXER, "Original 효과 선택");
                 else abort("Original 효과를 찾지 못해 방송을 시작하지 않았어요.");
