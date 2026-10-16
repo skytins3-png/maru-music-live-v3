@@ -169,6 +169,11 @@ public final class RadioAutomationActivity extends Activity {
                 13, 0xFFDDD2E8));
         bigoStatus = label("BIGO 자동 조작 동의 안 함", 14, PURPLE);
         bigo.addView(bigoStatus);
+        bigo.addView(button("🔍 BIGO 화면 안전 진단 (방송 시작 안 함)", this::diagnoseBigo));
+        bigo.addView(label("동의·접근성 연결 뒤 BIGO 앱만 열어 버튼/마이크 설정 "
+                + "인식 여부를 검사합니다. 화면 내용을 저장하지 않고 인식 결과만 "
+                + "MARU에 표시해요. 방송 시작 버튼은 누르지 않습니다.",
+                12, 0xFFDDD2E8));
         bigo.addView(button("⚠️ BIGO 자동화 개인정보 안내·명시적 동의", this::consentBigo));
         bigo.addView(button("⛔ 동의 철회·BIGO 자동 조작 끄기", this::disableBigo));
 
@@ -210,6 +215,17 @@ public final class RadioAutomationActivity extends Activity {
                 + " / Android 접근성: " + (BigoControlAssist.connected(this)
                         ? "켜짐" : "꺼짐")
                 + "\n최근 상태: " + BigoControlAssist.status(this));
+    }
+
+    private void diagnoseBigo() {
+        if (!BigoControlAssist.requestPreflight(this)) {
+            message("BIGO 화면 진단은 먼저 동의 및 Android 접근성 연결이 필요해요.");
+            return;
+        }
+        updateStatus();
+        message("읽기 전용 화면 점검 60초 시작. BIGO를 열고 돌아오면 결과를 볼 수 있어요.");
+        // Public app launcher only. No clicks on broadcast-start buttons.
+        BigoBroadcastGuide.openBigo(this, false);
     }
 
     private void consentBigo() {
