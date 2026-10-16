@@ -143,11 +143,11 @@ public final class RadioActivity extends Activity {
         root.addView(label("MARU RADIO", 31, VIOLET, true));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
-        root.addView(label("V1.8 실험판 별도 설치 · 기존 앱은 삭제하지 마세요.", 13,
+        root.addView(label("V1.9.8 전체 음악 목록 · RTMP 실험판 · 기존 앱은 삭제하지 마세요.", 13,
                 0xFFFFD998, false));
         root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
                 new AlertDialog.Builder(this)
-                        .setTitle("V1.6 곡 보관 · V1.7 가져오기")
+                        .setTitle("기존 원곡 보관 · MARU 음악 가져오기")
                         .setMessage("V1.6은 삭제하지 마세요. V1.7은 서로 다른 앱으로 설치됩니다.\n\n"
                                 + "① 이 앱에서 'Download 바로가기'를 눌러 기존 Suno MP3/WAV를 "
                                 + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\n\n"
@@ -267,7 +267,7 @@ public final class RadioActivity extends Activity {
                 startActivity(new Intent(this, RadioDirectRtmpActivity.class))));
         root.addView(label("BIGO OBS 서버 주소·스트림 키가 계정에 발급된 경우만 "
                 + "사용할 수 있는 독립 RTMP 음악 송출 실험입니다. "
-                + "아환 음성/댓글을 RTMP와 섞는 기능은 아직 미완성입니다.",
+                + "음악+아환 TTS 실험 믹서 포함 · 실제 BIGO 청취자 수신 검증 필요.",
                 12, 0xFFE4D4A9, false));
         root.addView(compactButton("🎙 아환 아나운서 · 인사/댓글/신청곡", () ->
                 startActivity(new Intent(this, RadioDjActivity.class))));
