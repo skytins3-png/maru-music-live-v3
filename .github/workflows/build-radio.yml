@@ -14,6 +14,7 @@ on:
       - fix/ahwan-v196-constant-volume-20261016
       - feat/ahwan-v197-bigo-live-comment-and-audio-validation-20261016
       - feat/maru-v198-independent-rtmp-audio-20261017
+      - feat/maru-v198-independent-rtmp-audio-20261017
   pull_request:
     branches: [main]
 
