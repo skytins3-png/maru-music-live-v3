@@ -56,9 +56,6 @@ public final class RadioDjVoice {
                     if (closed) return;
                     ready = init == TextToSpeech.SUCCESS && tts != null;
                     if (ready) {
-                        int supported = tts.setLanguage(Locale.KOREAN);
-                        ready = supported != TextToSpeech.LANG_MISSING_DATA
-                                && supported != TextToSpeech.LANG_NOT_SUPPORTED;
                         tts.setSpeechRate(0.93f);
                         tts.setPitch(0.96f);
                     }
@@ -115,6 +112,16 @@ public final class RadioDjVoice {
 
     private void startSpeech(int ticket) {
         if (closed || !ready || ticket != generation || pendingText == null) return;
+        Locale[] voices = { Locale.KOREAN, Locale.SIMPLIFIED_CHINESE,
+                Locale.US, Locale.JAPANESE, new Locale("ru", "RU") };
+        int index = RadioDjSettings.language(context);
+        int support = tts.setLanguage(voices[index]);
+        if (support == TextToSpeech.LANG_MISSING_DATA
+                || support == TextToSpeech.LANG_NOT_SUPPORTED) {
+            status = "선택한 언어 음성이 설치되지 않아 멘트를 생략했어요";
+            complete(ticket);
+            return;
+        }
         String utterance = "MARU-DJ-" + ticket;
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) {}
@@ -125,7 +132,7 @@ public final class RadioDjVoice {
                 if (utterance.equals(id)) main.post(() -> complete(ticket));
             }
         });
-        status = "Android 한국어 TTS 아나운서";
+        status = "Android " + RadioReplies.LANGUAGES[index] + " TTS 아나운서";
         int r = tts.speak(pendingText, TextToSpeech.QUEUE_FLUSH, null, utterance);
         if (r == TextToSpeech.ERROR) complete(ticket);
     }
