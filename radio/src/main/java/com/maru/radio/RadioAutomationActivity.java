@@ -510,13 +510,16 @@ public final class RadioAutomationActivity extends Activity {
         if (intent.getBooleanExtra(RadioSchedule.EXTRA_AUTO_READY, false)) {
             intent.removeExtra(RadioSchedule.EXTRA_AUTO_READY);
             boolean attempted = intent.getBooleanExtra("music_launch_attempted", false);
+            boolean bigoAttempted = intent.getBooleanExtra("bigo_ui_attempted", false);
             new AlertDialog.Builder(this)
                     .setTitle("예약한 MARU 음악 시작 시각")
-                    .setMessage(attempted
-                        ? "MARU에서 음악 자동 재생을 요청했어요. 실제 소리가 나는지 확인하세요. "
-                          + "BIGO 라이브 방송은 자동 시작되지 않았어요."
-                        : "MARU 자동 재생에 실패했거나 예약 종료 시각이 지났어요. "
-                          + "저장곡과 휴대폰 상태를 확인하세요.")
+                    .setMessage((attempted
+                        ? "MARU에서 음악 재생을 요청했어요. 실제 소리가 나는지 확인하세요. "
+                        : "MARU 음악 재생이 실패했거나 예약 종료 시각이 지났어요. ")
+                        + (bigoAttempted
+                        ? "BIGO 시작 버튼 자동 조작은 실험으로 시도 중입니다. "
+                          + "실제 송출 여부와 음악 청취는 별도 확인해야 합니다."
+                        : "BIGO 라이브 시작은 직접 실행해야 합니다."))
                     .setPositiveButton("BIGO 열어 직접 방송하기",
                             (d, w) -> BigoBroadcastGuide.showStart(this))
                     .setNegativeButton("닫기", null).show();
@@ -524,10 +527,14 @@ public final class RadioAutomationActivity extends Activity {
         }
         if (intent.getBooleanExtra(RadioSchedule.EXTRA_END_READY, false)) {
             intent.removeExtra(RadioSchedule.EXTRA_END_READY);
+            boolean bigoAttempted = intent.getBooleanExtra("bigo_ui_attempted", false);
             new AlertDialog.Builder(this).setTitle("MARU 음악 종료 시각")
-                    .setMessage("MARU 음악의 재생 종료 시각입니다. "
-                            + "BIGO 라이브 자체는 자동으로 끝낼 수 없으니 "
-                            + "BIGO 오디오 LIVE 화면에서 종료 버튼을 눌러 주세요.")
+                    .setMessage("MARU 원곡 재생 종료 시각입니다. "
+                            + (bigoAttempted
+                            ? "BIGO 종료 버튼 자동 조작을 실험으로 요청했어요. "
+                              + "실제 방송 종료 여부는 BIGO 화면에서 확인해 주세요."
+                            : "BIGO 방송은 자동 종료되지 않았어요. "
+                              + "BIGO 오디오 LIVE 화면에서 종료 버튼을 눌러 주세요."))
                     .setPositiveButton("BIGO 열어 종료하기", (d, w) -> openBigoEndApp())
                     .setNegativeButton("닫기", null).show();
             return;
