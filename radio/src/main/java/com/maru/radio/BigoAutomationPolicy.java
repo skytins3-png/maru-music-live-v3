@@ -37,6 +37,20 @@ public final class BigoAutomationPolicy {
         return has(labels, "믹서") && has(labels, "마이크 볼륨");
     }
 
+    public static boolean isReadyToStart(Set<String> labels) {
+        // The BIGO mixer sheet can overlay a visible composer. NEVER press
+        // 방송하기 while a mixer or microphone slider is still on screen.
+        return isSetup(labels) && !isMixer(labels);
+    }
+
+    public static boolean isMicOneShown(Set<String> labels) {
+        if (!isMixer(labels)) return false;
+        for (String label : labels) {
+            if ("1".equals(normalize(label))) return true;
+        }
+        return false;
+    }
+
     public static boolean isHostLive(Set<String> labels) {
         // Requires two separate host-side live anchors. Prevent false positives
         // from a start-composer screenshot which also includes "자리".
