@@ -224,6 +224,24 @@ public final class RadioActivity extends Activity {
         programCard.addView(programCategoryButton);
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
+        CheckBox audioCoexist = new CheckBox(this);
+        audioCoexist.setText("BIGO와 음악 동시 재생 시도 (실험)");
+        audioCoexist.setTextColor(WHITE);
+        audioCoexist.setChecked(RadioProgram.concurrentAudio(this));
+        audioCoexist.setOnCheckedChangeListener((v, checked) -> {
+            RadioProgram.setConcurrentAudio(this, checked);
+            if (checked) {
+                try {
+                    startService(new Intent(this, RadioPlaybackService.class)
+                            .setAction(RadioPlaybackService.ACTION_APPLY_AUDIO_COEXIST));
+                } catch (RuntimeException ignored) {}
+            }
+        });
+        programCard.addView(audioCoexist);
+        programCard.addView(label("BIGO 시작 때 MARU가 오디오 포커스 충돌로 "
+                + "일시정지되는 현상을 줄이기 위한 설정이에요. "
+                + "다른 앱으로 소리를 직접 전달하지는 않으며, 기기 정책에 따라 "
+                + "재생이 무음 처리될 수 있어요.", 12, 0xFFCCBFE1, false));
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
         timerButtons.addView(compactButton("⏱ 음악 종료 시간(선택)", this::configureProgramTimer),
