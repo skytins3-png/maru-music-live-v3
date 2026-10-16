@@ -74,6 +74,15 @@ public final class RadioDjLanguagePolicy {
         return ENGLISH; // unknown/default
     }
 
+    public static boolean isGiftMessage(String message) {
+        if (message == null) return false;
+        String lower = message.toLowerCase(java.util.Locale.ROOT);
+        return lower.contains("선물") || lower.contains("장미")
+                || lower.contains("gift") || lower.contains("rose")
+                || lower.contains("礼物") || lower.contains("玫瑰")
+                || lower.contains("プレゼント") || lower.contains("ギフト");
+    }
+
     public static List<Line> gift(String suppliedComment, int manualHint) {
         int language = giftLanguage(suppliedComment, manualHint);
         switch (language) {
