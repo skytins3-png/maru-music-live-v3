@@ -64,6 +64,14 @@ jobs:
             scripts/RadioDjBrainSelfTest.java
           java -cp /tmp/maru-dj-test com.maru.radio.RadioDjBrainSelfTest
 
+      - name: Test Ahwan concise per-event language policy (plain JVM)
+        run: |
+          mkdir -p /tmp/maru-dj-language
+          javac -d /tmp/maru-dj-language \
+            radio/src/main/java/com/maru/radio/RadioDjLanguagePolicy.java \
+            scripts/RadioDjLanguagePolicySelfTest.java
+          java -cp /tmp/maru-dj-language com.maru.radio.RadioDjLanguagePolicySelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
