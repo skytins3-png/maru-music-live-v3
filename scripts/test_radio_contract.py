@@ -431,7 +431,8 @@ checks.update({
     "V1.9.8 no microphone/camera source":
         "AudioFileSource" in rtmp_service
         and "BitmapSource" in rtmp_service
-        and "playAudioDevice()" in rtmp_service
+        and "playAudioDevice();" not in rtmp_service
+        and "RadioRtmpLevelAudioSource" in rtmp_service
         and "MicrophoneSource" not in rtmp_service
         and "android.permission.RECORD_AUDIO" not in manifest
         and "android.permission.CAMERA" not in manifest,
