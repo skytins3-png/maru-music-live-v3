@@ -69,12 +69,18 @@ public final class RadioDjActivity extends Activity {
         View v = new View(this);
         content.addView(v, new LinearLayout.LayoutParams(-1, dp(12)));
     }
-    private void say(String words) {
+    private void say(String words) { say(words, RadioDjLanguagePolicy.ENGLISH); }
+    private void say(String words, int language) {
         if (words == null || words.trim().isEmpty()) return;
         lastReply = words;
         status.setText("🎙 안내 멘트: " + words
                 + "\n시스템 TTS 음성 재생 요청 · BIGO 송출 여부는 별도 확인 필요");
-        send(RadioPlaybackService.ACTION_DJ_SAY, words, null);
+        Intent service = new Intent(this, RadioPlaybackService.class)
+                .setAction(RadioPlaybackService.ACTION_DJ_SAY)
+                .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, words)
+                .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, language);
+        try { startService(service); }
+        catch (RuntimeException ex) { oneLine("아나운서 음성 재생 실패"); }
     }
     private void send(String action, String words, String hash) {
         Intent service = new Intent(this, RadioPlaybackService.class).setAction(action);
@@ -132,15 +138,21 @@ public final class RadioDjActivity extends Activity {
         memory.setChecked(RadioDjSettings.isMemoryEnabled(this));
         memory.setOnCheckedChangeListener((b,v)->RadioDjSettings.setMemoryEnabled(this,v));
         body.addView(memory);
-        body.addView(text("TTS 언어 · 설치된 시스템 음성만 사용", 15, PURPLE));
+        body.addView(text("선물 보낸 사람 언어: 자동 판별 / 모르면 영어", 15, PURPLE));
+        body.addView(text("한국곡: 한국어→영어 · 중국곡: 중국어→영어 · "
+                + "서양곡과 연주곡: 영어만 · 시작과 종료: 영어만. "
+                + "선물은 입력한 메시지의 언어로 답하고 알 수 없으면 영어로 말합니다. "
+                + "실제 BIGO 댓글 자동 수신은 아직 연결되지 않았습니다.", 13, WHITE));
         languageSpinner = new Spinner(this);
+        String[] giftChoices = {"자동 (모르면 English)", "한국어", "中文",
+                "English", "日本語", "Русский"};
         ArrayAdapter<String> langs = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, RadioReplies.LANGUAGES);
+                android.R.layout.simple_spinner_dropdown_item, giftChoices);
         languageSpinner.setAdapter(langs);
-        languageSpinner.setSelection(RadioDjSettings.language(this));
+        languageSpinner.setSelection(RadioDjSettings.giftLanguageHint(this) + 1);
         languageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                RadioDjSettings.setLanguage(RadioDjActivity.this,pos);
+                RadioDjSettings.setGiftLanguageHint(RadioDjActivity.this,pos - 1);
             }
             @Override public void onNothingSelected(AdapterView<?> p) {}
         });
@@ -148,33 +160,30 @@ public final class RadioDjActivity extends Activity {
         gap(body);
 
         body.addView(text("📻 진행자 인사와 멘트", 19, PURPLE));
-        body.addView(button("🎙 인사하기 (형이 녹음한 인사 우선)", () -> {
-            String speech = RadioDjBrain.opening(
-                    RadioDjSettings.nextPhraseIndex(this), RadioDjSettings.language(this));
+        body.addView(button("🎙 방송 시작 인사 (영어만)", () -> {
+            String speech = RadioDjLanguagePolicy.opening().get(0).text;
             lastReply = speech;
-            oneLine("시작 인사: " + speech);
-            if (RadioDjSettings.language(this) == 0)
-                send(RadioPlaybackService.ACTION_DJ_GREETING, null, null);
-            else say(speech);
+            oneLine("아환 방송 시작 인사: " + speech);
+            send(RadioPlaybackService.ACTION_DJ_GREETING, null, null);
         }));
-        body.addView(button("🌹 선물 감사 인사", () -> say(RadioReplies.message(
-                RadioDjSettings.language(this),2))));
-        body.addView(button("💗 팔로우 감사 인사", () -> say(RadioReplies.message(
-                RadioDjSettings.language(this),3))));
+        body.addView(button("🌹 선물 감사 인사 (보낸 사람 언어)", this::thankGift));
+        body.addView(button("💗 팔로우 감사 인사 (기본 영어)", () ->
+                say(RadioReplies.message(RadioDjLanguagePolicy.ENGLISH, 3))));
         body.addView(button("🎵 현재 방송목록의 다음 곡 소개", () -> {
             oneLine("현재 MARU 재생 대기열의 다음 곡을 소개해요.");
             send(RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT, null, null);
         }));
-        body.addView(button("■ 음악 마무리 멘트", () -> say(
-                RadioDjBrain.closing(RadioDjSettings.language(this)))));
+        body.addView(button("■ 방송 종료 인사 (영어만)", () ->
+                send(RadioPlaybackService.ACTION_DJ_CLOSING, null, null)));
         body.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
         body.addView(button("🗑 등록한 인사 음성 해제", () -> {
             RadioDjSettings.setVoiceClip(this,null);
             oneLine("녹음 인사 클립 연결을 해제했어. 원본 파일은 삭제하지 않았어.");
         }));
-        body.addView(text("형의 인사 파일은 미리 녹음한 MP3/WAV를 직접 선택해 사용하는 "
-                + "방식입니다. 자유로운 댓글을 형 목소리로 새롭게 합성하거나 "
-                + "곡을 새로 노래하는 기능은 아닙니다.", 12,0xFFDDCDDB));
+        body.addView(text("녹음한 인사 파일은 별도 보관합니다. "
+                + "자동 방송 시작은 반드시 영어 TTS를 사용해 "
+                + "형이 선택한 영어-only 시작 규칙을 지킵니다. "
+                + "목소리 복제/노래 가창은 지원하지 않습니다.", 12,0xFFDDCDDB));
 
         gap(body);
         body.addView(text("💬 실시간 대화 대본 · 요청곡", 19, PURPLE));
@@ -233,6 +242,21 @@ public final class RadioDjActivity extends Activity {
         setContentView(scroll);
     }
 
+    private void thankGift() {
+        String supplied = comment == null ? "" : comment.getText().toString();
+        int hint = RadioDjSettings.giftLanguageHint(this);
+        RadioDjLanguagePolicy.Line line = RadioDjLanguagePolicy.gift(supplied, hint).get(0);
+        lastReply = line.text;
+        oneLine("선물 감사 언어: " + RadioReplies.LANGUAGES[line.language]
+                + " · BIGO 선물 이벤트 자동 수신은 아직 미연결");
+        Intent action = new Intent(this, RadioPlaybackService.class)
+                .setAction(RadioPlaybackService.ACTION_DJ_GIFT)
+                .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, supplied)
+                .putExtra(RadioPlaybackService.EXTRA_DJ_HINT, hint);
+        try { startService(action); }
+        catch (RuntimeException e) { oneLine("선물 감사 멘트 재생 실패"); }
+    }
+
     private List<Originals.Track> songs() { return Originals.list(this); }
     private void replyToComment() {
         String input = comment.getText().toString().trim();
@@ -245,7 +269,13 @@ public final class RadioDjActivity extends Activity {
                 RadioDjSettings.nextPhraseIndex(this));
         if (!learned.isEmpty()) {
             RadioDjSettings.rememberReply(this);
-            say(learned);
+            say(learned, RadioDjLanguagePolicy.giftLanguage(input,
+                    RadioDjSettings.giftLanguageHint(this)));
+            return;
+        }
+        if (RadioDjLanguagePolicy.isGiftMessage(input)) {
+            RadioDjSettings.rememberReply(this);
+            thankGift();
             return;
         }
         RadioDjSettings.rememberReply(this);
@@ -256,14 +286,10 @@ public final class RadioDjActivity extends Activity {
             send(RadioPlaybackService.ACTION_DJ_REQUEST,result.speech,
                     tracks.get(result.songIndex).hash);
         } else {
-            if (RadioDjSettings.language(this) == 0) say(result.speech);
-            else {
-                String lower = input.toLowerCase(java.util.Locale.ROOT);
-                int event = lower.contains("선물") || lower.contains("gift") ? 2
-                        : lower.contains("팔로우") || lower.contains("follow") ? 3
-                        : 1;
-                say(RadioReplies.message(RadioDjSettings.language(this),event));
-            }
+            int detected = RadioDjLanguagePolicy.giftLanguage(input,
+                    RadioDjLanguagePolicy.AUTO);
+            if (detected == RadioDjLanguagePolicy.KOREAN) say(result.speech, detected);
+            else say(RadioReplies.message(detected,1), detected);
         }
     }
     private void requestSong() {
@@ -280,8 +306,14 @@ public final class RadioDjActivity extends Activity {
         }
         Originals.Track song = tracks.get(pos);
         RadioDjSettings.rememberSong(this, song.hash);
-        String speech = RadioDjBrain.nextSong(song.title,
-                RadioDjSettings.nextPhraseIndex(this), RadioDjSettings.language(this));
+        java.util.List<RadioDjLanguagePolicy.Line> lines =
+                RadioDjLanguagePolicy.songIntro(song.title, RadioProgram.category(this, song));
+        StringBuilder words = new StringBuilder();
+        for (RadioDjLanguagePolicy.Line line : lines) {
+            if (words.length() > 0) words.append(" / ");
+            words.append(line.text);
+        }
+        String speech = words.toString();
         lastReply = speech;
         oneLine("요청한 목록 원곡 재생: " + song.title
                 + " · TTS 소개 뒤 원곡을 그대로 재생해요.");
@@ -296,6 +328,8 @@ public final class RadioDjActivity extends Activity {
                         RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 .putExtra(RecognizerIntent.EXTRA_PROMPT, "마루 DJ에게 말해 주세요.");
         String[] langs = {"ko-KR", "zh-CN", "en-US", "ja-JP", "ru-RU"};
+        // Spoken requests default to the operator's Korean input language.
+        // Gift reply language selection never changes the music introduction policy.
         speech.putExtra(RecognizerIntent.EXTRA_LANGUAGE,
                 langs[RadioDjSettings.language(this)]);
         try { startActivityForResult(speech, REQUEST_SPOKEN_QUERY); }
