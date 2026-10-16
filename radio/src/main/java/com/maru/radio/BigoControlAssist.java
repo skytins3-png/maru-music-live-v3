@@ -305,15 +305,39 @@ public final class BigoControlAssist extends AccessibilityService {
                     && BIGO.contentEquals(n.getPackageName())) {
                 CharSequence desc = n.getContentDescription();
                 CharSequence row = n.getText();
-                if (BigoChatRule.isChatWidget(n.getViewIdResourceName(),
-                        desc == null ? null : desc.toString()))
-                    taggedWidgets++;
-                BigoChatRule.Match reply = BigoChatRule.match(
+                boolean taggedChat = BigoChatRule.isChatWidget(
                         n.getViewIdResourceName(),
-                        desc == null ? null : desc.toString(),
-                        row == null ? null : row.toString());
-                if (reply != null && !chatSeen.contains(reply.transientFingerprint))
-                    candidates.add(reply);
+                        desc == null ? null : desc.toString());
+                if (taggedChat) {
+                    taggedWidgets++;
+                    // Some BIGO versions label the row CONTAINER, while its
+                    // text is on an immediate child with no view resource ID.
+                    // Read only a directly labeled chat row and its immediate
+                    // children. Never look into profiles, DMs or untagged trees.
+                    BigoChatRule.Match reply = BigoChatRule.match(
+                            n.getViewIdResourceName(),
+                            desc == null ? null : desc.toString(),
+                            row == null ? null : row.toString());
+                    if (reply != null && !chatSeen.contains(reply.transientFingerprint))
+                        candidates.add(reply);
+                    if (reply == null) {
+                        for (int ci = 0; ci < Math.min(8, n.getChildCount()); ci++) {
+                            AccessibilityNodeInfo child = n.getChild(ci);
+                            if (child == null) continue;
+                            if (!child.isVisibleToUser() || child.getPackageName() == null
+                                    || !BIGO.contentEquals(child.getPackageName()))
+                                continue;
+                            CharSequence text = child.getText();
+                            CharSequence childDesc = child.getContentDescription();
+                            reply = BigoChatRule.match(n.getViewIdResourceName(),
+                                    desc == null ? null : desc.toString(),
+                                    text != null ? text.toString()
+                                            : childDesc == null ? null : childDesc.toString());
+                            if (reply != null && !chatSeen.contains(reply.transientFingerprint))
+                                candidates.add(reply);
+                        }
+                    }
+                }
             }
             for (int i = 0; i < n.getChildCount(); i++) {
                 AccessibilityNodeInfo child = n.getChild(i);
@@ -332,7 +356,7 @@ public final class BigoControlAssist extends AccessibilityService {
             setChatState(taggedWidgets == 0
                     ? "호스트 LIVE 확인 · 댓글 위젯 미노출 (실기기 확인 필요)"
                     : "BIGO 댓글 위젯 " + taggedWidgets
-                        + "개 인식 · 새 인사/감사 댓글 대기");
+                        + "개 인식 · 새 댓글 자동 음성답변 대기");
             return;
         }
         // Max one short fixed-script reply per 15 seconds; drop extras
@@ -354,8 +378,8 @@ public final class BigoControlAssist extends AccessibilityService {
             startService(spoken);
             chatLastHandledAt = now;
             setChatState(directRtmp
-                    ? "새 인사/감사 감지 → RTMP 송출 PCM 음성 전달 요청"
-                    : "새 인사/감사 감지 → 로컬 TTS 답변 (BIGO 전달 미검증)");
+                    ? "새 댓글 대응 → RTMP 아환 음성 전달 요청"
+                    : "새 댓글 대응 → 아환 로컬 TTS (BIGO 전달 미검증)");
         } catch (RuntimeException denied) {
             setChatState("댓글은 감지했지만 Android가 답변 음성 서비스를 제한");
         }
