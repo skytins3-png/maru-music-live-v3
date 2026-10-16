@@ -33,6 +33,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_PREVIOUS = "com.maru.radio.PREVIOUS";
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
+    public static final String ACTION_APPLY_AUDIO_COEXIST = "com.maru.radio.APPLY_AUDIO_COEXIST";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
     public static final String ACTION_CANCEL_WALL_END = "com.maru.radio.CANCEL_WALL_END";
@@ -115,8 +116,12 @@ public final class RadioPlaybackService extends Service {
         focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attributes)
                 .setOnAudioFocusChangeListener(change -> {
-                    if (change == AudioManager.AUDIOFOCUS_LOSS
-                            || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                    // Owner-opted coexist mode deliberately forgoes MARU's own
+                    // audio focus claim when BIGO is open. Android hardware and
+                    // BIGO policies may STILL mute sound or prevent live routing.
+                    if (!RadioProgram.concurrentAudio(this)
+                            && (change == AudioManager.AUDIOFOCUS_LOSS
+                            || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)) {
                         pauseOnly();
                     }
                 }).build();
@@ -126,6 +131,16 @@ public final class RadioPlaybackService extends Service {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
             stopPlayback();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
+            // Stop competing for exclusive media focus in opt-in coexist mode.
+            // Does not affect volume, microphone permission, or BIGO input.
+            if (RadioProgram.concurrentAudio(this)
+                    && audio != null && focusRequest != null) {
+                audio.abandonAudioFocusRequest(focusRequest);
+            }
+            updateNotification();
             return START_NOT_STICKY;
         }
         if (ACTION_CANCEL_TIMER.equals(action)) {
@@ -252,6 +267,16 @@ public final class RadioPlaybackService extends Service {
     }
 
     private boolean requestFocus() {
+        // Android audio focus LOSS used to pause MARU whenever BIGO acquired
+        // its own audio session. User opt-in can keep local audio running without
+        // actively competing for focus, subject to Android/OEM mute policies.
+        // This does NOT send any audio data to BIGO's livestream microphone.
+        if (RadioProgram.concurrentAudio(this)) {
+            if (audio != null && focusRequest != null)
+                audio.abandonAudioFocusRequest(focusRequest);
+            error = "";
+            return true;
+        }
         if (audio == null || focusRequest == null) return false;
         int granted = audio.requestAudioFocus(focusRequest);
         if (granted != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
