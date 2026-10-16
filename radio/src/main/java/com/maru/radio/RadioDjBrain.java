@@ -8,6 +8,8 @@ import java.util.Locale;
  * stored, no claim of a language model or voice cloning.
  */
 public final class RadioDjBrain {
+    /** The announcer's name selected by the owner. */
+    public static final String PRESENTER_NAME = "아환";
     public static final class Reply {
         public final String speech;
         public final int songIndex;  // -1 if not a song request
@@ -58,7 +60,7 @@ public final class RadioDjBrain {
         if (safe.isEmpty()) safe = "다음 곡";
         String[] prefixes = {
                 "잠시 후 들려드릴 곡은 ",
-                "다음은 형이 준비한 원곡, ",
+                "아환 아나운서가 준비한 원곡, ",
                 "계속해서 함께할 노래는 "
         };
         return prefixes[Math.floorMod(count, prefixes.length)]
@@ -71,37 +73,39 @@ public final class RadioDjBrain {
         String t = clean(title, 55);
         if (t.isEmpty()) t = "MARU";
         switch (language) {
-            case 1: return "接下来请欣赏：" + t + "。希望你喜欢。";
-            case 2: return "Up next on Maru Radio: " + t + ". Enjoy!";
-            case 3: return "続いての曲は、" + t + "。どうぞお楽しみください。";
-            case 4: return "Далее на Мару Радио песня: " + t + ". Приятного прослушивания!";
+            case 1: return "我是主持人 Ahwan。接下来请欣赏：" + t + "。";
+            case 2: return "Ahwan here, on Maru Radio. Up next: " + t + ". Enjoy!";
+            case 3: return "アナウンサーの Ahwan です。続いての曲は、" + t + "。";
+            case 4: return "С вами ведущий Ahwan. Далее песня: " + t + ".";
             default: return nextSong(t, count);
         }
     }
 
     public static String opening(int count) {
         String[] scripts = {
-            "안녕하세요! 마루 라디오에 오신 여러분 환영합니다. "
-                    + "저희가 준비한 좋은 음악과 따뜻한 이야기, 함께해요.",
-            "어서 오세요, 여기는 마루 라디오입니다. 오늘도 음악으로 이어지는 소중한 시간, 시작합니다.",
-            "마루 라디오에 오신 여러분 반갑습니다. 마음 편히 쉬어가세요. 좋은 곡을 들려드릴게요."
+            "안녕하세요! 마루 라디오 진행자 아환 아나운서입니다. "
+                    + "좋은 음악과 따뜻한 이야기, 함께해요.",
+            "어서 오세요! 마루 라디오의 아환입니다. "
+                    + "오늘도 음악으로 이어지는 소중한 시간, 시작합니다.",
+            "마루 라디오에 오신 여러분 반갑습니다. "
+                    + "아환 아나운서와 함께 마음 편히 쉬어가세요."
         };
         return scripts[Math.floorMod(count, scripts.length)];
     }
 
     public static String closing(int language) {
         switch (language) {
-            case 1: return "感谢您收听马루电台！祝您度过美好的一天。";
-            case 2: return "Thank you for listening to Maru Radio. Have a wonderful day!";
-            case 3: return "マルラジオを聴いてくださり、ありがとうございました。またお会いしましょう。";
-            case 4: return "Спасибо, что слушали Мару Радио. До новых встреч!";
+            case 1: return "我是 Ahwan。感谢您收听马루电台，下次再见。";
+            case 2: return "This is Ahwan. Thanks for listening to Maru Radio. See you next time!";
+            case 3: return "アナウンサーの Ahwan でした。マルラジオを聴いてくださり、ありがとうございました。";
+            case 4: return "С вами был Ahwan. Спасибо, что слушали Мару Радио!";
             default: return closing();
         }
     }
 
     public static String closing() {
-        return "오늘도 마루 라디오와 함께해 주셔서 고맙습니다. "
-                + "방송의 음악을 마무리합니다. 편안한 시간 되세요.";
+        return "지금까지 마루 라디오 아환 아나운서였습니다. "
+                + "함께해 주셔서 고맙습니다. 편안한 시간 되세요.";
     }
 
     /**
