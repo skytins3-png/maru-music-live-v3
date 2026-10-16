@@ -12,6 +12,7 @@
     </queries>
     <application android:label="@string/app_name" android:icon="@drawable/ic_radio"
         android:theme="@android:style/Theme.Material.NoActionBar" android:appCategory="audio"
+        android:allowAudioPlaybackCapture="true"
         android:allowBackup="false" android:supportsRtl="true">
         <receiver android:name=".RadioSchedule" android:exported="false">
             <intent-filter>
