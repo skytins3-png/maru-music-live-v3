@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9 AI DJ preview APK
+name: MARU RADIO V1.9.1 Ahwan announcer preview APK
 
 on:
   workflow_dispatch:
@@ -76,15 +76,15 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.aidjv19'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9 AI DJ 미리보기'" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.ahwanv191'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.1 아환 아나운서'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9-AI-DJ-PREVIEW-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9-AI-DJ-PREVIEW-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.1-AHWAN-DJ-PREVIEW-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.1-AHWAN-DJ-PREVIEW-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9-AI-DJ-PREVIEW
-          path: MARU-RADIO-V1.9-AI-DJ-PREVIEW-INSTALL.apk
+          name: MARU-RADIO-V1.9.1-AHWAN-DJ-PREVIEW
+          path: MARU-RADIO-V1.9.1-AHWAN-DJ-PREVIEW-INSTALL.apk
           if-no-files-found: error
