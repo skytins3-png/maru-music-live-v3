@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.content.Context;
 import android.content.Intent;
+import android.app.KeyguardManager;
 import android.content.SharedPreferences;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -46,7 +47,9 @@ public final class BigoControlAssist extends AccessibilityService {
     }
 
     public static boolean connected(Context ctx) {
-        return ctx.getSharedPreferences(STORE, MODE_PRIVATE).getBoolean("connected", false);
+        // A persistent SharedPreferences flag can survive process death. Only
+        // a currently bound Android AccessibilityService is really connected.
+        return connectedService.get() != null;
     }
 
     public static String status(Context ctx) {
@@ -125,6 +128,13 @@ public final class BigoControlAssist extends AccessibilityService {
     private void evaluate() {
         if (!approved(this) || waitingGesture || actionInProgress) return;
         String op = pref().getString("op", "");
+        // Android/OneUI screen lock is not a legal unattended UI surface.
+        // Stop rather than spoof, dismiss or bypass the keyguard.
+        KeyguardManager km = getSystemService(KeyguardManager.class);
+        if (km != null && km.isKeyguardLocked()) {
+            if (!op.isEmpty()) abort("휴대폰 잠금 상태: BIGO 자동 시작/종료를 중단했어요.");
+            return;
+        }
         if (!"start".equals(op) && !"stop".equals(op)) return;
         if (System.currentTimeMillis() >= pref().getLong("expires", 0L)) {
             abort("90초 초과: BIGO 자동 조작 실패. 실제 방송 상태를 확인해 주세요.");
@@ -181,17 +191,22 @@ public final class BigoControlAssist extends AccessibilityService {
                 return;
             case SET_MIC_ONE:
                 if (!BigoAutomationPolicy.isMixer(labels)) return;
-                if (setOneOnMixerSeekbar(root))
+                // The owner's submitted BIGO mixer screenshot ALREADY shows "1".
+                // Avoid changing the slider if it is at the requested value.
+                if (BigoAutomationPolicy.isMicOneShown(labels)) {
+                    advance(BigoAutomationPolicy.Phase.SELECT_ORIGINAL,
+                            "화면의 마이크 볼륨 1 확인 · 슬라이더 변경 불필요");
+                } else if (setOneOnMixerSeekbar(root)) {
                     advance(BigoAutomationPolicy.Phase.SELECT_ORIGINAL, "마이크 값 1 설정 시도");
-                else
-                    abort("마이크 슬라이더 1 설정 실패: BIGO 실제 UI 검증이 필요해요.");
+                } else {
+                    abort("마이크 슬라이더를 찾지 못했어요. BIGO 실제 UI 검증 필요.");
+                }
                 return;
             case SELECT_ORIGINAL:
                 if (!BigoAutomationPolicy.isMixer(labels)) return;
                 // Verify the actual rendered number from the user screenshot.
                 // An accepted ACTION_SET_PROGRESS does not prove BIGO changed it.
-                boolean micOneShown = labels.stream().anyMatch(v -> "1".equals(v.trim()));
-                if (!micOneShown) {
+                if (!BigoAutomationPolicy.isMicOneShown(labels)) {
                     abort("마이크 볼륨이 화면에 1로 표시되는지 확인하지 못했어요.");
                     return;
                 }
@@ -200,8 +215,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 else abort("Original 효과를 찾지 못해 방송을 시작하지 않았어요.");
                 return;
             case CLOSE_MIXER:
-                if (BigoAutomationPolicy.isSetup(labels)
-                        && !BigoAutomationPolicy.isMixer(labels)) {
+                if (BigoAutomationPolicy.isReadyToStart(labels)) {
                     advance(BigoAutomationPolicy.Phase.START_STREAM, "방송하기 준비");
                     return;
                 }
@@ -216,7 +230,9 @@ public final class BigoControlAssist extends AccessibilityService {
                         advance(BigoAutomationPolicy.Phase.START_STREAM, "믹서 닫기 시도"));
                 return;
             case START_STREAM:
-                if (!BigoAutomationPolicy.isSetup(labels)) {
+                // Do not press public START while mixer settings are still open.
+                if (BigoAutomationPolicy.isMixer(labels)) return;
+                if (!BigoAutomationPolicy.isReadyToStart(labels)) {
                     if (BigoAutomationPolicy.isHostLive(labels))
                         advance(BigoAutomationPolicy.Phase.VERIFY_STREAM,
                                 "호스트 라이브 화면으로 전환됨");
