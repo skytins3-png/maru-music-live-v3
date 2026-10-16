@@ -157,6 +157,14 @@ public final class RadioAutomationActivity extends Activity {
             finish();
         }));
 
+        LinearLayout announcer = card(content);
+        announcer.addView(label("🎙 MARU AI 아나운서", 20, PURPLE));
+        announcer.addView(label("오프닝 · 곡마다 소개 · 직접 입력 댓글 답변 · "
+                + "원곡 요청 재생 · 형이 가르친 문구와 인사 녹음 지원. "
+                + "BIGO 댓글 자동 수신/음성 입력은 미연결.", 13, WHITE));
+        announcer.addView(button("아나운서 설정·대화 열기", () ->
+                startActivity(new Intent(this, RadioDjActivity.class))));
+
         LinearLayout bigo = card(content);
         bigo.addView(label("🔒 BIGO 오디오 LIVE 자동 버튼 (실험·선택)", 19, WHITE));
         bigo.addView(label("선택사항. BIGO 화면만 읽어 음성 LIVE → 믹서 → "
