@@ -35,6 +35,10 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_DJ_SAY = "com.maru.radio.DJ_SAY";
     public static final String ACTION_DJ_GREETING = "com.maru.radio.DJ_GREETING";
+    public static final String ACTION_DJ_CLOSING = "com.maru.radio.DJ_CLOSING";
+    public static final String ACTION_DJ_GIFT = "com.maru.radio.DJ_GIFT";
+    public static final String EXTRA_DJ_LANGUAGE = "dj_language";
+    public static final String EXTRA_DJ_HINT = "dj_language_hint";
     public static final String ACTION_DJ_ANNOUNCE_NEXT = "com.maru.radio.DJ_ANNOUNCE_NEXT";
     public static final String ACTION_DJ_REQUEST = "com.maru.radio.DJ_REQUEST";
     public static final String EXTRA_DJ_TEXT = "dj_speech";
@@ -144,25 +148,39 @@ public final class RadioPlaybackService extends Service {
             return START_NOT_STICKY;
         }
         if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_GREETING.equals(action)
-                || ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
-            final boolean greeting = ACTION_DJ_GREETING.equals(action);
-            final boolean nextIntro = ACTION_DJ_ANNOUNCE_NEXT.equals(action);
-            String following = queue.isEmpty() ? ""
-                    : queue.get((currentIndex + 1 + queue.size()) % queue.size()).title;
-            int language = RadioDjSettings.language(this);
-            final String text = greeting ? RadioDjBrain.opening(announcementCount++, language)
-                    : nextIntro ? RadioDjBrain.nextSong(following, announcementCount++,
-                            language)
-                    : intent.getStringExtra(EXTRA_DJ_TEXT);
-            if (text == null || text.trim().isEmpty()) { if (queue.isEmpty()) stopSelf();
-                return START_NOT_STICKY; }
-            // Manual announcer speech can replace an in-progress auto intro.
-            // Preserve the intent to start the prepared song afterwards.
+                || ACTION_DJ_ANNOUNCE_NEXT.equals(action)
+                || ACTION_DJ_CLOSING.equals(action) || ACTION_DJ_GIFT.equals(action)) {
+            java.util.List<RadioDjLanguagePolicy.Line> lines;
+            if (ACTION_DJ_GREETING.equals(action)) {
+                lines = RadioDjLanguagePolicy.opening(); // English only
+            } else if (ACTION_DJ_CLOSING.equals(action)) {
+                lines = RadioDjLanguagePolicy.closing(); // English only
+            } else if (ACTION_DJ_GIFT.equals(action)) {
+                lines = RadioDjLanguagePolicy.gift(intent.getStringExtra(EXTRA_DJ_TEXT),
+                        intent.getIntExtra(EXTRA_DJ_HINT, RadioDjLanguagePolicy.AUTO));
+            } else if (ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
+                if (queue.isEmpty()) {
+                    error = "소개할 다음 음악이 없어요.";
+                    updateNotification();
+                    return START_NOT_STICKY;
+                }
+                Originals.Track upcoming = queue.get((currentIndex + 1 + queue.size()) % queue.size());
+                lines = RadioDjLanguagePolicy.songIntro(upcoming.title,
+                        RadioProgram.category(this, upcoming));
+            } else {
+                String text = intent.getStringExtra(EXTRA_DJ_TEXT);
+                if (text == null || text.trim().isEmpty()) return START_NOT_STICKY;
+                int language = intent.getIntExtra(EXTRA_DJ_LANGUAGE, RadioDjLanguagePolicy.ENGLISH);
+                lines = java.util.Collections.singletonList(
+                        new RadioDjLanguagePolicy.Line(language, text));
+            }
+            // A live spoken line pauses MARU's local original and resumes only
+            // after all required TTS segments complete.
             boolean resume = isPlaying() || djHoldingTrack;
             djHoldingTrack = false;
             int ticket = generation;
             if (resume) pauseOnly();
-            Runnable afterward = () -> {
+            voice().sayLines(lines, () -> {
                 if (ticket == generation && resume && player != null && ready
                         && !deadlineReached()) {
                     try { if (requestFocus()) player.start(); }
@@ -170,9 +188,7 @@ public final class RadioPlaybackService extends Service {
                     updateNotification();
                 }
                 if (queue.isEmpty()) stopSelf();
-            };
-            if (greeting) voice().greeting(text, afterward);
-            else voice().say(text, afterward);
+            });
             return START_NOT_STICKY;
         }
         if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
@@ -401,20 +417,13 @@ public final class RadioPlaybackService extends Service {
                     };
                     final Runnable next = () -> {
                         if (ticket != generation || player != p) return;
-                        if (doNext) {
-                            voice().say(RadioDjBrain.nextSong(t.title,
-                                    announcementCount++, RadioDjSettings.language(this)), play);
+                        if (doNext || (explicitSpeech != null && !explicitSpeech.isEmpty())) {
+                            voice().sayLines(RadioDjLanguagePolicy.songIntro(t.title,
+                                    RadioProgram.category(this, t)), play);
                         } else play.run();
                     };
-                    if (explicitSpeech != null && !explicitSpeech.isEmpty()) {
-                        voice().say(explicitSpeech, play);
-                    } else if (doOpening) {
-                        int language = RadioDjSettings.language(this);
-                        if (language == 0) {
-                            voice().greeting(RadioDjBrain.opening(announcementCount++), next);
-                        } else {
-                            voice().say(RadioDjBrain.opening(announcementCount++, language), next);
-                        }
+                    if (doOpening) {
+                        voice().sayLines(RadioDjLanguagePolicy.opening(), next);
                     } else next.run();
                 } else {
                     p.start();
