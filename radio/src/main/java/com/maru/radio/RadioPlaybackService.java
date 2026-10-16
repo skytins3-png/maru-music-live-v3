@@ -36,6 +36,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_DJ_SAY = "com.maru.radio.DJ_SAY";
     public static final String ACTION_DJ_GREETING = "com.maru.radio.DJ_GREETING";
     public static final String ACTION_DJ_CLOSING = "com.maru.radio.DJ_CLOSING";
+    public static final String ACTION_DJ_TEST_RECORDED = "com.maru.radio.DJ_TEST_RECORDED";
     public static final String ACTION_DJ_GIFT = "com.maru.radio.DJ_GIFT";
     public static final String EXTRA_DJ_LANGUAGE = "dj_language";
     public static final String EXTRA_DJ_HINT = "dj_language_hint";
@@ -145,6 +146,23 @@ public final class RadioPlaybackService extends Service {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
             stopPlayback();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_DJ_TEST_RECORDED.equals(action)) {
+            // Explicit personal preview only; auto start never uses an unknown-
+            // language recorded clip because on-air opening must be English.
+            boolean resume = isPlaying();
+            int ticket = generation;
+            if (resume) pauseOnly();
+            voice().greeting(RadioDjLanguagePolicy.opening().get(0).text, () -> {
+                if (ticket == generation && resume && player != null && ready
+                        && !deadlineReached()) {
+                    try { if (requestFocus()) player.start(); }
+                    catch (IllegalStateException ignored) {}
+                    updateNotification();
+                }
+                if (queue.isEmpty()) stopSelf();
+            });
             return START_NOT_STICKY;
         }
         if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_GREETING.equals(action)
