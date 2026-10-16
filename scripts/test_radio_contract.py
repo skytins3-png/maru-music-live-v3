@@ -69,8 +69,8 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.8 full-library Android version": "versionCode 21" in gradle
-        and "versionName '1.9.8-full-originals-list'" in gradle
+    "V1.9.8 full-library and Ahwan Android version": "versionCode 22" in gradle
+        and "versionName '1.9.8-full-list-ahwan'" in gradle
         and "MARU RADIO V1.9.8 독립 음악 송출" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
@@ -474,6 +474,11 @@ checks.update({
         and 'android:exported="false"' in manifest
         and 'this::openAllSongs' in activity
         and 'new Intent(this, RadioAllSongsActivity.class)' in activity,
+    "Ahwan presenter is visible in all-songs screen and in main":
+        '🎙 AI 아나운서 아환' in all_songs
+        and 'new Intent(this, RadioDjActivity.class)' in all_songs
+        and 'AI 아나운서 아환 설정 열기' in activity
+        and '.RadioDjActivity' in manifest,
 })
 
 for name, okay in checks.items():
