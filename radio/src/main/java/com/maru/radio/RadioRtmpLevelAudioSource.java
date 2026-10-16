@@ -21,6 +21,7 @@ import kotlin.Unit;
  */
 public final class RadioRtmpLevelAudioSource extends AudioSource {
     private final AudioFileSource file;
+    private final RadioRtmpPcmVoiceMixer voiceMixer = new RadioRtmpPcmVoiceMixer();
     private float envelope = 0f;
     private float smoothedGain = 1f;
 
@@ -37,6 +38,9 @@ public final class RadioRtmpLevelAudioSource extends AudioSource {
     @Override public void start(GetMicrophoneData receive) {
         file.start(frame -> {
             limitPcm(frame);
+            // This mixes synthesised Ahwan PCM before network AAC encoding;
+            // STREAM_MUSIC / phone mute doesn't touch these bytes.
+            voiceMixer.mix(frame.getBuffer(), frame.getOffset(), frame.getSize(), isStereo());
             receive.inputPCMData(frame);
         });
     }
@@ -62,6 +66,16 @@ public final class RadioRtmpLevelAudioSource extends AudioSource {
         }
     }
 
+    public boolean queueAnnouncement(short[] monoPcm) {
+        return voiceMixer.enqueue(monoPcm);
+    }
+
+    public int queuedAnnouncements() { return voiceMixer.queued(); }
+
+    public void clearAnnouncements() { voiceMixer.clear(); }
+
+    private boolean isStereo() { return getIsStereo(); }
+
     public void replaceFile(Context ctx, Uri source) throws java.io.IOException {
         envelope = 0f;
         smoothedGain = 1f;
@@ -70,5 +84,5 @@ public final class RadioRtmpLevelAudioSource extends AudioSource {
 
     @Override public void stop() { file.stop(); }
     @Override public boolean isRunning() { return file.isRunning(); }
-    @Override public void release() { file.release(); }
+    @Override public void release() { voiceMixer.clear(); file.release(); }
 }
