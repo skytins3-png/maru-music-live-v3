@@ -69,6 +69,16 @@ public final class RadioDjVoice {
                     if (ready) {
                         tts.setSpeechRate(0.93f);
                         tts.setPitch(0.96f);
+                        // Media usage can be captured by a *separate app* if
+                        // it has lawful consent and supports Android media
+                        // capture. This does NOT inject audio into BIGO mic.
+                        AudioAttributes.Builder voiceAttrs = new AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
+                        if (android.os.Build.VERSION.SDK_INT >= 29)
+                            voiceAttrs.setAllowedCapturePolicy(
+                                    AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+                        tts.setAudioAttributes(voiceAttrs.build());
                     }
                     // A new announcement may have replaced the pending text
                     // while Android was still initializing the TTS engine.
@@ -118,9 +128,12 @@ public final class RadioDjVoice {
         main.postDelayed(timeout, 15000L);
         try {
             clip = new MediaPlayer();
-            clip.setAudioAttributes(new AudioAttributes.Builder()
+            AudioAttributes.Builder voiceClipAttrs = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
+            if (android.os.Build.VERSION.SDK_INT >= 29)
+                voiceClipAttrs.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+            clip.setAudioAttributes(voiceClipAttrs.build());
             clip.setDataSource(context, Uri.parse(saved));
             clip.setOnPreparedListener(p -> {
                 if (ticket == generation && !closed) {
