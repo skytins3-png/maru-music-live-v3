@@ -171,6 +171,14 @@ checks.update({
 # Runtime guardrails and audio coexistence must be explicit, never imply that
 # media playback is injected into BIGO's microphone or that Android unlocks.
 checks.update({
+    "V1.8 watchdog when no BIGO window event arrives": all(x in assist for x in (
+        "private final Runnable expiryWatchdog = this::checkExpiration;",
+        "running.handler.postDelayed(running.expiryWatchdog, DEADLINE_MS + 250L)",
+        "private void checkExpiration()", 'getLong("expires", 0L)',
+        "abort(\"90초 안에 BIGO 화면 자동화가 완료되지 않았어요.",
+        "running.handler.postDelayed(running.expiryWatchdog, PREFLIGHT_MS + 250L)",
+        'removeCallbacks(expiryWatchdog)',
+        'contains("op")) return false')),
     "V1.8 error and shutdown notifications": all(x in assist for x in (
         "notifyResult(operation, message)", "NotificationManager.IMPORTANCE_HIGH",
         "BIGO 방송 종료 상태 확인 필요",
