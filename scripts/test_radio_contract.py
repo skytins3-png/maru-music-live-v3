@@ -537,6 +537,31 @@ checks.update({
         and 'boolean direct = RadioDirectRtmpService.isActive()' in dj_activity,
 })
 
+# No microphone/dialog button is necessary for hands-free comment replies.
+# Manual text input and owner-training tools remain available in a hidden
+# diagnostic drawer, but the opt-in LIVE comment service is independent of it.
+checks.update({
+    "Ahwan main screen starts in automatic-broadcast-first layout":
+        'LinearLayout manualTools = new LinearLayout(this)' in dj_activity
+        and 'manualTools.setVisibility(View.GONE)' in dj_activity
+        and 'manualTools.addView(comment)' in dj_activity
+        and 'manualTools.addView(teachTrigger)' in dj_activity
+        and 'manualTools.addView(teachAnswer)' in dj_activity
+        and 'manualTools.addView(button("✨ 대화 답변하고 읽어주기"' in dj_activity
+        and '방송 중 자동 댓글답변에는 이 화면의 입력/버튼이 필요 없습니다.' in dj_activity,
+    "Automatic replies process only explicitly tagged host LIVE rows":
+        'BigoAutomationPolicy.isHostLive(allLabels(root))' in assist
+        and 'boolean taggedChat = BigoChatRule.isChatWidget(' in assist
+        and 'Math.min(8, n.getChildCount())' in assist
+        and 'BigoChatRule.match(n.getViewIdResourceName()' in assist,
+    "Automatic replies require consent and voice, not user manual text":
+        'commentReplies(this)' in assist
+        and 'RadioDjSettings.isVoiceEnabled(this)' in assist
+        and 'handler.postDelayed(chatWork, 550L)' in assist
+        and 'RadioDirectRtmpService.ACTION_SAY' in assist
+        and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' in assist,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
