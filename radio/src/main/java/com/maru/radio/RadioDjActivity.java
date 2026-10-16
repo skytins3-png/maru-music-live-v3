@@ -160,11 +160,9 @@ public final class RadioDjActivity extends Activity {
                 RadioDjSettings.language(this),2))));
         body.addView(button("💗 팔로우 감사 인사", () -> say(RadioReplies.message(
                 RadioDjSettings.language(this),3))));
-        body.addView(button("🎵 다음 곡 소개", () -> {
-            List<Originals.Track> tracks = Originals.list(this);
-            String title = tracks.isEmpty() ? "좋은 음악"
-                    : tracks.get(0).title; // Actual next track may differ by genre.
-            say(RadioDjBrain.nextSong(title,RadioDjSettings.nextPhraseIndex(this)));
+        body.addView(button("🎵 현재 방송목록의 다음 곡 소개", () -> {
+            oneLine("현재 MARU 재생 대기열의 다음 곡을 소개해요.");
+            send(RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT, null, null);
         }));
         body.addView(button("■ 음악 마무리 멘트", () -> say(RadioDjBrain.closing())));
         body.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
