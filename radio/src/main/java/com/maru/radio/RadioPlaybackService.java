@@ -35,6 +35,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_DJ_SAY = "com.maru.radio.DJ_SAY";
     public static final String ACTION_DJ_GREETING = "com.maru.radio.DJ_GREETING";
+    public static final String ACTION_DJ_ANNOUNCE_NEXT = "com.maru.radio.DJ_ANNOUNCE_NEXT";
     public static final String ACTION_DJ_REQUEST = "com.maru.radio.DJ_REQUEST";
     public static final String EXTRA_DJ_TEXT = "dj_speech";
     public static final String ACTION_APPLY_AUDIO_COEXIST = "com.maru.radio.APPLY_AUDIO_COEXIST";
@@ -141,9 +142,14 @@ public final class RadioPlaybackService extends Service {
             stopPlayback();
             return START_NOT_STICKY;
         }
-        if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_GREETING.equals(action)) {
+        if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_GREETING.equals(action)
+                || ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
             final boolean greeting = ACTION_DJ_GREETING.equals(action);
+            final boolean nextIntro = ACTION_DJ_ANNOUNCE_NEXT.equals(action);
+            String following = queue.isEmpty() ? ""
+                    : queue.get((currentIndex + 1 + queue.size()) % queue.size()).title;
             final String text = greeting ? RadioDjBrain.opening(announcementCount++)
+                    : nextIntro ? RadioDjBrain.nextSong(following, announcementCount++)
                     : intent.getStringExtra(EXTRA_DJ_TEXT);
             if (text == null || text.trim().isEmpty()) { if (queue.isEmpty()) stopSelf();
                 return START_NOT_STICKY; }
