@@ -127,7 +127,10 @@ public final class RadioDjActivity extends Activity {
         useOpening.setText("곡 재생 시작 시 오프닝 멘트 (선택)");
         useOpening.setTextColor(WHITE);
         useOpening.setChecked(RadioDjSettings.opening(this));
-        useOpening.setOnCheckedChangeListener((b,v)->RadioDjSettings.setOpening(this,v));
+        useOpening.setOnCheckedChangeListener((b,v)->{
+            RadioDjSettings.setOpening(this,v);
+            updateGreetingStatus();
+        });
         body.addView(useOpening);
         CheckBox between = new CheckBox(this);
         between.setText("곡마다 다음 곡 소개 (원곡 시작 전 TTS)");
@@ -196,8 +199,13 @@ public final class RadioDjActivity extends Activity {
             updateGreetingStatus();
         });
         body.addView(useRecordedGreeting);
-        body.addView(button("▶ 형의 녹음 인사 실제 소리 미리듣기", () ->
-                send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null)));
+        body.addView(button("▶ 형의 녹음 인사 실제 소리 미리듣기", () -> {
+            if (RadioDjSettings.voiceClip(this).isEmpty()) {
+                oneLine("형의 녹음 인사가 아직 등록되지 않았어. 먼저 음성 파일을 골라 줘.");
+                return;
+            }
+            send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null);
+        }));
         body.addView(button("🗑 등록한 인사 음성 해제", () -> {
             RadioDjSettings.setRecordedOpening(this, false);
             RadioDjSettings.setVoiceClip(this, null);
