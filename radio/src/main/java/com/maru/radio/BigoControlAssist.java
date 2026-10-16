@@ -32,6 +32,7 @@ public final class BigoControlAssist extends AccessibilityService {
     private static final String BIGO = "sg.bigo.live";
     private static final long DEADLINE_MS = 90_000L;
     private static final long STEP_GAP_MS = 950L;
+    private static final long PREFLIGHT_MS = 60_000L;
     private static volatile WeakReference<BigoControlAssist> connectedService =
             new WeakReference<>(null);
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -57,10 +58,26 @@ public final class BigoControlAssist extends AccessibilityService {
                 .getString("status", "BIGO 자동 조작은 꺼져 있습니다.");
     }
 
+    /**
+     * Read-only capability inspection of the CURRENT BIGO window.
+     * No audio broadcast, no taps, no raw chat text or screen content stored.
+     */
+    public static boolean requestPreflight(Context ctx) {
+        if (!approved(ctx) || !connected(ctx)) return false;
+        ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
+                .putLong("preflight_expires", System.currentTimeMillis() + PREFLIGHT_MS)
+                .putString("status", "BIGO 화면 점검 대기 중 · 방송 버튼은 누르지 않음")
+                .apply();
+        BigoControlAssist running = connectedService.get();
+        if (running != null) running.handler.postDelayed(running.work, 350L);
+        return true;
+    }
+
     public static void approve(Context ctx, boolean value) {
         SharedPreferences.Editor edit = ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
                 .putBoolean("approved", value);
-        if (!value) edit.remove("op").remove("expires").remove("phase");
+        if (!value) edit.remove("op").remove("expires").remove("phase")
+                .remove("preflight_expires");
         edit.apply();
     }
 
@@ -120,7 +137,7 @@ public final class BigoControlAssist extends AccessibilityService {
     @Override public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null
                 || !BIGO.contentEquals(e.getPackageName()) || !approved(this)) return;
-        if (!pref().contains("op")) return;
+        if (!pref().contains("op") && !pref().contains("preflight_expires")) return;
         // BIGO may generate frequent UI events (e.g. animation). Replacing the
         // delay on every event starves automation forever. Coalesce instead.
         if (android.os.Build.VERSION.SDK_INT >= 29 && handler.hasCallbacks(work)) return;
@@ -130,6 +147,10 @@ public final class BigoControlAssist extends AccessibilityService {
 
     private void evaluate() {
         if (!approved(this) || waitingGesture || actionInProgress) return;
+        if (pref().contains("preflight_expires") && !pref().contains("op")) {
+            runPreflight();
+            return;
+        }
         String op = pref().getString("op", "");
         // Android/OneUI screen lock is not a legal unattended UI surface.
         // Stop rather than spoof, dismiss or bypass the keyguard.
@@ -157,6 +178,76 @@ public final class BigoControlAssist extends AccessibilityService {
         Set<String> labels = allLabels(root);
         if ("start".equals(op)) doStart(root, phase, labels);
         else doEnd(root, phase, labels);
+    }
+
+    private void runPreflight() {
+        long expiry = pref().getLong("preflight_expires", 0L);
+        if (expiry <= 0L) return;
+        if (System.currentTimeMillis() > expiry) {
+            pref().edit().remove("preflight_expires")
+                    .putString("status", "BIGO 화면 점검 60초 시간 초과 (방송 조작 없음)")
+                    .apply();
+            return;
+        }
+        KeyguardManager km = getSystemService(KeyguardManager.class);
+        if (km != null && km.isKeyguardLocked()) {
+            pref().edit().remove("preflight_expires")
+                    .putString("status", "잠금 상태: BIGO 화면 읽기를 진행하지 않았어요.")
+                    .apply();
+            return;
+        }
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null || root.getPackageName() == null
+                || !BIGO.contentEquals(root.getPackageName())) return;
+        Set<String> labels = allLabels(root);
+        int ranged = countRangedSeekbars(root);
+        boolean startBtn = find(root, "방송하기") != null;
+        boolean mixerBtn = find(root, "믹서") != null;
+        boolean original = find(root, "Original") != null
+                || find(root, "원본") != null;
+        // Only recognized booleans and slider COUNT are persisted.
+        // Raw labels, room name, messages, viewers and contact info are discarded.
+        String report = "BIGO 화면 안전 점검 (읽기 전용): "
+                + (BigoAutomationPolicy.isSetup(labels) ? "방송 준비 인식" : "준비 화면 미확인")
+                + " / " + (BigoAutomationPolicy.isMixer(labels) ? "믹서 인식" : "믹서 미확인")
+                + " / " + (BigoAutomationPolicy.isMicOneShown(labels) ? "마이크 1 표시" : "마이크 1 미확인")
+                + " / " + (mixerBtn ? "믹서 버튼 감지" : "믹서 버튼 미감지")
+                + " / " + (startBtn ? "방송하기 감지" : "방송하기 미감지")
+                + " / " + (original ? "Original 감지" : "Original 미감지")
+                + " / 값 설정 가능한 슬라이더 " + ranged + "개"
+                + " (실제 방송 시작·종료 및 송출은 검증 안 됨)";
+        pref().edit().remove("preflight_expires").putString("status", report).apply();
+    }
+
+    private int countRangedSeekbars(AccessibilityNodeInfo root) {
+        int n = 0, visited = 0;
+        ArrayDeque<AccessibilityNodeInfo> nodes = new ArrayDeque<>();
+        nodes.add(root);
+        while (!nodes.isEmpty() && visited++ < 1800) {
+            AccessibilityNodeInfo node = nodes.removeFirst();
+            if (node == null) continue;
+            if (node.isVisibleToUser() && node.isEnabled()
+                    && node.getClassName() != null
+                    && node.getClassName().toString().contains("SeekBar")
+                    && node.getRangeInfo() != null) n++;
+            for (int k = 0; k < node.getChildCount(); k++) {
+                AccessibilityNodeInfo child = node.getChild(k);
+                if (child != null) nodes.addLast(child);
+            }
+        }
+        return n;
+    }
+
+    private boolean isOriginalAlreadySelected(AccessibilityNodeInfo root) {
+        AccessibilityNodeInfo selected = find(root, "Original");
+        if (selected == null) selected = find(root, "원본");
+        if (selected == null || !selected.isVisibleToUser()) return false;
+        // The original audio effect is already active in the submitted screenshot.
+        // Require BIGO to expose actual selected-state, not visual guesswork.
+        for (AccessibilityNodeInfo p = selected; p != null; p = p.getParent()) {
+            if (p.isSelected() || p.isChecked()) return true;
+        }
+        return false;
     }
 
     private void doStart(AccessibilityNodeInfo root, BigoAutomationPolicy.Phase phase,
@@ -213,9 +304,13 @@ public final class BigoControlAssist extends AccessibilityService {
                     abort("마이크 볼륨이 화면에 1로 표시되는지 확인하지 못했어요.");
                     return;
                 }
-                if (click(root, "Original") || click(root, "원본"))
+                if (isOriginalAlreadySelected(root)) {
+                    advance(BigoAutomationPolicy.Phase.CLOSE_MIXER, "기존 Original 효과 활성화 확인");
+                } else if (click(root, "Original") || click(root, "원본")) {
                     advance(BigoAutomationPolicy.Phase.CLOSE_MIXER, "Original 효과 선택");
-                else abort("Original 효과를 찾지 못해 방송을 시작하지 않았어요.");
+                } else {
+                    abort("Original 활성 상태 또는 버튼을 확인할 수 없어 방송 시작 중단");
+                }
                 return;
             case CLOSE_MIXER:
                 if (BigoAutomationPolicy.isReadyToStart(labels)) {
