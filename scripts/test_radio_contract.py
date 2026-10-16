@@ -291,6 +291,10 @@ checks.update({
         "startActivityForResult(speech, REQUEST_SPOKEN_QUERY)",
         "comment.setText(phrases.get(0))"))
         and "RECORD_AUDIO" not in manifest,
+    "V1.9 fail-fast unavailable system TTS": all(x in dj_voice for x in (
+        "private boolean initializationFailed;",
+        "else if (initializationFailed) complete(ticket)",
+        "initializationFailed = !ready;")),
     "V1.9 five-language TTS": all(x in dj_voice for x in (
         "Locale.SIMPLIFIED_CHINESE", "Locale.JAPANESE",
         'new Locale("ru", "RU")', "RadioDjSettings.language(context)")),
