@@ -168,6 +168,28 @@ checks.update({
         and 'BigoAutomationPolicy.isHostLive(labels)' in assist
         and 'BigoAutomationPolicy.isEndConfirmation(labels)' in assist,
 })
+# Runtime guardrails and audio coexistence must be explicit, never imply that
+# media playback is injected into BIGO's microphone or that Android unlocks.
+checks.update({
+    "V1.8 avoid stale service connectivity":
+        "return connectedService.get() != null;" in assist,
+    "V1.8 fail closed on screen lock": "km.isKeyguardLocked()" in assist
+        and "휴대폰 잠금 상태" in assist,
+    "V1.8 avoid reopening already-set mixer 1":
+        "BigoAutomationPolicy.isMicOneShown(labels)" in assist
+        and "isReadyToStart(labels)" in assist,
+    "V1.8 safe anchored BIGO label tap":
+        "n.getBoundsInScreen(b)" in assist
+        and "n.isVisibleToUser()" in assist
+        and 'BIGO.contentEquals(root.getPackageName())' in assist,
+    "V1.8 opt-in simultaneous audio focus mode":
+        'getBoolean("concurrent_audio", false)' in program
+        and 'RadioProgram.concurrentAudio(this)' in service
+        and 'ACTION_APPLY_AUDIO_COEXIST' in service
+        and 'RadioProgram.setConcurrentAudio(this, checked)' in activity
+        and "다른 앱으로 소리를 직접 전달하지는 않으며" in activity,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
