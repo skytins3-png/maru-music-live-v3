@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.2 Ahwan language rules APK
+name: MARU RADIO V1.9.3 Ahwan SAFE APK
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ on:
       - fix/radio-no-fixed-hour-start-end-v17-20261015
       - experiment/mobile-audio-live-e2e-v18-20261016
       - feat/maru-ai-radio-announcer-v19-20261016
+      - fix/ahwan-v193-remove-sensitive-accessibility-20261016
   pull_request:
     branches: [main]
 
@@ -47,15 +48,6 @@ jobs:
             scripts/RadioClockSelfTest.java
           java -cp /tmp/radio-clock-tests com.maru.radio.RadioClockSelfTest
 
-      - name: Test BIGO mock screenshot labels (never starts an actual LIVE)
-        run: |
-          mkdir -p /tmp/maru-ui-policy
-          javac -d /tmp/maru-ui-policy \
-            radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java \
-            radio/src/main/java/com/maru/radio/BigoMicLayoutPolicy.java \
-            scripts/BigoAutomationPolicySelfTest.java
-          java -cp /tmp/maru-ui-policy com.maru.radio.BigoAutomationPolicySelfTest
-
       - name: Test DJ dialogue and catalog song matching (offline JVM)
         run: |
           mkdir -p /tmp/maru-dj-test
@@ -84,15 +76,18 @@ jobs:
           for apk in radio/build/outputs/apk/debug/radio-debug.apk radio/build/outputs/apk/release/radio-release.apk; do
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
-            grep "package: name='com.maru.radio.ahwanv192'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.2 아환 DJ'" /tmp/radio-badging.txt
+            grep "package: name='com.maru.radio.ahwansafev193'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.3 아환 안전형'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
+            # Ensure NO AccessibilityService service is packaged in this APK.
+            ! "$AAPT" dump xmltree "$apk" AndroidManifest.xml | grep -E "android.accessibilityservice.AccessibilityService|BigoControlAssist|bigo_control_config"
+
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.3-AHWAN-SAFE-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.3-AHWAN-SAFE-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES
-          path: MARU-RADIO-V1.9.2-AHWAN-LANGUAGE-RULES-INSTALL.apk
+          name: MARU-RADIO-V1.9.3-AHWAN-SAFE
+          path: MARU-RADIO-V1.9.3-AHWAN-SAFE-INSTALL.apk
           if-no-files-found: error

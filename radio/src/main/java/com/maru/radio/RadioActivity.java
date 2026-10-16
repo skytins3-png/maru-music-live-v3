@@ -282,8 +282,8 @@ public final class RadioActivity extends Activity {
         startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
         bigoStartEnd.addView(startEndButtons);
         bigoStartEnd.addView(label("이 버튼은 직접 BIGO를 여는 안내입니다. "
-                + "예약된 BIGO 자동 시작·종료는 설정에서 명시적 동의/접근성 허용이 "
-                + "필요한 미검증 기능입니다.", 12, 0xFFDDD4F5, false));
+                + "BIGO 오디오 LIVE는 BIGO 앱에서 직접 시작·종료해야 합니다. "
+                + "MARU 음악만 예약 재생됩니다.", 12, 0xFFDDD4F5, false));
 
         card(root, "1  DOWNLOAD에서 원곡 가져오기",
                 "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
