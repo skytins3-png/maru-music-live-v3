@@ -228,6 +228,19 @@ public final class RadioSchedule extends BroadcastReceiver {
         }
     }
 
+    private static void tryOpenBigo(Context context) {
+        try {
+            Intent launch = context.getPackageManager()
+                    .getLaunchIntentForPackage("sg.bigo.live");
+            if (launch == null) return;
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(launch);
+        } catch (RuntimeException denied) {
+            // Android 14+ background activity launch can be denied. The finite
+            // UI automation request simply times out, never bypassing locks.
+        }
+    }
+
     @Override public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
@@ -249,45 +262,64 @@ public final class RadioSchedule extends BroadcastReceiver {
         consumed.apply();
 
         boolean started = false;
+        boolean bigoRequested = false;
         boolean skippedForEnd = false;
         if (isEnd) {
             try { context.stopService(new Intent(context, RadioPlaybackService.class)); }
             catch (RuntimeException ignored) {}
+            // Experimental, user-opted BIGO only. Unknown/locked screens fail closed.
+            // A background Android activity launch can still be denied by OS.
+            bigoRequested = BigoControlAssist.queue(context, false);
+            if (bigoRequested) tryOpenBigo(context);
         } else if (automatic) {
             long end = sp.getLong("end_when", 0L);
             // A delayed start alarm must not restart playback after the end
             // alarm has already fired and removed the stored end_when key.
             skippedForEnd = (end > 0L && now >= end)
                     || sp.getLong("last_end_at", 0L) >= expected;
-            if (!skippedForEnd) started = startLocalMusic(context);
+            if (!skippedForEnd) {
+                started = startLocalMusic(context);
+                // No consent / unavailable service => never manipulate BIGO.
+                // Never try to unlock the device or override Android protection.
+                bigoRequested = BigoControlAssist.queue(context, true);
+                if (bigoRequested) tryOpenBigo(context);
+            }
         }
 
         if (!notificationsAllowed(context)) return;
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm == null) return;
         nm.createNotificationChannel(new NotificationChannel(CHANNEL,
-                "MARU 음악 예약·BIGO 수동 방송 안내", NotificationManager.IMPORTANCE_HIGH));
+                "MARU 음악 예약·BIGO 방송 상태 확인", NotificationManager.IMPORTANCE_HIGH));
 
         Intent activity = new Intent(context, RadioAutomationActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 .putExtra(isEnd ? EXTRA_END_READY
                         : automatic ? EXTRA_AUTO_READY : EXTRA_READY, true)
-                .putExtra("music_launch_attempted", started);
+                .putExtra("music_launch_attempted", started)
+                .putExtra("bigo_ui_attempted", bigoRequested);
         PendingIntent tap = PendingIntent.getActivity(context,
                 isEnd ? END_REQUEST : START_REQUEST, activity,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String title = isEnd ? "MARU 음악 종료 · BIGO 방송은 수동 종료"
-                : automatic ? started ? "MARU 음악 자동 재생 요청 · BIGO 시작은 수동"
-                        : "MARU 자동 재생 실패 · 확인 필요"
-                : "MARU 방송 시작 준비 알림";
-        String description = isEnd
-                ? "음악 종료 요청 완료. BIGO에서는 '라이브 종료하기'를 눌러야 해요."
-                : automatic ? skippedForEnd
-                        ? "종료 시각이 지나 음악을 시작하지 않았어요."
-                        : started ? "음악 재생을 요청했어요. BIGO 오디오 LIVE는 직접 시작하세요."
-                        : "선택한 장르의 원곡 또는 Android 자동 재생 권한을 확인하세요."
-                : "탭해서 음악 재생 및 BIGO LIVE 시작을 직접 확인하세요.";
+        String title;
+        String description;
+        if (isEnd) {
+            title = bigoRequested ? "MARU 종료 · BIGO 종료 UI 실험 요청"
+                    : "MARU 음악 종료 · BIGO 실제 방송 확인 필요";
+            description = bigoRequested
+                    ? "BIGO 종료 버튼 자동 누르기 시도 중 · 실제 종료 성공은 아직 확인되지 않았어요."
+                    : "MARU 음악만 종료했어요. BIGO 라이브는 직접 종료·확인해 주세요.";
+        } else if (automatic) {
+            title = started ? "MARU 예약 음악 재생 요청" : "MARU 음악 자동 재생 실패";
+            description = skippedForEnd ? "종료 시각이 지나 시작하지 않았어요."
+                    : bigoRequested ? "BIGO 시작 UI 실험 요청 중 · 실방송과 수신 음질 확인 필요."
+                    : started ? "음악 재생 요청. BIGO LIVE는 직접 시작·확인해 주세요."
+                    : "음악 원곡 또는 Android 자동 재생 제한을 확인해 주세요.";
+        } else {
+            title = "MARU 방송 시작 준비 알림";
+            description = "탭하여 MARU 음악/BIGO 라이브 준비 화면을 확인하세요.";
+        }
 
         Notification.Builder builder = new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_radio)

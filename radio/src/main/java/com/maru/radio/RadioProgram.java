@@ -45,6 +45,15 @@ public final class RadioProgram {
         pref(context).edit().putInt("duration",
                 minutes <= 0 ? 0 : Math.max(5, Math.min(720, minutes))).apply();
     }
+    // Opt-in audio-focus coexistence while another app (e.g. BIGO) is open.
+    // Affects MARU playback focus only; DOES NOT inject music into BIGO's microphone.
+    public static boolean concurrentAudio(Context context) {
+        return pref(context).getBoolean("concurrent_audio", false);
+    }
+    public static void setConcurrentAudio(Context context, boolean enabled) {
+        pref(context).edit().putBoolean("concurrent_audio", enabled).apply();
+    }
+
     public static int inferred(String title) {
         if (title == null) return 3;
         String n = title.toLowerCase(Locale.ROOT);

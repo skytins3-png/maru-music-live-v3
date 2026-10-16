@@ -143,7 +143,7 @@ public final class RadioActivity extends Activity {
         root.addView(label("MARU RADIO", 31, VIOLET, true));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
-        root.addView(label("V1.7 새 설치형 · 기존 V1.6의 곡과 설정은 삭제되지 않아요.", 13,
+        root.addView(label("V1.8 실험판 별도 설치 · 기존 앱은 삭제하지 마세요.", 13,
                 0xFFFFD998, false));
         root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
                 new AlertDialog.Builder(this)
@@ -224,6 +224,24 @@ public final class RadioActivity extends Activity {
         programCard.addView(programCategoryButton);
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
+        CheckBox audioCoexist = new CheckBox(this);
+        audioCoexist.setText("BIGO와 음악 동시 재생 시도 (실험)");
+        audioCoexist.setTextColor(WHITE);
+        audioCoexist.setChecked(RadioProgram.concurrentAudio(this));
+        audioCoexist.setOnCheckedChangeListener((v, checked) -> {
+            RadioProgram.setConcurrentAudio(this, checked);
+            if (checked) {
+                try {
+                    startService(new Intent(this, RadioPlaybackService.class)
+                            .setAction(RadioPlaybackService.ACTION_APPLY_AUDIO_COEXIST));
+                } catch (RuntimeException ignored) {}
+            }
+        });
+        programCard.addView(audioCoexist);
+        programCard.addView(label("BIGO 시작 때 MARU가 오디오 포커스 충돌로 "
+                + "일시정지되는 현상을 줄이기 위한 설정이에요. "
+                + "다른 앱으로 소리를 직접 전달하지는 않으며, 기기 정책에 따라 "
+                + "재생이 무음 처리될 수 있어요.", 12, 0xFFCCBFE1, false));
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
         timerButtons.addView(compactButton("⏱ 음악 종료 시간(선택)", this::configureProgramTimer),
@@ -231,9 +249,9 @@ public final class RadioActivity extends Activity {
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 0.85f));
         programCard.addView(timerButtons);
-        programCard.addView(compactButton("📅 시작 시각 예약 · 다국어 댓글 답변", () ->
+        programCard.addView(compactButton("📅 음악 시작·종료 / BIGO 실험 자동화", () ->
                 startActivity(new Intent(this, RadioAutomationActivity.class))));
-        programCard.addView(label("미래 시작은 알림 후 직접 확인 · 자동 댓글 수집은 미지원",
+        programCard.addView(label("MARU 음악 예약 가능 · BIGO 실제 송출은 휴대폰 검증 필요",
                 12, 0xFFCCC0DA, false));
         gap(root, 8);
 
@@ -257,8 +275,9 @@ public final class RadioActivity extends Activity {
         startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
         startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
         bigoStartEnd.addView(startEndButtons);
-        bigoStartEnd.addView(label("접근성 권한 없이 BIGO 실행만 지원합니다. "
-                + "라이브 시작·종료는 BIGO 화면에서 직접 누르세요.", 12, 0xFFDDD4F5, false));
+        bigoStartEnd.addView(label("이 버튼은 직접 BIGO를 여는 안내입니다. "
+                + "예약된 BIGO 자동 시작·종료는 설정에서 명시적 동의/접근성 허용이 "
+                + "필요한 미검증 기능입니다.", 12, 0xFFDDD4F5, false));
 
         card(root, "1  DOWNLOAD에서 원곡 가져오기",
                 "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
