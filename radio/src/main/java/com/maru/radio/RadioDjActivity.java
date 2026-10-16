@@ -35,6 +35,7 @@ public final class RadioDjActivity extends Activity {
     private TextView greetingStatus;
     private TextView bigoChatStatus;
     private CheckBox bigoChatEnabled;
+    private boolean syncingChatToggle;
     private CheckBox useRecordedGreeting;
     private CheckBox useOpening;
     private EditText comment;
@@ -237,6 +238,7 @@ public final class RadioDjActivity extends Activity {
         bigoChatEnabled.setTextColor(WHITE);
         bigoChatEnabled.setChecked(BigoControlAssist.commentReplies(this));
         bigoChatEnabled.setOnCheckedChangeListener((b, checked) -> {
+            if (syncingChatToggle) return;
             if (!checked) {
                 BigoControlAssist.setCommentReplies(this, false);
                 updateBigoChatStatus();
@@ -259,8 +261,11 @@ public final class RadioDjActivity extends Activity {
                             + "청취자에게 실제 소리가 전달되는지는 별도로 시험해야 합니다. "
                             + "Android 접근성 기능이 추가로 켜져 있어야 합니다.")
                     .setPositiveButton("위 범위에 동의", (dialog, which) -> {
-                        if (BigoControlAssist.setCommentReplies(this, true))
+                        if (BigoControlAssist.setCommentReplies(this, true)) {
+                            syncingChatToggle = true;
                             bigoChatEnabled.setChecked(true);
+                            syncingChatToggle = false;
+                        }
                         updateBigoChatStatus();
                     })
                     .setNegativeButton("동의하지 않음", null)
@@ -454,8 +459,11 @@ public final class RadioDjActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (bigoChatEnabled != null)
+        if (bigoChatEnabled != null) {
+            syncingChatToggle = true;
             bigoChatEnabled.setChecked(BigoControlAssist.commentReplies(this));
+            syncingChatToggle = false;
+        }
         updateBigoChatStatus();
     }
 
