@@ -105,7 +105,7 @@ public final class RadioFeatureMenuActivity extends Activity {
                 () -> go(RadioDjActivity.class));
         item(root, "🎵 다음 곡 소개 · 신청곡 검색·재생·신청 순위",
                 () -> go(RadioDjActivity.class));
-        item(root, "💬 댓글 답변·말로 입력·최근 멘트 복사",
+        item(root, "🧪 수동 댓글·말로 입력·멘트 복사 (접힌 테스트 메뉴)",
                 () -> go(RadioDjActivity.class));
         item(root, "🎤 녹음 인사 등록·미리듣기·해제",
                 () -> go(RadioDjActivity.class));
