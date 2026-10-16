@@ -270,7 +270,8 @@ checks.update({
         and "voice().greeting(" in service,
     "V1.9 intersong DJ announcement before actual music": all(x in service for x in (
         "RadioDjSettings.interSong(this)", "RadioDjBrain.nextSong(t.title",
-        "voice().say(", "p.start()", "deadlineReached()")),
+        "voice().say(", "p.start()", "deadlineReached()",
+        "djHoldingTrack = true;", "djHoldingTrack = false;")),
     "V1.9 requested originals can play without changing genre":
         "ACTION_DJ_REQUEST" in service
         and "queue.add(0, candidate)" in service
