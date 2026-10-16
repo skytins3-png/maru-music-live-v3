@@ -160,6 +160,8 @@ public final class RadioActivity extends Activity {
         gap(root, 8);
 
         root.addView(compactButton("📋 전체 보관곡 목록 열기 · 모든 곡 보기", this::openAllSongs));
+        root.addView(compactButton("🎙 AI 아나운서 아환 설정 열기", () ->
+                startActivity(new Intent(this, RadioDjActivity.class))));
 
         LinearLayout playerCard = new LinearLayout(this);
         playerCard.setOrientation(LinearLayout.VERTICAL);
@@ -269,7 +271,7 @@ public final class RadioActivity extends Activity {
                 + "사용할 수 있는 독립 RTMP 음악 송출 실험입니다. "
                 + "음악+아환 TTS 실험 믹서 포함 · 실제 BIGO 청취자 수신 검증 필요.",
                 12, 0xFFE4D4A9, false));
-        root.addView(compactButton("🎙 아환 아나운서 · 인사/댓글/신청곡", () ->
+        root.addView(compactButton("🎙 AI 아나운서 아환 · 방송 멘트/댓글/신청곡", () ->
                 startActivity(new Intent(this, RadioDjActivity.class))));
         root.addView(label("AI 진행자 대화·곡 소개: 휴대폰 내부 TTS / 직접 녹음 인사 지원. "
                 + "BIGO 댓글 자동 읽기·외부 음성 송출·형 목소리 자유 합성은 미지원.",
