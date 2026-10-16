@@ -171,6 +171,14 @@ checks.update({
 # Runtime guardrails and audio coexistence must be explicit, never imply that
 # media playback is injected into BIGO's microphone or that Android unlocks.
 checks.update({
+    "V1.8 error and shutdown notifications": all(x in assist for x in (
+        "notifyResult(operation, message)", "NotificationManager.IMPORTANCE_HIGH",
+        "BIGO 방송 종료 상태 확인 필요",
+        "BIGO 방송 시작 상태 확인 필요",
+        "POST_NOTIFICATIONS", "manager.notify(STATUS_NOTIFICATION, note)")),
+    "V1.8 stop callbacks immediately on revoke": all(x in assist for x in (
+        "if (!value) edit.remove(\"op\")",
+        "service.handler.removeCallbacks(service.work)")),
     "V1.8 read-only preflight BIGO diagnostics": all(x in assist for x in (
         "public static boolean requestPreflight(Context ctx)",
         "private void runPreflight()", "PREFLIGHT_MS = 60_000L",
