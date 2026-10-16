@@ -94,8 +94,8 @@ public final class RadioDirectRtmpActivity extends Activity {
                     .setMessage("입력한 서버로 라이브 음악·고정 표지를 송출합니다. "
                             + "휴대폰 미디어 볼륨은 방송 소리에 영향을 주지 않도록 "
                             + "디코더에서 직접 오디오를 전송합니다. "
-                            + "아환의 댓글 자동 음성 답변은 아직 이 RTMP 스트림과 "
-                            + "합쳐지지 않습니다. 실제 수신은 별도 기기로 확인해야 해요. "
+                            + "아환 TTS·자동 인사/감사 댓글을 RTMP 음악에 믹싱하는 "
+                            + "실험 코드를 추가했지만 실제 BIGO 청취 수신은 별도 기기로 확인해야 해요. "
                             + "시작할까요?")
                     .setPositiveButton("내 RTMP 서버로 시작", (dialog, which) -> {
                         Intent launch = new Intent(this, RadioDirectRtmpService.class)
@@ -126,7 +126,7 @@ public final class RadioDirectRtmpActivity extends Activity {
         body.addView(text("안내: 첫 곡과 같은 샘플레이트·채널 수를 가진 "
                 + "원곡만 매끄럽게 이어서 재생할 수 있습니다. "
                 + "호환곡이 없으면 송출을 멈추고 화면에 이유를 표시합니다. "
-                + "완전한 모든 곡 자동 정규화, 아환 PCM 믹싱, "
+                + "모든 곡을 같은 포맷으로 변환하는 기능, 형의 녹음 인사 PCM, "
                 + "실기기 BIGO 청취 검증은 아직 필요합니다.", 12));
         body.addView(button("← MARU RADIO 돌아가기", this::finish));
         setContentView(scroll);
