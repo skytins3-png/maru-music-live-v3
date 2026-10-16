@@ -93,6 +93,17 @@ public final class RadioDjBrain {
         return scripts[Math.floorMod(count, scripts.length)];
     }
 
+    public static String opening(int count, int language) {
+        if (language == 0) return opening(count);
+        switch (language) {
+            case 1: return "大家好，我是马루电台主持人 Ahwan。欢迎大家来听音乐。";
+            case 2: return "Hello, this is announcer Ahwan on Maru Radio. Welcome!";
+            case 3: return "こんにちは、マルラジオのアナウンサー Ahwan です。ようこそ。";
+            case 4: return "Здравствуйте! С вами ведущий Ahwan на Мару Радио. Добро пожаловать!";
+            default: return opening(count);
+        }
+    }
+
     public static String closing(int language) {
         switch (language) {
             case 1: return "我是 Ahwan。感谢您收听马루电台，下次再见。";
