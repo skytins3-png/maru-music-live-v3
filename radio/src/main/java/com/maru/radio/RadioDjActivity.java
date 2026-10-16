@@ -25,7 +25,8 @@ import java.util.List;
 
 /**
  * Opt-in offline radio host console: TTS, prerecorded host greeting, song
- * requests, typed replies and owner-taught phrases. No BIGO chat scraping.
+ * requests, hidden manual diagnostic replies and owner-taught phrases.
+ * BIGO host-room live comments require narrow, explicit accessibility consent.
  */
 public final class RadioDjActivity extends Activity {
     private static final int REQUEST_GREETING_AUDIO = 801;
@@ -181,7 +182,7 @@ public final class RadioDjActivity extends Activity {
         body.addView(text("한국곡: 한국어→영어 · 중국곡: 중국어→영어 · "
                 + "서양곡과 연주곡: 영어만 · 시작과 종료: 영어만. "
                 + "선물은 입력한 메시지의 언어로 답하고 알 수 없으면 영어로 말합니다. "
-                + "실제 BIGO 댓글 자동 수신은 아직 연결되지 않았습니다.", 13, WHITE));
+                + "BIGO 댓글은 동의·접근성·호스트 LIVE 화면 조건을 충족할 때 제한적으로 읽습니다.", 13, WHITE));
         languageSpinner = new Spinner(this);
         String[] giftChoices = {"자동 (모르면 English)", "한국어", "中文",
                 "English", "日本語", "Русский"};
@@ -325,20 +326,35 @@ public final class RadioDjActivity extends Activity {
                     .setNegativeButton("취소", null).show()));
         updateBigoChatStatus();
         gap(body);
-        body.addView(text("💬 직접 대화 대본 · 요청곡", 19, PURPLE));
-        body.addView(text("형이 직접 입력하거나 붙여넣은 댓글은 기존대로 처리할 수 있어요. "
-                + "실험 자동 댓글 감지는 호스트 LIVE 실제 화면에서 별도 확인해야 합니다.",
+        // The broadcaster never needs to type or dictate viewer comments.
+        // Retain every prior manual feature only under this opt-in diagnostic area.
+        LinearLayout manualTools = new LinearLayout(this);
+        manualTools.setOrientation(LinearLayout.VERTICAL);
+        manualTools.setVisibility(View.GONE);
+        Button testToggle = button("🧪 수동 테스트·고급 학습 도구 펼치기 (방송에 불필요)", () -> {
+            boolean opening = manualTools.getVisibility() != View.VISIBLE;
+            manualTools.setVisibility(opening ? View.VISIBLE : View.GONE);
+        });
+        body.addView(text("🤖 자동 답변 방송: 댓글을 직접 입력하거나 소리 내어 읽을 필요가 없습니다. "
+                + "BIGO 호스트 LIVE 화면에서 허용된 새 댓글을 감지하면 아환이 "
+                + "일치하는 짧은 답변만 TTS로 말합니다. 댓글 인식과 실제 청취자 음성은 "
+                + "각각 검증이 필요합니다.", 14, 0xFFB0E4C5));
+        body.addView(testToggle);
+        body.addView(manualTools);
+        manualTools.addView(text("🧪 수동 댓글·신청곡 테스트 (방송 필수 아님)", 19, PURPLE));
+        manualTools.addView(text("진단을 위한 수동 입력입니다. 방송 중 자동 댓글답변에는 이 화면의 입력/버튼이 필요 없습니다. "
+                + "기존 수동 테스트와 학습 기능은 삭제하지 않고 이곳에 보관했습니다.",
                 13, 0xFFDBD0E7));
         comment = input("예: 가을 남자 노래 틀어줘 / 오늘 피곤해");
-        body.addView(comment);
-        body.addView(button("🎤 말로 댓글/신청곡 입력 (외부 음성 인식)", this::recognizeSpokenQuery));
-        body.addView(button("✨ 대화 답변하고 읽어주기", this::replyToComment));
-        body.addView(button("🎼 입력한 제목으로 보관 원곡 찾아 재생", this::requestSong));
-        body.addView(button("⭐ 많이 신청된 노래 확인", () ->
+        manualTools.addView(comment);
+        manualTools.addView(button("🎤 말로 댓글/신청곡 입력 (외부 음성 인식)", this::recognizeSpokenQuery));
+        manualTools.addView(button("✨ 대화 답변하고 읽어주기", this::replyToComment));
+        manualTools.addView(button("🎼 입력한 제목으로 보관 원곡 찾아 재생", this::requestSong));
+        manualTools.addView(button("⭐ 많이 신청된 노래 확인", () ->
                 oneLine("로컬 요청 선호곡: " + RadioDjSettings.favoriteTitle(this,
                         Originals.list(this)) + " / 학습 대화: "
                         + RadioDjSettings.replyCount(this) + "회")));
-        body.addView(button("📋 방금 멘트 복사", () -> {
+        manualTools.addView(button("📋 방금 멘트 복사", () -> {
             if (lastReply.isEmpty()) return;
             android.content.ClipboardManager cb = (android.content.ClipboardManager)
                     getSystemService(CLIPBOARD_SERVICE);
@@ -346,16 +362,16 @@ public final class RadioDjActivity extends Activity {
                     android.content.ClipData.newPlainText("MARU DJ", lastReply));
             oneLine("멘트를 복사했어. BIGO에 직접 붙여넣을 수 있어.");
         }));
-        gap(body);
+        gap(manualTools);
 
-        body.addView(text("🧠 형이 직접 가르치는 답변 (최대 20개)", 19, PURPLE));
-        body.addView(text("반복되는 표현과 답변을 직접 지정하면 이후 입력에 적용됩니다. "
+        manualTools.addView(text("🧠 형이 직접 가르치는 답변 (최대 20개)", 19, PURPLE));
+        manualTools.addView(text("반복되는 표현과 답변을 직접 지정하면 이후 입력에 적용됩니다. "
                 + "시청자 댓글은 저장되지 않으며, 이 규칙만 휴대폰에 저장됩니다.", 13, WHITE));
         teachTrigger = input("예: 오늘 날씨");
         teachAnswer = input("예: 날씨만큼 즐거운 음악 들려드릴게요!");
-        body.addView(teachTrigger);
-        body.addView(teachAnswer);
-        body.addView(button("📚 이 표현을 가르치기", () -> {
+        manualTools.addView(teachTrigger);
+        manualTools.addView(teachAnswer);
+        manualTools.addView(button("📚 이 표현을 가르치기", () -> {
             String trigger = teachTrigger.getText().toString().trim();
             String answer = teachAnswer.getText().toString().trim();
             if (trigger.length()<2 || trigger.length()>40 || answer.length()<2
@@ -366,7 +382,7 @@ public final class RadioDjActivity extends Activity {
             RadioDjSettings.teach(this,trigger,answer);
             oneLine("가르친 대답 저장됨. 입력 문구가 포함되면 우선 답변합니다.");
         }));
-        body.addView(button("🗑 학습 기록과 가르친 답변 모두 삭제", () ->
+        manualTools.addView(button("🗑 학습 기록과 가르친 답변 모두 삭제", () ->
                 new AlertDialog.Builder(this).setTitle("AI 진행자 학습 초기화")
                         .setMessage("요청곡 집계와 직접 가르친 문장을 모두 삭제할까요? "
                                 + "음악 원곡·방송 예약·녹음 파일은 삭제되지 않습니다.")
