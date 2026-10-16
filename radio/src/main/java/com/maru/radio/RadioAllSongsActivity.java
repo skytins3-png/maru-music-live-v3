@@ -72,6 +72,9 @@ public final class RadioAllSongsActivity extends Activity {
         setContentView(screen);
 
         screen.addView(label("📋 보관 원곡 전체 목록", 24));
+        screen.addView(button("☰ 전체 기능 목록 · 예약·방송·아환 등 모든 메뉴",
+                () -> startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
+
         // Keep the AI presenter reachable from the full-song library;
         // it is a broadcast function, not a music track/category.
         screen.addView(button("🎙 AI 아나운서 아환 · 방송 멘트/댓글/신청곡",
