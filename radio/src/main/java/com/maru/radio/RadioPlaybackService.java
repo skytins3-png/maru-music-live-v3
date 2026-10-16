@@ -198,7 +198,7 @@ public final class RadioPlaybackService extends Service {
             djHoldingTrack = false;
             int ticket = generation;
             if (resume) pauseOnly();
-            voice().sayLines(lines, () -> {
+            Runnable afterSpeech = () -> {
                 if (ticket == generation && resume && player != null && ready
                         && !deadlineReached()) {
                     try { if (requestFocus()) player.start(); }
@@ -206,7 +206,12 @@ public final class RadioPlaybackService extends Service {
                     updateNotification();
                 }
                 if (queue.isEmpty()) stopSelf();
-            });
+            };
+            if (ACTION_DJ_GREETING.equals(action)) {
+                playBroadcastOpening(afterSpeech);
+            } else {
+                voice().sayLines(lines, afterSpeech);
+            }
             return START_NOT_STICKY;
         }
         if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
@@ -441,7 +446,7 @@ public final class RadioPlaybackService extends Service {
                         } else play.run();
                     };
                     if (doOpening) {
-                        voice().sayLines(RadioDjLanguagePolicy.opening(), next);
+                        playBroadcastOpening(next);
                     } else next.run();
                 } else {
                     p.start();
@@ -483,6 +488,20 @@ public final class RadioPlaybackService extends Service {
         if (queue.isEmpty()) { stopSelf(); return; }
         currentIndex = (currentIndex + 1 + queue.size()) % queue.size();
         playIndex(currentIndex);
+    }
+
+    /** All broadcast starts use the owner clip if explicitly enabled and
+     * the media document still exists. Otherwise default to English TTS.
+     * The operator must record this clip in English to preserve the broadcast
+     * language policy; neither a voice clone nor an automatic translator.
+     */
+    private void playBroadcastOpening(Runnable after) {
+        if (RadioDjSettings.recordedOpening(this)
+                && !RadioDjSettings.voiceClip(this).isEmpty()) {
+            voice().greeting(RadioDjLanguagePolicy.opening().get(0).text, after);
+        } else {
+            voice().sayLines(RadioDjLanguagePolicy.opening(), after);
+        }
     }
 
     private RadioDjVoice voice() {
