@@ -76,6 +76,8 @@ public final class BigoControlAssist extends AccessibilityService {
      */
     public static boolean requestPreflight(Context ctx) {
         if (!approved(ctx) || !connected(ctx)) return false;
+        // A read-only diagnostic must not overlap scheduled live controls.
+        if (ctx.getSharedPreferences(STORE, MODE_PRIVATE).contains("op")) return false;
         ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
                 .putLong("preflight_expires", System.currentTimeMillis() + PREFLIGHT_MS)
                 .putString("status", "BIGO 화면 점검 대기 중 · 방송 버튼은 누르지 않음")
@@ -108,6 +110,7 @@ public final class BigoControlAssist extends AccessibilityService {
     public static boolean queue(Context ctx, boolean start) {
         if (!approved(ctx) || !connected(ctx)) return false;
         ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
+                .remove("preflight_expires")
                 .putString("op", start ? "start" : "stop")
                 .putLong("expires", System.currentTimeMillis() + DEADLINE_MS)
                 .putString("phase", start ? BigoAutomationPolicy.Phase.OPEN_COMPOSER.name()
