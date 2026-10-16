@@ -72,6 +72,11 @@ public final class RadioAllSongsActivity extends Activity {
         setContentView(screen);
 
         screen.addView(label("📋 보관 원곡 전체 목록", 24));
+        // Keep the AI presenter reachable from the full-song library;
+        // it is a broadcast function, not a music track/category.
+        screen.addView(button("🎙 AI 아나운서 아환 · 방송 멘트/댓글/신청곡",
+                () -> startActivity(new Intent(this, RadioDjActivity.class))));
+
         screen.addView(label("MARU에 등록된 모든 곡을 표시합니다. 방송 장르 선택과 무관하며 파일 원본은 변경되지 않습니다.", 13));
         summary = label("목록 불러오는 중", 16);
         screen.addView(summary);
