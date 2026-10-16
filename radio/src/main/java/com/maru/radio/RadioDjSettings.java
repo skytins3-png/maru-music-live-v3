@@ -57,6 +57,15 @@ public final class RadioDjSettings {
                 Math.min(RadioReplies.LANGUAGES.length - 1, language))).apply();
     }
 
+    /** Optional manual sender language for gifts. -1 means autodetect or English. */
+    public static int giftLanguageHint(Context context) {
+        return Math.max(-1, Math.min(4, prefs(context).getInt("gift_language_hint", -1)));
+    }
+    public static void setGiftLanguageHint(Context context, int language) {
+        prefs(context).edit().putInt("gift_language_hint",
+                Math.max(-1, Math.min(4, language))).apply();
+    }
+
     /** Host-authored phrases only, never automatically store audience comments. */
     public static void teach(Context ctx, String trigger, String response) {
         if (trigger == null || response == null) return;
