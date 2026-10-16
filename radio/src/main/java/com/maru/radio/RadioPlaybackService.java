@@ -150,9 +150,7 @@ public final class RadioPlaybackService extends Service {
             String following = queue.isEmpty() ? ""
                     : queue.get((currentIndex + 1 + queue.size()) % queue.size()).title;
             int language = RadioDjSettings.language(this);
-            final String text = greeting ? language == 0
-                            ? RadioDjBrain.opening(announcementCount++)
-                            : RadioReplies.message(language, 0)
+            final String text = greeting ? RadioDjBrain.opening(announcementCount++, language)
                     : nextIntro ? RadioDjBrain.nextSong(following, announcementCount++,
                             language)
                     : intent.getStringExtra(EXTRA_DJ_TEXT);
@@ -415,7 +413,7 @@ public final class RadioPlaybackService extends Service {
                         if (language == 0) {
                             voice().greeting(RadioDjBrain.opening(announcementCount++), next);
                         } else {
-                            voice().say(RadioReplies.message(language, 0), next);
+                            voice().say(RadioDjBrain.opening(announcementCount++, language), next);
                         }
                     } else next.run();
                 } else {
