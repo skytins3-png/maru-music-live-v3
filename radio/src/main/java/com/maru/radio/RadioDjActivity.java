@@ -386,6 +386,13 @@ public final class RadioDjActivity extends Activity {
         lastReply = line.text;
         oneLine("선물 감사 언어: " + RadioReplies.LANGUAGES[line.language]
                 + " · BIGO 선물 이벤트 자동 수신은 아직 미연결");
+        if (RadioDirectRtmpService.isActive()) {
+            startService(new Intent(this, RadioDirectRtmpService.class)
+                    .setAction(RadioDirectRtmpService.ACTION_SAY)
+                    .putExtra(RadioDirectRtmpService.EXTRA_SAY, line.text)
+                    .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, line.language));
+            return;
+        }
         Intent action = new Intent(this, RadioPlaybackService.class)
                 .setAction(RadioPlaybackService.ACTION_DJ_GIFT)
                 .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, supplied)
