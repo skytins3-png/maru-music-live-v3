@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.safev173'" in gradle,
+    "own package": "applicationId 'com.maru.radio.experimentv18'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -34,7 +34,7 @@ checks = {
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
     "no recording or capture permissions": all(word not in manifest for word in (
-        "RECORD_AUDIO", "MEDIA_PROJECTION", "BIND_ACCESSIBILITY_SERVICE",
+        "RECORD_AUDIO", "MEDIA_PROJECTION",
         "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE")),
     "four song groups": all(n in (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8") for n in ("한국노래", "중국노래", "서양노래", "연주곡")),
     "genre-filtered queue": "RadioProgram.category(this, track) == category" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
@@ -46,13 +46,11 @@ checks = {
     "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
         "handleStartIntent", "beginBroadcast()", "BigoBroadcastGuide.openBigo(this, false)", "RadioSchedule.set(this, pendingStartAt)")),
     "five-language copy-only replies": "RadioReplies.message(language, event)" in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
-    "no accessibility service or permission": all(s not in manifest for s in
+    "experimental BIGO access service only after consent": all(s in manifest for s in
         ("AccessibilityService", "BIND_ACCESSIBILITY_SERVICE", "BigoControlAssist",
          "@xml/bigo_control_config")),
-    "inert accessibility source": all(term not in
-        (root / "radio/src/main/java/com/maru/radio/BigoControlAssist.java").read_text(encoding="utf-8")
-        for term in ("extends AccessibilityService", "dispatchGesture", "onAccessibilityEvent",
-                     "import android.accessibilityservice")),
+    "accessibility only BIGO package": 'android:packageNames="sg.bigo.live"' in
+        (root / "radio/src/main/res/xml/bigo_control_config.xml").read_text(encoding="utf-8"),
     "BIGO open-only buttons": "requestBigoStart()" in activity and
         "requestBigoEnd()" in activity and "openBigo()" in activity and
         "BigoControlAssist" not in activity,
@@ -66,13 +64,14 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.safev173'" in gradle
+    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.experimentv18'" in gradle
         and "applicationId 'com.maru.radio.safev16'" not in gradle
         and "applicationId 'com.maru.radio.safev17'" not in gradle
-        and "applicationId 'com.maru.radio.safev171'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 11" in gradle
-        and "versionName '1.7.3'" in gradle
-        and "MARU RADIO V1.7.3" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+        and "applicationId 'com.maru.radio.safev171'" not in gradle
+        and "applicationId 'com.maru.radio.safev173'" not in gradle,
+    "V1.7.2 correct Android version": "versionCode 12" in gradle
+        and "versionName '1.8.0-experimental'" in gradle
+        and "MARU RADIO V1.8 실험판" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -88,8 +87,8 @@ checks.update({
         and "android.intent.action.BOOT_COMPLETED" in manifest
         and "restore(context)" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
-    "V1.7.2 end only MARU, no BIGO UI automation": all(x not in manifest for x in
-        ("BIND_ACCESSIBILITY_SERVICE", "SYSTEM_ALERT_WINDOW", "RECORD_AUDIO"))
+    "V1.8 no recording or overlay permission": all(x not in manifest for x in
+        ("SYSTEM_ALERT_WINDOW", "RECORD_AUDIO"))
         and "context.stopService(new Intent(context, RadioPlaybackService.class))" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
     "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
@@ -118,11 +117,10 @@ checks.update({
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
                  .read_text(encoding="utf-8") for text in (
         'getLaunchIntentForPackage(BIGO_PACKAGE)', 'host.startActivity(launch)'))
-        and "BIND_ACCESSIBILITY_SERVICE" not in manifest
         and "SYSTEM_ALERT_WINDOW" not in manifest,
     "BIGO end notification has open shortcut": "BigoBroadcastGuide.endBigoShortcut(context)" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
-    "V1.7 no new BIGO accessibility controls": "BIND_ACCESSIBILITY_SERVICE" not in manifest
+    "V1.8 no privileged media/overlay controls": "SYSTEM_ALERT_WINDOW" not in manifest
         and "dispatchGesture" not in service and "dispatchGesture" not in automation,
 })
 # V1.7.3 joint scheduling should neither overwrite a selected stop clock nor
@@ -144,11 +142,32 @@ checks.update({
     "V1.7.3 calendar calculations pure Java": all(value in clock for value in (
         "nextOccurrence(Calendar now", "endAfter(Calendar now", "Calendar.DAY_OF_MONTH",
         "while (end.getTimeInMillis() <= startAt)")),
-    "V1.7.3 no BIGO automatic control": "BIND_ACCESSIBILITY_SERVICE" not in manifest
+    "V1.8 experimental BIGO purpose disclosed": "BIND_ACCESSIBILITY_SERVICE" in manifest
         and "SYSTEM_ALERT_WINDOW" not in manifest
+        and "consentBigo()" in automation
         and "BigoBroadcastGuide.showStart(this)" in automation,
 })
 
+# Experimental automation is explicitly opt-in and must never silently
+# exercise gestures against arbitrary apps or collect chat/private content.
+assist = (root / "radio/src/main/java/com/maru/radio/BigoControlAssist.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.8 bounded consented actions": all(x in assist for x in (
+        'getBoolean("approved", false)', '"sg.bigo.live"',
+        'DEADLINE_MS = 90_000L', 'return false;',
+        'getRootInActiveWindow()', 'performAction(', 'dispatchGesture(')),
+    "V1.8 reads BIGO only": 'BIGO.contentEquals(root.getPackageName())' in assist
+        and 'BIGO.contentEquals(e.getPackageName())' in assist,
+    "V1.8 positive consent and revocation": all(x in automation for x in (
+        'private void consentBigo()', 'private void disableBigo()',
+        'BigoControlAssist.approve(this, true)',
+        'BigoControlAssist.approve(this, false)')),
+    "V1.8 scheduler only if opted in": "BigoControlAssist.queue(context, true)" in schedule
+        and "BigoControlAssist.queue(context, false)" in schedule,
+    "V1.8 requires UI state proof before public start": 'BigoAutomationPolicy.isSetup(labels)' in assist
+        and 'BigoAutomationPolicy.isHostLive(labels)' in assist
+        and 'BigoAutomationPolicy.isEndConfirmation(labels)' in assist,
+})
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
