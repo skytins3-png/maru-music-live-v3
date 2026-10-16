@@ -45,16 +45,21 @@ import java.util.Locale;
 public final class RadioDirectRtmpService extends Service implements ConnectChecker {
     public static final String ACTION_START = "com.maru.radio.DIRECT_RTMP_START";
     public static final String ACTION_STOP = "com.maru.radio.DIRECT_RTMP_STOP";
+    public static final String ACTION_SAY = "com.maru.radio.DIRECT_RTMP_SAY";
+    public static final String EXTRA_SAY = "short_safe_ahwan_text";
+    public static final String EXTRA_LANGUAGE = "short_safe_ahwan_language";
     public static final String EXTRA_SERVER = "rtmp_server_private";
     public static final String EXTRA_KEY = "rtmp_key_private";
 
     private static final String CHANNEL = "maru_direct_rtmp_status";
     private static final int NOTIFICATION_ID = 202;
     private static volatile String publicStatus = "독립 방송 대기 · 연결 안 됨";
+    private static volatile boolean currentlyStreaming;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Originals.Track> queue = new ArrayList<>();
     private GenericStream stream;
     private RadioRtmpLevelAudioSource source;
+    private RadioRtmpTtsBridge announcer;
     private String endpoint;
     private int generation;
     private int currentIndex = -1;
@@ -63,6 +68,7 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
     private boolean active;
 
     public static String status() { return publicStatus; }
+    public static boolean isActive() { return currentlyStreaming; }
 
     private void state(String s) {
         publicStatus = s; // Never include server URL, host, keys, or private details.
@@ -82,6 +88,17 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
         String action = intent == null ? "" : intent.getAction();
         if (ACTION_STOP.equals(action)) {
             stopAndClose("독립 RTMP 송출 종료됨");
+            return START_NOT_STICKY;
+        }
+        if (ACTION_SAY.equals(action)) {
+            if (!active || announcer == null) return START_NOT_STICKY;
+            String speech = intent.getStringExtra(EXTRA_SAY);
+            int language = intent.getIntExtra(EXTRA_LANGUAGE,
+                    RadioDjLanguagePolicy.ENGLISH);
+            if (speech != null && !speech.trim().isEmpty()
+                    && speech.length() <= 200)
+                announcer.offer(new RadioDjLanguagePolicy.Line(language, speech));
+            intent.removeExtra(EXTRA_SAY);
             return START_NOT_STICKY;
         }
         if (!ACTION_START.equals(action)) return START_NOT_STICKY;
@@ -109,6 +126,7 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
         endpoint = server.trim().replaceAll("/+$", "") + "/" + key.trim();
         currentIndex = 0;
         active = true;
+        currentlyStreaming = true;
         foreground();
         int id = ++generation;
         // Encoder initialization is isolated from Android's volume slider.
@@ -234,7 +252,10 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
                 stopAndClose("기기 인코더가 음성/정지화면을 지원하지 않아요.");
                 return;
             }
-            state("RTMP 서버 연결 시도 · 스피커 음소거 독립 오디오 보정 · 아환 실시간 음성 미연결");
+            announcer = new RadioRtmpTtsBridge(this, sampleRate, pcm -> {
+                if (active && source != null) source.queueAnnouncement(pcm);
+            });
+            state("RTMP 연결 중 · 음악+아환 PCM 혼합 준비 · 스피커 음소거 독립");
             stream.startStream(endpoint);
         } catch (Exception ex) {
             stopAndClose("원곡 디코더 또는 송출 시작 실패 · 다른 파일로 시험해 주세요.");
@@ -253,8 +274,12 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
                 if (source == null) break;
                 source.replaceFile(this, uri(song));
                 currentIndex = candidate;
-                state("RTMP 음악 송출 중 · " + (currentIndex + 1) + "/" + queue.size()
-                        + "곡 (청취자 기기에서 소리 확인 필요)");
+                state("RTMP 음악+아환 송출 중 · " + (currentIndex + 1)
+                        + "/" + queue.size() + "곡 (청취자 기기 확인 필요)");
+                if (announcer != null && RadioDjSettings.interSong(this))
+                    for (RadioDjLanguagePolicy.Line line : RadioDjLanguagePolicy.songIntro(
+                            song.title, RadioProgram.category(this, song)))
+                        announcer.offer(line);
                 return;
             } catch (Exception ignored) {
                 // Skip incompatible/broken song; keep stream connection alive.
@@ -266,7 +291,10 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
 
     private void stopAndClose(String why) {
         active = false;
+        currentlyStreaming = false;
         ++generation;
+        if (announcer != null) announcer.close();
+        announcer = null;
         try { if (stream != null) stream.release(); }
         catch (RuntimeException ignored) {}
         stream = null;
@@ -285,7 +313,13 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
     }
 
     @Override public void onConnectionSuccess() {
-        main.post(() -> { if (active) state("RTMP 서버에 연결됨 · 실제 BIGO 시청 소리 확인 필요"); });
+        main.post(() -> {
+            if (!active) return;
+            state("RTMP 서버 연결 성공 · 음악+아환 네트워크 PCM · 청취자 확인 필요");
+            if (announcer != null && RadioDjSettings.opening(this))
+                for (RadioDjLanguagePolicy.Line line : RadioDjLanguagePolicy.opening())
+                    announcer.offer(line);
+        });
     }
 
     @Override public void onConnectionFailed(String reason) {
