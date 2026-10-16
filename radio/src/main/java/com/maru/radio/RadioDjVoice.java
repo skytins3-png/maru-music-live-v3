@@ -22,6 +22,7 @@ public final class RadioDjVoice {
     private MediaPlayer clip;
     private boolean ready;
     private boolean initialized;
+    private boolean initializationFailed;
     private int generation;
     private String pendingText;
     private Runnable pendingDone;
@@ -49,12 +50,14 @@ public final class RadioDjVoice {
         timeout = () -> complete(ticket);
         main.postDelayed(timeout, 15000L);
         if (ready) startSpeech(ticket);
+        else if (initializationFailed) complete(ticket); // do not stall songs for 15s
         else if (!initialized) {
             initialized = true;
             try {
                 tts = new TextToSpeech(context, init -> main.post(() -> {
                     if (closed) return;
                     ready = init == TextToSpeech.SUCCESS && tts != null;
+                    initializationFailed = !ready;
                     if (ready) {
                         tts.setSpeechRate(0.93f);
                         tts.setPitch(0.96f);
@@ -70,6 +73,7 @@ public final class RadioDjVoice {
                     }
                 }));
             } catch (RuntimeException e) {
+                initializationFailed = true;
                 status = "시스템 음성 엔진 실행 불가";
                 complete(ticket);
             }
