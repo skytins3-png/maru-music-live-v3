@@ -126,13 +126,13 @@ public final class RadioAutomationActivity extends Activity {
         content.setPadding(dp(19), dp(17), dp(19), dp(36));
         scroll.addView(content);
         content.addView(label("📻 MARU 원곡 자동 시작·종료", 27, PURPLE));
-        content.addView(label("MARU 음악만 예약 자동 재생·종료 · BIGO 라이브 조작은 수동", 14, WHITE));
+        content.addView(label("MARU 음악 예약 · BIGO 버튼 자동화는 별도 동의가 필요한 미검증 실험", 14, WHITE));
 
         LinearLayout schedule = card(content);
         schedule.addView(label("① 원하는 음악 시작 시각", 21, WHITE));
         schedule.addView(label("‘음악 자동 시작’은 선택한 Suno 원곡을 예약 시각에 "
                 + "자동 재생하도록 Android에 요청해요. BIGO 오디오 라이브 방송은 "
-                + "자동 시작되지 않으니 직접 눌러야 해요.",
+                + "접근성 동의 없으면 직접 눌러야 해요.",
                 14, 0xFFDDD2E8));
         scheduleStatus = label("음악 시작 예약 없음", 16, PURPLE);
         schedule.addView(scheduleStatus);
@@ -145,7 +145,7 @@ public final class RadioAutomationActivity extends Activity {
         time.addView(label("② 원하는 음악 종료 시각", 21, WHITE));
         time.addView(label("1시간 자동 종료는 없습니다. 형이 지정한 시각에만 "
                 + "MARU 음악을 종료하고 BIGO 종료 알림을 보냅니다. "
-                + "BIGO 라이브는 방송 화면에서 직접 종료해야 합니다.",
+                + "BIGO 종료 자동 시도는 동의·화면 인식 조건에서만 가능합니다.",
                 14, 0xFFDDD2E8));
         endStatus = label("자동 종료 시각: 설정 안 함", 16, PURPLE);
         time.addView(endStatus);
@@ -185,8 +185,8 @@ public final class RadioAutomationActivity extends Activity {
         notes.addView(label("🎵 자동 시작은 먼저 파일을 등록하고 정확한 알람 특별 접근을 "
                 + "허용한 경우에만 동작하도록 예약해요. 휴대폰이 재부팅되면 "
                 + "예약을 재등록하지만 기기 전원 꺼짐·오디오 포커스·절전 정책으로 "
-                + "시작이 실패할 수 있습니다. 종료는 MARU 음악만 끝내며, "
-                + "BIGO 실제 생방송의 시작·믹서 조작·종료는 직접 해야 합니다.",
+                + "시작이 실패할 수 있습니다. MARU 음악 종료만 확실히 예약하며, "
+                + "BIGO 실제 방송은 동의 후 자동 시도 중에도 실방송 완료를 보장하지 않아요.",
                 13, 0xFFDDD2E8));
 
         note = label("원곡은 재가공하지 않아요.", 13, 0xFFA8E3BE);
@@ -325,7 +325,7 @@ public final class RadioAutomationActivity extends Activity {
                         .putExtra(RadioPlaybackService.EXTRA_END_AT, pendingEndAt));
             } catch (RuntimeException ignored) {}
             updateStatus();
-            message("✅ MARU 음악 시작·종료를 함께 예약했어. BIGO 방송은 수동 시작·종료야.");
+            message("✅ MARU 음악 시작·종료를 함께 예약했어. BIGO 자동 조작은 미검증 실험이야.");
         } catch (RuntimeException e) {
             message("두 시간 예약 실패: 알람 접근·저장 설정을 확인해 주세요.");
         }
