@@ -267,10 +267,11 @@ checks.update({
     "V1.9 user recorded greeting only": all(x in dj_activity for x in (
         "Intent.ACTION_OPEN_DOCUMENT", "takePersistableUriPermission",
         "RadioDjSettings.setVoiceClip(this, uri)", "형의 실제 목소리"))
-        and "voice().greeting(" in service,
+        and "voice().greeting(" in service
+        and "ACTION_DJ_TEST_RECORDED" in dj_activity,
     "V1.9 intersong DJ announcement before actual music": all(x in service for x in (
-        "RadioDjSettings.interSong(this)", "RadioDjBrain.nextSong(t.title",
-        "voice().say(", "p.start()", "deadlineReached()",
+        "RadioDjSettings.interSong(this)", "RadioDjLanguagePolicy.songIntro(t.title",
+        "voice().sayLines(", "p.start()", "deadlineReached()",
         "djHoldingTrack = true;", "djHoldingTrack = false;")),
     "V1.9 requested originals can play without changing genre":
         "ACTION_DJ_REQUEST" in service
@@ -297,9 +298,36 @@ checks.update({
         "initializationFailed = !ready;")),
     "V1.9 five-language TTS": all(x in dj_voice for x in (
         "Locale.SIMPLIFIED_CHINESE", "Locale.JAPANESE",
-        'new Locale("ru", "RU")', "RadioDjSettings.language(context)")),
+        'new Locale("ru", "RU")', "pendingLanguage")),
 })
 
+# The announcer now speaks only genres' requested languages:
+# KR=Korean+English, CN=Chinese+English, Western/Instrumental=English.
+# Start/end always English, gifts sender language with English fallback.
+language_policy = (root / "radio/src/main/java/com/maru/radio/RadioDjLanguagePolicy.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.9.2 event-based short announcer": all(x in language_policy for x in (
+        "public static List<Line> songIntro(", "case 1:", "case 2:",
+        "new Line(KOREAN", "new Line(CHINESE", "new Line(ENGLISH",
+        "public static List<Line> opening()", "public static List<Line> closing()")),
+    "V1.9.2 TTS changes language per segment": all(x in dj_voice for x in (
+        "public void sayLines(", "private void speakLine(",
+        "pendingLanguage = Math.max(", "tts.setLanguage(voices[index])")),
+    "V1.9.2 gift recipient language unknown defaults English": all(x in language_policy for x in (
+        "giftLanguage(String comment, int manualHint)",
+        "return ENGLISH; // unknown/default", "public static List<Line> gift(")),
+    "V1.9.2 broadcast start and closing English":
+        "RadioDjLanguagePolicy.opening()" in service
+        and "RadioDjLanguagePolicy.closing()" in service
+        and "ACTION_DJ_CLOSING" in dj_activity,
+    "V1.9.2 no five-language fixed rotation on air":
+        "RadioDjSettings.language(this)" not in service
+        and "RadioDjLanguagePolicy.songIntro(" in service,
+    "V1.9.2 gift sender language can be overridden":
+        "RadioDjSettings.giftLanguageHint(this)" in dj_activity
+        and "RadioDjSettings.setGiftLanguageHint(" in dj_activity
+        and "ACTION_DJ_GIFT" in dj_activity,
+})
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
