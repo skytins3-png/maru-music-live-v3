@@ -254,7 +254,7 @@ public final class RadioActivity extends Activity {
         programCard.addView(label("MARU 음악 예약 가능 · BIGO 실제 송출은 휴대폰 검증 필요",
                 12, 0xFFCCC0DA, false));
         gap(root, 8);
-        root.addView(compactButton("🎙 AI 라디오 아나운서 · 인사/댓글/신청곡", () ->
+        root.addView(compactButton("🎙 아환 아나운서 · 인사/댓글/신청곡", () ->
                 startActivity(new Intent(this, RadioDjActivity.class))));
         root.addView(label("AI 진행자 대화·곡 소개: 휴대폰 내부 TTS / 직접 녹음 인사 지원. "
                 + "BIGO 댓글 자동 읽기·외부 음성 송출·형 목소리 자유 합성은 미지원.",
