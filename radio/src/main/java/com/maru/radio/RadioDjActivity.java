@@ -139,6 +139,9 @@ public final class RadioDjActivity extends Activity {
         body.setPadding(dp(18),dp(16),dp(18),dp(40));
         scroll.addView(body);
         body.addView(text("🎙 아환 AI 라디오 아나운서", 25, PURPLE));
+        body.addView(button("☰ MARU 전체 기능 목록 · 음악·아환·방송",
+                () -> startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
+
         body.addView(text("인사 · 신청곡 소개/재생 · 댓글 답변 · 선물 감사 · 진행 멘트", 14, WHITE));
         body.addView(text("현재는 휴대폰 내부 규칙 대화 + Android TTS입니다. "
                 + "형의 실제 목소리로 자유롭게 합성하는 음성 복제 모델은 아직 없습니다. "
