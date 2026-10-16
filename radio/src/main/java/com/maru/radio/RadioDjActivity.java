@@ -149,9 +149,8 @@ public final class RadioDjActivity extends Activity {
 
         body.addView(text("📻 진행자 인사와 멘트", 19, PURPLE));
         body.addView(button("🎙 인사하기 (형이 녹음한 인사 우선)", () -> {
-            String speech = RadioDjSettings.language(this) == 0
-                    ? RadioDjBrain.opening(RadioDjSettings.nextPhraseIndex(this))
-                    : RadioReplies.message(RadioDjSettings.language(this), 0);
+            String speech = RadioDjBrain.opening(
+                    RadioDjSettings.nextPhraseIndex(this), RadioDjSettings.language(this));
             lastReply = speech;
             oneLine("시작 인사: " + speech);
             if (RadioDjSettings.language(this) == 0)
