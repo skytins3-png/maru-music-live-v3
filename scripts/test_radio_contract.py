@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.9 complete-menu Android version": "versionCode 23" in gradle
-        and "versionName '1.9.9-complete-menu'" in gradle
-        and "MARU RADIO V1.9.9 전체 기능" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.10 mute-independent Android version": "versionCode 24" in gradle
+        and "versionName '1.9.10-mute-independent-chat-diagnostics'" in gradle
+        and "MARU RADIO V1.9.10 전체 기능" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -513,6 +513,28 @@ checks.update({
     "No hidden automatic go-live from feature directory":
         'RadioDirectRtmpService.ACTION_START' not in feature_menu
         and 'startService(' not in feature_menu,
+})
+
+# Broadcast original music PCM must not be affected by phone volume OR
+# by an unintended loudness processor. TTS voice ducking is a separate
+# intentional exception during actual Ahwan announcements.
+network_source = (root / "radio/src/main/java/com/maru/radio/RadioRtmpLevelAudioSource.java").read_text(encoding="utf-8")
+checks.update({
+    "RTMP music PCM bypasses all auto-volume and device speaker gain":
+        'new AudioFileSource(context, source, false, onFinish)' in network_source
+        and 'receive.inputPCMData(frame)' in network_source
+        and 'musicLeveler' not in network_source
+        and 'RadioRtmpPcmLeveler' not in network_source
+        and 'setVolume(' not in network_source
+        and 'AudioManager' not in network_source,
+    "RTMP Ahwan announcements remain optional network PCM overlays":
+        'voiceMixer.mix(' in network_source
+        and 'queueAnnouncement(short[] monoPcm)' in network_source,
+    "Ahwan chat status differentiates consent, accessibility, TTS and stream":
+        'boolean consent = BigoControlAssist.commentReplies(this)' in dj_activity
+        and 'boolean connected = BigoControlAssist.connected(this)' in dj_activity
+        and 'boolean voice = RadioDjSettings.isVoiceEnabled(this)' in dj_activity
+        and 'boolean direct = RadioDirectRtmpService.isActive()' in dj_activity,
 })
 
 for name, okay in checks.items():
