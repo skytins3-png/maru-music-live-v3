@@ -159,6 +159,8 @@ public final class RadioActivity extends Activity {
                         .setPositiveButton("확인", null).show()));
         gap(root, 8);
 
+        root.addView(compactButton("📋 전체 보관곡 목록 열기 · 모든 곡 보기", this::openAllSongs));
+
         LinearLayout playerCard = new LinearLayout(this);
         playerCard.setOrientation(LinearLayout.VERTICAL);
         playerCard.setPadding(dp(15), dp(12), dp(15), dp(11));
@@ -308,6 +310,7 @@ public final class RadioActivity extends Activity {
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
+        root.addView(compactButton("📋 전체 목록 크게 보기 · 장르 필터 해제", this::openAllSongs));
         songCount = label("보관 원곡 0곡", 16, VIOLET, true);
         root.addView(songCount);
         search = new EditText(this);
@@ -642,6 +645,10 @@ public final class RadioActivity extends Activity {
                 .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
         say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");
         refreshProgramUI();
+    }
+
+    private void openAllSongs() {
+        startActivity(new Intent(this, RadioAllSongsActivity.class));
     }
 
     private void refreshSongs() {
