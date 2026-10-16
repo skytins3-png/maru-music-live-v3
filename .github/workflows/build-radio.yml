@@ -51,6 +51,7 @@ jobs:
           mkdir -p /tmp/maru-ui-policy
           javac -d /tmp/maru-ui-policy \
             radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java \
+            radio/src/main/java/com/maru/radio/BigoMicLayoutPolicy.java \
             scripts/BigoAutomationPolicySelfTest.java
           java -cp /tmp/maru-ui-policy com.maru.radio.BigoAutomationPolicySelfTest
 
