@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 19" in gradle
-        and "versionName '1.9.7-bigo-chat-audio-prototype'" in gradle
-        and "MARU RADIO V1.9.7 아환 채팅 실험" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 20" in gradle
+        and "versionName '1.9.8-independent-rtmp-bridge'" in gradle
+        and "MARU RADIO V1.9.8 독립 음악 송출" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -263,7 +263,7 @@ checks.update({
         "android.speech.tts.TextToSpeech" in dj_voice
         and "getPersistedUriPermissions" not in dj_voice
         and "RECORD_AUDIO" not in manifest
-        and "INTERNET" not in manifest,
+        and "INTERNET" in manifest,
     "V1.9 user recorded greeting only": all(x in dj_activity for x in (
         "Intent.ACTION_OPEN_DOCUMENT", "takePersistableUriPermission",
         "RadioDjSettings.setVoiceClip(this, uri)", "형의 실제 목소리"))
@@ -418,6 +418,37 @@ checks.update({
     "V1.9.7 viewer sound checklist disclosure":
         "BIGO 청취자 실제 소리 경로 점검" in dj_activity
         and "자동 입력되지 않습니다" in dj_activity,
+})
+rtmp_service = (root / "radio/src/main/java/com/maru/radio/RadioDirectRtmpService.java").read_text(encoding="utf-8")
+rtmp_activity = (root / "radio/src/main/java/com/maru/radio/RadioDirectRtmpActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.9.8 user-supplied BIGO RTMP credentials remain private in memory":
+        "EXTRA_SERVER" in rtmp_service
+        and "EXTRA_KEY" in rtmp_service
+        and "intent.removeExtra(EXTRA_KEY)" in rtmp_service
+        and "key.setText(\"\")" in rtmp_activity
+        and "FLAG_SECURE" in rtmp_activity,
+    "V1.9.8 no microphone/camera source":
+        "AudioFileSource" in rtmp_service
+        and "BitmapSource" in rtmp_service
+        and "playAudioDevice()" in rtmp_service
+        and "MicrophoneSource" not in rtmp_service
+        and "android.permission.RECORD_AUDIO" not in manifest
+        and "android.permission.CAMERA" not in manifest,
+    "V1.9.8 foreground service with direct transport":
+        'android:name=".RadioDirectRtmpService"' in manifest
+        and "android.permission.INTERNET" in manifest
+        and "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK" in rtmp_service
+        and "new GenericStream(" in rtmp_service
+        and "stream.startStream(endpoint)" in rtmp_service
+        and "audioFile" not in rtmp_service,
+    "V1.9.8 fails closed without own stream key":
+        "if (!valid(server, key))" in rtmp_service
+        and "BIGO 공식" in rtmp_activity
+        and "getHost()" in rtmp_service,
+    "V1.9.8 honest receiver audio status":
+        "아환의 댓글 자동 음성 답변은 아직" in rtmp_activity
+        and "실제 BIGO 시청 소리 확인 필요" in rtmp_service,
 })
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
