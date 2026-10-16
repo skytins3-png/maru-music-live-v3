@@ -22,13 +22,16 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.lang.ref.WeakReference;
 
 /**
  * EXPERIMENT ONLY — requires separate explicit consent and Android accessibility opt-in.
  * Operates ONLY inside the real BIGO package, on pre-declared static UI steps.
- * Never reads or stores viewer comments, passwords, messages or other app screens.
+ * Optional separately-approved comment replies read only labeled chat widgets
+ * within the verified BIGO host LIVE view; content is transient, never logged.
+ * No usernames, raw comments, passwords, or contacts are persisted or sent out.
  * Never acts when the lock screen is shown or when BIGO is not foreground.
  * No unknown-screen taps, no hidden API, and no Play Protect bypass.
  *
@@ -52,6 +55,10 @@ public final class BigoControlAssist extends AccessibilityService {
     private long lastActionAt;
     private boolean waitingGesture;
     private boolean actionInProgress;
+    private final Runnable chatWork = this::checkChat;
+    private final LinkedHashSet<Integer> chatSeen = new LinkedHashSet<>();
+    private boolean chatPrimed;
+    private long chatLastHandledAt;
 
     private SharedPreferences pref() { return getSharedPreferences(STORE, MODE_PRIVATE); }
 
@@ -63,6 +70,34 @@ public final class BigoControlAssist extends AccessibilityService {
         // A persistent SharedPreferences flag can survive process death. Only
         // a currently bound Android AccessibilityService is really connected.
         return connectedService.get() != null;
+    }
+
+    public static boolean commentReplies(Context ctx) {
+        return approved(ctx) && ctx.getSharedPreferences(STORE, MODE_PRIVATE)
+                .getBoolean("comment_reply_opt_in", false);
+    }
+
+    /** Separate informed opt-in for read-only LIVE chat; default OFF. */
+    public static boolean setCommentReplies(Context ctx, boolean enabled) {
+        if (enabled && !approved(ctx)) return false;
+        ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
+                .putBoolean("comment_reply_opt_in", enabled)
+                .putString("chat_state", enabled
+                        ? "댓글 대기 · BIGO 호스트 LIVE 화면/접근성 연결 필요"
+                        : "댓글 자동응답 꺼짐")
+                .apply();
+        BigoControlAssist running = connectedService.get();
+        if (running != null) {
+            running.handler.removeCallbacks(running.chatWork);
+            running.chatSeen.clear();
+            running.chatPrimed = false;
+        }
+        return true;
+    }
+
+    public static String chatState(Context ctx) {
+        return ctx.getSharedPreferences(STORE, MODE_PRIVATE).getString(
+                "chat_state", "댓글 자동응답 꺼짐");
     }
 
     public static String status(Context ctx) {
@@ -95,13 +130,18 @@ public final class BigoControlAssist extends AccessibilityService {
         SharedPreferences.Editor edit = ctx.getSharedPreferences(STORE, MODE_PRIVATE).edit()
                 .putBoolean("approved", value);
         if (!value) edit.remove("op").remove("expires").remove("phase")
-                .remove("preflight_expires").putString("status", "BIGO 자동화 동의 철회됨");
+                .remove("preflight_expires").putBoolean("comment_reply_opt_in", false)
+                .putString("chat_state", "접근성 동의 철회 · 댓글 자동응답 꺼짐")
+                .putString("status", "BIGO 자동화 동의 철회됨");
         edit.apply();
         if (!value) {
             BigoControlAssist service = connectedService.get();
             if (service != null) {
                 service.handler.removeCallbacks(service.work);
                 service.handler.removeCallbacks(service.expiryWatchdog);
+                service.handler.removeCallbacks(service.chatWork);
+                service.chatSeen.clear();
+                service.chatPrimed = false;
             }
         }
     }
@@ -188,6 +228,9 @@ public final class BigoControlAssist extends AccessibilityService {
     @Override public boolean onUnbind(Intent i) {
         handler.removeCallbacks(work);
         handler.removeCallbacks(expiryWatchdog);
+        handler.removeCallbacks(chatWork);
+        chatSeen.clear();
+        chatPrimed = false;
         connectedService = new WeakReference<>(null);
         pref().edit().putBoolean("connected", false)
                 .remove("op").remove("expires").remove("phase")
@@ -195,17 +238,113 @@ public final class BigoControlAssist extends AccessibilityService {
         return super.onUnbind(i);
     }
 
-    @Override public void onInterrupt() { abort("자동 조작 중단: BIGO 상태 확인 필요"); }
+    @Override public void onInterrupt() {
+        handler.removeCallbacks(chatWork);
+        chatSeen.clear();
+        chatPrimed = false;
+        abort("자동 조작 중단: BIGO 상태 확인 필요");
+    }
 
     @Override public void onAccessibilityEvent(AccessibilityEvent e) {
         if (e == null || e.getPackageName() == null
                 || !BIGO.contentEquals(e.getPackageName()) || !approved(this)) return;
+        if (commentReplies(this) && RadioDjSettings.isVoiceEnabled(this)) {
+            // This merely schedules a read-only check of the named LIVE chat
+            // surface; it NEVER clicks, posts, or saves viewer messages.
+            if (Build.VERSION.SDK_INT < 29 || !handler.hasCallbacks(chatWork))
+                handler.postDelayed(chatWork, 550L);
+        }
         if (!pref().contains("op") && !pref().contains("preflight_expires")) return;
         // BIGO may generate frequent UI events (e.g. animation). Replacing the
         // delay on every event starves automation forever. Coalesce instead.
         if (android.os.Build.VERSION.SDK_INT >= 29 && handler.hasCallbacks(work)) return;
         handler.removeCallbacks(work);
         handler.postDelayed(work, 250L);
+    }
+
+    private void setChatState(String message) {
+        // Keep only fixed status strings; never store a viewer's comment.
+        pref().edit().putString("chat_state", message).apply();
+    }
+
+    private void checkChat() {
+        if (!approved(this) || !commentReplies(this)
+                || !RadioDjSettings.isVoiceEnabled(this)) return;
+        if (pref().contains("op") || pref().contains("preflight_expires")) return;
+        KeyguardManager km = getSystemService(KeyguardManager.class);
+        if (km != null && km.isKeyguardLocked()) {
+            chatPrimed = false;
+            chatSeen.clear();
+            setChatState("화면 잠금 · BIGO 댓글을 읽을 수 없음");
+            return;
+        }
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null || root.getPackageName() == null
+                || !BIGO.contentEquals(root.getPackageName())) {
+            chatPrimed = false;
+            chatSeen.clear();
+            return;
+        }
+        if (!BigoAutomationPolicy.isHostLive(allLabels(root))) {
+            chatPrimed = false;
+            chatSeen.clear();
+            setChatState("BIGO 호스트 LIVE 화면 확인 대기");
+            return;
+        }
+        // The first observed screen may contain old comments. Prime only and
+        // reply to NEW matching rows on later accessibility content changes.
+        java.util.ArrayList<BigoChatRule.Match> candidates = new java.util.ArrayList<>();
+        ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<>();
+        queue.add(root);
+        int scanned = 0;
+        while (!queue.isEmpty() && scanned++ < 800) {
+            AccessibilityNodeInfo n = queue.removeFirst();
+            if (n == null) continue;
+            if (n.isVisibleToUser() && n.getPackageName() != null
+                    && BIGO.contentEquals(n.getPackageName())) {
+                CharSequence desc = n.getContentDescription();
+                CharSequence row = n.getText();
+                BigoChatRule.Match reply = BigoChatRule.match(
+                        n.getViewIdResourceName(),
+                        desc == null ? null : desc.toString(),
+                        row == null ? null : row.toString());
+                if (reply != null && !chatSeen.contains(reply.transientFingerprint))
+                    candidates.add(reply);
+            }
+            for (int i = 0; i < n.getChildCount(); i++) {
+                AccessibilityNodeInfo child = n.getChild(i);
+                if (child != null) queue.add(child);
+            }
+        }
+        for (BigoChatRule.Match c : candidates) {
+            chatSeen.add(c.transientFingerprint);
+            if (chatSeen.size() > 80) {
+                Integer earliest = chatSeen.iterator().next();
+                chatSeen.remove(earliest);
+            }
+        }
+        if (!chatPrimed) {
+            chatPrimed = true;
+            setChatState("BIGO LIVE 댓글 감지 준비됨 · 새 인사/감사 댓글 대기");
+            return;
+        }
+        // Max one short fixed-script reply per 15 seconds; drop extras
+        // so music and listeners aren't overwhelmed by voice announcements.
+        long now = System.currentTimeMillis();
+        if (candidates.isEmpty() || now - chatLastHandledAt < 15000L) return;
+        BigoChatRule.Match match = candidates.get(candidates.size() - 1);
+        Intent spoken = new Intent(this, RadioPlaybackService.class)
+                .setAction(RadioPlaybackService.ACTION_DJ_AUTO_COMMENT)
+                .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, match.reply)
+                .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, match.language);
+        try {
+            startService(spoken);
+            chatLastHandledAt = now;
+            setChatState("방송 댓글 새 인사/감사 감지 → 로컬 TTS 답변 요청"
+                    + " · BIGO 청취 전달은 별도 검증 필요");
+        } catch (RuntimeException denied) {
+            setChatState("댓글은 감지했지만 Android가 답변 음성 서비스를 제한");
+        }
     }
 
     private void evaluate() {
