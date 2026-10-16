@@ -57,6 +57,7 @@ public final class RadioPlaybackService extends Service {
     private String requestedDjSpeech = "";
     private int announcementCount;
     private boolean openingSpoken;
+    private boolean djHoldingTrack;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
     private int currentIndex = -1;
@@ -153,7 +154,10 @@ public final class RadioPlaybackService extends Service {
                     : intent.getStringExtra(EXTRA_DJ_TEXT);
             if (text == null || text.trim().isEmpty()) { if (queue.isEmpty()) stopSelf();
                 return START_NOT_STICKY; }
-            boolean resume = isPlaying();
+            // Manual announcer speech can replace an in-progress auto intro.
+            // Preserve the intent to start the prepared song afterwards.
+            boolean resume = isPlaying() || djHoldingTrack;
+            djHoldingTrack = false;
             int ticket = generation;
             if (resume) pauseOnly();
             Runnable afterward = () -> {
@@ -346,6 +350,7 @@ public final class RadioPlaybackService extends Service {
     private void playIndex(int index) {
         if (index < 0 || index >= queue.size()) return;
         if (djVoice != null) djVoice.cancel();
+        djHoldingTrack = false;
         ++generation;
         final int ticket = generation;
         releasePlayer();
@@ -384,8 +389,10 @@ public final class RadioPlaybackService extends Service {
                 boolean doNext = RadioDjSettings.interSong(this);
                 if ((explicitSpeech != null && !explicitSpeech.isEmpty())
                         || doOpening || doNext) {
+                    djHoldingTrack = true;
                     final Runnable play = () -> {
                         if (ticket != generation || player != p) return;
+                        djHoldingTrack = false;
                         if (deadlineReached()) { stopPlayback(); return; }
                         try { p.start(); } catch (IllegalStateException ignored) {}
                         updateNotification();
@@ -467,6 +474,7 @@ public final class RadioPlaybackService extends Service {
         if (djVoice != null) djVoice.cancel();
         requestedDjSpeech = "";
         openingSpoken = false;
+        djHoldingTrack = false;
         clearTimer();
         ++generation;
         releasePlayer();
