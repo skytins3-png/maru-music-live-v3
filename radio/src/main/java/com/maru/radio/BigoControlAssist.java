@@ -550,6 +550,40 @@ public final class BigoControlAssist extends AccessibilityService {
         return null;
     }
 
+    // Keep only STATIC BUTTON/SCREEN ANCHORS. Never retain the original text
+    // of room names, comments, user names, chat messages or descriptions.
+    private static final String[] KNOWN_UI_ANCHORS = {
+            "오디오 라이브", "방송하기", "믹서", "마이크 볼륨",
+            "1", "Original", "원본", "닫기", "Close", "종료",
+            "라이브 종료하기", "추천", "인기", "발견", "홈", "라이브",
+            "자리", "시청자", "명 시청", "방송 시간"
+    };
+
+    private static void addControlLabel(HashSet<String> recognized, CharSequence text) {
+        if (text == null) return;
+        String normalized = BigoAutomationPolicy.normalize(text.toString());
+        if (normalized.isEmpty()) return;
+        for (String anchor : KNOWN_UI_ANCHORS) {
+            if (BigoAutomationPolicy.normalize(anchor).equals(normalized)) {
+                recognized.add(anchor);
+                return;
+            }
+        }
+        if (normalized.equals("오디오live") || normalized.equals("audiolive")) {
+            recognized.add("오디오 라이브");
+        } else if (normalized.startsWith("시청자")
+                && normalized.length() < 16
+                && normalized.substring("시청자".length()).matches("[0-9]{1,6}")) {
+            // Store only the generic recognized label, never viewer numbers.
+            recognized.add("시청자");
+        } else if (normalized.matches("[0-9]{1,6}명시청")) {
+            recognized.add("명 시청");
+        } else if (normalized.startsWith("방송을종료")
+                && normalized.length() <= 28) {
+            recognized.add("방송을 종료");
+        }
+    }
+
     private Set<String> allLabels(AccessibilityNodeInfo root) {
         HashSet<String> out = new HashSet<>();
         ArrayDeque<AccessibilityNodeInfo> q = new ArrayDeque<>();
@@ -558,11 +592,11 @@ public final class BigoControlAssist extends AccessibilityService {
         while (!q.isEmpty() && count++ < 1800) {
             AccessibilityNodeInfo p = q.poll();
             if (p == null) continue;
-            if (p.getText() != null) out.add(p.getText().toString());
-            if (p.getContentDescription() != null) out.add(p.getContentDescription().toString());
+            addControlLabel(out, p.getText());
+            addControlLabel(out, p.getContentDescription());
             for (int n = 0; n < p.getChildCount(); n++) {
                 AccessibilityNodeInfo child = p.getChild(n);
-                if (child != null) q.add(child);
+                if (child != null) q.addLast(child);
             }
         }
         return out;
