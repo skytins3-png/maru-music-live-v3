@@ -21,7 +21,6 @@ import android.os.Looper;
 import android.os.Build;
 
 import com.pedro.common.ConnectChecker;
-import com.pedro.encoder.input.sources.audio.AudioFileSource;
 import com.pedro.encoder.input.sources.video.BitmapSource;
 import com.pedro.library.generic.GenericStream;
 import kotlin.Unit;
@@ -55,7 +54,7 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Originals.Track> queue = new ArrayList<>();
     private GenericStream stream;
-    private AudioFileSource source;
+    private RadioRtmpLevelAudioSource source;
     private String endpoint;
     private int generation;
     private int currentIndex = -1;
@@ -222,11 +221,12 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
             Format f = format(first);
             sampleRate = f.rate;
             stereo = f.stereo;
-            source = new AudioFileSource(this, uri(first), false, isLoop -> {
+            source = new RadioRtmpLevelAudioSource(this, uri(first), isLoop -> {
                 main.post(() -> nextSong(ticket));
                 return Unit.INSTANCE;
             });
-            // Silent local output: NEVER call AudioFileSource.playAudioDevice().
+            // Silent local output: the decoder is routed to AAC, not AudioTrack.
+            // Every source PCM block gets gain-riding and a -0.75 dBFS peak limiter.
             stream = new GenericStream(this, this, new BitmapSource(card()), source);
             if (!stream.prepareVideo(640, 360, 320000, 10, 2, 0,
                     -1, -1, 0, 0, 320000)
@@ -234,7 +234,7 @@ public final class RadioDirectRtmpService extends Service implements ConnectChec
                 stopAndClose("기기 인코더가 음성/정지화면을 지원하지 않아요.");
                 return;
             }
-            state("RTMP 서버 연결 시도 · 원곡만 송출 (아환 실시간 음성 미연결)");
+            state("RTMP 서버 연결 시도 · 스피커 음소거 독립 오디오 보정 · 아환 실시간 음성 미연결");
             stream.startStream(endpoint);
         } catch (Exception ex) {
             stopAndClose("원곡 디코더 또는 송출 시작 실패 · 다른 파일로 시험해 주세요.");
