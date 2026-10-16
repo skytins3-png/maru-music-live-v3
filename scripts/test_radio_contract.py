@@ -277,10 +277,12 @@ checks.update({
         "ACTION_DJ_REQUEST" in service
         and "queue.add(0, candidate)" in service
         and "RadioProgram.select(this,0)" not in service,
-    "V1.9 user-typed comment only":
+    "V1.9 manual typed comments preserved despite separate optional BIGO listener":
         "comment.getText().toString()" in dj_activity
         and "RadioDjBrain.respond(input, titles," in dj_activity
-        and "BigoControlAssist" not in dj_activity,
+        and "BigoControlAssist" not in dj_activity[
+            dj_activity.index("private void replyToComment()"):
+            dj_activity.index("private void requestSong()")],
     "V1.9 explicit local-only limited DJ learning": all(x in dj_settings for x in (
         "isMemoryEnabled(Context ctx)", "rememberSong(Context ctx",
         "host_rules", "known.length() >= 20", "clearMemory(Context ctx)"))
