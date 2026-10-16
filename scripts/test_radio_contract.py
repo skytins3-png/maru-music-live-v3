@@ -448,8 +448,10 @@ checks.update({
         and "BIGO 공식" in rtmp_activity
         and "getHost()" in rtmp_service,
     "V1.9.8 honest receiver audio status":
-        "아환의 댓글 자동 음성 답변은 아직" in rtmp_activity
-        and "실제 BIGO 시청 소리 확인 필요" in rtmp_service,
+        "실제 BIGO 청취 수신은 별도 기기로 확인" in rtmp_activity
+        and "청취자 확인 필요" in rtmp_service
+        and "new RadioRtmpTtsBridge" in rtmp_service
+        and "RadioRtmpPcmVoiceMixer" in (root / "radio/src/main/java/com/maru/radio/RadioRtmpLevelAudioSource.java").read_text(encoding="utf-8"),
 })
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
