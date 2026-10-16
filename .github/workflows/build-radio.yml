@@ -126,7 +126,7 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.9 독립 음악 송출'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.9 전체 기능'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
           cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.9-RTMP-CI-ONLY-INSTALL.apk
