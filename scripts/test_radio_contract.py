@@ -171,6 +171,13 @@ checks.update({
 # Runtime guardrails and audio coexistence must be explicit, never imply that
 # media playback is injected into BIGO's microphone or that Android unlocks.
 checks.update({
+    "V1.8 only stores a whitelist of UI labels": all(x in assist for x in (
+        "KNOWN_UI_ANCHORS", "private static void addControlLabel(",
+        "addControlLabel(out, p.getText())",
+        "addControlLabel(out, p.getContentDescription())",
+        'recognized.add("시청자")'))
+        and "out.add(p.getText().toString())" not in assist
+        and "out.add(p.getContentDescription().toString())" not in assist,
     "V1.8 watchdog when no BIGO window event arrives": all(x in assist for x in (
         "private final Runnable expiryWatchdog = this::checkExpiration;",
         "running.handler.postDelayed(running.expiryWatchdog, DEADLINE_MS + 250L)",
