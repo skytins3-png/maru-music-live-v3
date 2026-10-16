@@ -33,6 +33,16 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_PREVIOUS = "com.maru.radio.PREVIOUS";
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
+    public static final String ACTION_DJ_SAY = "com.maru.radio.DJ_SAY";
+    public static final String ACTION_DJ_GREETING = "com.maru.radio.DJ_GREETING";
+    public static final String ACTION_DJ_CLOSING = "com.maru.radio.DJ_CLOSING";
+    public static final String ACTION_DJ_TEST_RECORDED = "com.maru.radio.DJ_TEST_RECORDED";
+    public static final String ACTION_DJ_GIFT = "com.maru.radio.DJ_GIFT";
+    public static final String EXTRA_DJ_LANGUAGE = "dj_language";
+    public static final String EXTRA_DJ_HINT = "dj_language_hint";
+    public static final String ACTION_DJ_ANNOUNCE_NEXT = "com.maru.radio.DJ_ANNOUNCE_NEXT";
+    public static final String ACTION_DJ_REQUEST = "com.maru.radio.DJ_REQUEST";
+    public static final String EXTRA_DJ_TEXT = "dj_speech";
     public static final String ACTION_APPLY_AUDIO_COEXIST = "com.maru.radio.APPLY_AUDIO_COEXIST";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
@@ -48,6 +58,11 @@ public final class RadioPlaybackService extends Service {
     private final List<Originals.Track> queue = new ArrayList<>();
 
     private MediaPlayer player;
+    private RadioDjVoice djVoice;
+    private String requestedDjSpeech = "";
+    private int announcementCount;
+    private boolean openingSpoken;
+    private boolean djHoldingTrack;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
     private int currentIndex = -1;
@@ -133,6 +148,67 @@ public final class RadioPlaybackService extends Service {
             stopPlayback();
             return START_NOT_STICKY;
         }
+        if (ACTION_DJ_TEST_RECORDED.equals(action)) {
+            // Explicit personal preview only; auto start never uses an unknown-
+            // language recorded clip because on-air opening must be English.
+            boolean resume = isPlaying();
+            int ticket = generation;
+            if (resume) pauseOnly();
+            voice().greeting(RadioDjLanguagePolicy.opening().get(0).text, () -> {
+                if (ticket == generation && resume && player != null && ready
+                        && !deadlineReached()) {
+                    try { if (requestFocus()) player.start(); }
+                    catch (IllegalStateException ignored) {}
+                    updateNotification();
+                }
+                if (queue.isEmpty()) stopSelf();
+            });
+            return START_NOT_STICKY;
+        }
+        if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_GREETING.equals(action)
+                || ACTION_DJ_ANNOUNCE_NEXT.equals(action)
+                || ACTION_DJ_CLOSING.equals(action) || ACTION_DJ_GIFT.equals(action)) {
+            java.util.List<RadioDjLanguagePolicy.Line> lines;
+            if (ACTION_DJ_GREETING.equals(action)) {
+                lines = RadioDjLanguagePolicy.opening(); // English only
+            } else if (ACTION_DJ_CLOSING.equals(action)) {
+                lines = RadioDjLanguagePolicy.closing(); // English only
+            } else if (ACTION_DJ_GIFT.equals(action)) {
+                lines = RadioDjLanguagePolicy.gift(intent.getStringExtra(EXTRA_DJ_TEXT),
+                        intent.getIntExtra(EXTRA_DJ_HINT, RadioDjLanguagePolicy.AUTO));
+            } else if (ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
+                if (queue.isEmpty()) {
+                    error = "소개할 다음 음악이 없어요.";
+                    updateNotification();
+                    return START_NOT_STICKY;
+                }
+                Originals.Track upcoming = queue.get((currentIndex + 1 + queue.size()) % queue.size());
+                lines = RadioDjLanguagePolicy.songIntro(upcoming.title,
+                        RadioProgram.category(this, upcoming));
+            } else {
+                String text = intent.getStringExtra(EXTRA_DJ_TEXT);
+                if (text == null || text.trim().isEmpty()) return START_NOT_STICKY;
+                int language = intent.getIntExtra(EXTRA_DJ_LANGUAGE, RadioDjLanguagePolicy.ENGLISH);
+                lines = java.util.Collections.singletonList(
+                        new RadioDjLanguagePolicy.Line(language, text));
+            }
+            // A live spoken line pauses MARU's local original and resumes only
+            // after all required TTS segments complete.
+            boolean resume = isPlaying() || djHoldingTrack;
+            djHoldingTrack = false;
+            int ticket = generation;
+            if (resume) pauseOnly();
+            voice().sayLines(lines, () -> {
+                if (ticket == generation && resume && player != null && ready
+                        && !deadlineReached()) {
+                    try { if (requestFocus()) player.start(); }
+                    catch (IllegalStateException ignored) {}
+                    updateNotification();
+                }
+                if (queue.isEmpty()) stopSelf();
+            });
+            return START_NOT_STICKY;
+        }
         if (ACTION_APPLY_AUDIO_COEXIST.equals(action)) {
             // Stop competing for exclusive media focus in opt-in coexist mode.
             // Does not affect volume, microphone permission, or BIGO input.
@@ -181,7 +257,8 @@ public final class RadioPlaybackService extends Service {
             updateNotification();
             return START_NOT_STICKY;
         }
-        if (ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)
+        if (ACTION_PLAY.equals(action) || ACTION_DJ_REQUEST.equals(action)
+                || ACTION_NEXT.equals(action)
                 || ACTION_PREVIOUS.equals(action) || ACTION_TOGGLE.equals(action)) {
             syncWallEndFromSchedule();
             if (deadlineReached()) {
@@ -189,11 +266,30 @@ public final class RadioPlaybackService extends Service {
                 return START_NOT_STICKY;
             }
         }
-        if (ACTION_PLAY.equals(action)) {
+        if (ACTION_PLAY.equals(action) || ACTION_DJ_REQUEST.equals(action)) {
+            requestedDjSpeech = ACTION_DJ_REQUEST.equals(action)
+                    ? intent.getStringExtra(EXTRA_DJ_TEXT) : "";
             refreshQueue(null);
             String hash = intent.getStringExtra(EXTRA_HASH);
+            boolean requestedFound = false;
             if (hash != null) for (int i = 0; i < queue.size(); i++) {
-                if (hash.equals(queue.get(i).hash)) { currentIndex = i; break; }
+                if (hash.equals(queue.get(i).hash)) {
+                    currentIndex = i;
+                    requestedFound = true;
+                    break;
+                }
+            }
+            if (hash != null && !requestedFound && ACTION_DJ_REQUEST.equals(action)) {
+                // One requested song may be outside the rotating genre. Play once,
+                // then return to the original, unchanged category on completion.
+                for (Originals.Track candidate : Originals.list(this)) {
+                    if (hash.equals(candidate.hash)) {
+                        queue.add(0, candidate);
+                        currentIndex = 0;
+                        requestedFound = true;
+                        break;
+                    }
+                }
             }
             if (currentIndex < 0 && !queue.isEmpty()) currentIndex = 0;
             if (currentIndex >= 0) playIndex(currentIndex);
@@ -289,6 +385,8 @@ public final class RadioPlaybackService extends Service {
 
     private void playIndex(int index) {
         if (index < 0 || index >= queue.size()) return;
+        if (djVoice != null) djVoice.cancel();
+        djHoldingTrack = false;
         ++generation;
         final int ticket = generation;
         releasePlayer();
@@ -320,8 +418,35 @@ public final class RadioPlaybackService extends Service {
                 loading = false;
                 ready = true;
                 p.setVolume(1f, 1f); // original gain; system volume remains OS-controlled
-                p.start();
-                updateNotification();
+                final String explicitSpeech = requestedDjSpeech;
+                requestedDjSpeech = "";
+                boolean doOpening = RadioDjSettings.opening(this) && !openingSpoken;
+                if (doOpening) openingSpoken = true;
+                boolean doNext = RadioDjSettings.interSong(this);
+                if ((explicitSpeech != null && !explicitSpeech.isEmpty())
+                        || doOpening || doNext) {
+                    djHoldingTrack = true;
+                    final Runnable play = () -> {
+                        if (ticket != generation || player != p) return;
+                        djHoldingTrack = false;
+                        if (deadlineReached()) { stopPlayback(); return; }
+                        try { p.start(); } catch (IllegalStateException ignored) {}
+                        updateNotification();
+                    };
+                    final Runnable next = () -> {
+                        if (ticket != generation || player != p) return;
+                        if (doNext || (explicitSpeech != null && !explicitSpeech.isEmpty())) {
+                            voice().sayLines(RadioDjLanguagePolicy.songIntro(t.title,
+                                    RadioProgram.category(this, t)), play);
+                        } else play.run();
+                    };
+                    if (doOpening) {
+                        voice().sayLines(RadioDjLanguagePolicy.opening(), next);
+                    } else next.run();
+                } else {
+                    p.start();
+                    updateNotification();
+                }
             });
             m.setOnCompletionListener(p -> {
                 if (ticket != generation || player != p) return;
@@ -360,6 +485,11 @@ public final class RadioPlaybackService extends Service {
         playIndex(currentIndex);
     }
 
+    private RadioDjVoice voice() {
+        if (djVoice == null) djVoice = new RadioDjVoice(this);
+        return djVoice;
+    }
+
     private void clearTimer() {
         minutesDeadline = 0L;
         wallEndAt = 0L;
@@ -376,6 +506,10 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void stopPlayback() {
+        if (djVoice != null) djVoice.cancel();
+        requestedDjSpeech = "";
+        openingSpoken = false;
+        djHoldingTrack = false;
         clearTimer();
         ++generation;
         releasePlayer();
@@ -483,6 +617,7 @@ public final class RadioPlaybackService extends Service {
     }
 
     @Override public void onDestroy() {
+        if (djVoice != null) { djVoice.close(); djVoice = null; }
         clearTimer();
         ++generation;
         releasePlayer();

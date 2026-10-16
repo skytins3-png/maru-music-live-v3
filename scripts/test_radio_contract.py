@@ -11,7 +11,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 
 checks = {
     "own radio module": "include ':radio'" in settings,
-    "own package": "applicationId 'com.maru.radio.experimentv18'" in gradle,
+    "own package": "applicationId 'com.maru.radio.ahwanv192'" in gradle,
     "no external SDKs": "dependencies {" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
@@ -64,14 +64,14 @@ service = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java"
 automation = (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8")
 program = (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8")
 checks.update({
-    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.experimentv18'" in gradle
+    "V1.7.2 separate app ID protects prior music": "applicationId 'com.maru.radio.ahwanv192'" in gradle
         and "applicationId 'com.maru.radio.safev16'" not in gradle
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 12" in gradle
-        and "versionName '1.8.0-experimental'" in gradle
-        and "MARU RADIO V1.8 실험판" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 15" in gradle
+        and "versionName '1.9.2-language-rules-preview'" in gradle
+        and "MARU RADIO V1.9.2 아환 DJ" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -102,7 +102,8 @@ checks.update({
         and "wallEndAt = 0L; // Do not cancel" in service
         and ".setAction(RadioPlaybackService.ACTION_CANCEL_WALL_END)" in automation,
     "V1.7 clock applies normal playback": "syncWallEndFromSchedule();" in service
-        and "ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)" in service,
+        and "ACTION_PLAY.equals(action) || ACTION_DJ_REQUEST.equals(action)" in service
+        and "ACTION_NEXT.equals(action)" in service,
     "V1.7 prevent next track after deadline": "private void advanceOnCompletion()" in service
         and "if (deadlineReached())" in service
         and "private void rescheduleTimerCheck()" in service,
@@ -248,6 +249,85 @@ checks.update({
         and "다른 앱으로 소리를 직접 전달하지는 않으며" in activity,
 })
 
+# Offline host assistant is an opt-in Android system TTS and explicit
+# listener-text input, not an undocumented BIGO chat/voice-cloning integration.
+dj_activity = (root / "radio/src/main/java/com/maru/radio/RadioDjActivity.java").read_text(encoding="utf-8")
+dj_brain = (root / "radio/src/main/java/com/maru/radio/RadioDjBrain.java").read_text(encoding="utf-8")
+dj_voice = (root / "radio/src/main/java/com/maru/radio/RadioDjVoice.java").read_text(encoding="utf-8")
+dj_settings = (root / "radio/src/main/java/com/maru/radio/RadioDjSettings.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.9 offline announcer screen linked": "new Intent(this, RadioDjActivity.class)" in activity
+        and ".RadioDjActivity" in manifest
+        and "ACTION_DJ_SAY" in service,
+    "V1.9 system TTS, no voice clone or microphone recording":
+        "android.speech.tts.TextToSpeech" in dj_voice
+        and "getPersistedUriPermissions" not in dj_voice
+        and "RECORD_AUDIO" not in manifest
+        and "INTERNET" not in manifest,
+    "V1.9 user recorded greeting only": all(x in dj_activity for x in (
+        "Intent.ACTION_OPEN_DOCUMENT", "takePersistableUriPermission",
+        "RadioDjSettings.setVoiceClip(this, uri)", "형의 실제 목소리"))
+        and "voice().greeting(" in service
+        and "ACTION_DJ_TEST_RECORDED" in dj_activity,
+    "V1.9 intersong DJ announcement before actual music": all(x in service for x in (
+        "RadioDjSettings.interSong(this)", "RadioDjLanguagePolicy.songIntro(t.title",
+        "voice().sayLines(", "p.start()", "deadlineReached()",
+        "djHoldingTrack = true;", "djHoldingTrack = false;")),
+    "V1.9 requested originals can play without changing genre":
+        "ACTION_DJ_REQUEST" in service
+        and "queue.add(0, candidate)" in service
+        and "RadioProgram.select(this,0)" not in service,
+    "V1.9 user-typed comment only":
+        "comment.getText().toString()" in dj_activity
+        and "RadioDjBrain.respond(input, titles," in dj_activity
+        and "BigoControlAssist" not in dj_activity,
+    "V1.9 explicit local-only limited DJ learning": all(x in dj_settings for x in (
+        "isMemoryEnabled(Context ctx)", "rememberSong(Context ctx",
+        "host_rules", "known.length() >= 20", "clearMemory(Context ctx)"))
+        and 'getSharedPreferences(STORE, Context.MODE_PRIVATE)' in dj_settings
+        and "context.getContentResolver()" not in dj_settings,
+    "V1.9 explicit user speech input with no app microphone permission": all(x in dj_activity for x in (
+        "RecognizerIntent.ACTION_RECOGNIZE_SPEECH",
+        "REQUEST_SPOKEN_QUERY",
+        "startActivityForResult(speech, REQUEST_SPOKEN_QUERY)",
+        "comment.setText(phrases.get(0))"))
+        and "RECORD_AUDIO" not in manifest,
+    "V1.9 fail-fast unavailable system TTS": all(x in dj_voice for x in (
+        "private boolean initializationFailed;",
+        "else if (initializationFailed) complete(ticket)",
+        "initializationFailed = !ready;")),
+    "V1.9 five-language TTS": all(x in dj_voice for x in (
+        "Locale.SIMPLIFIED_CHINESE", "Locale.JAPANESE",
+        'new Locale("ru", "RU")', "pendingLanguage")),
+})
+
+# The announcer now speaks only genres' requested languages:
+# KR=Korean+English, CN=Chinese+English, Western/Instrumental=English.
+# Start/end always English, gifts sender language with English fallback.
+language_policy = (root / "radio/src/main/java/com/maru/radio/RadioDjLanguagePolicy.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.9.2 event-based short announcer": all(x in language_policy for x in (
+        "public static List<Line> songIntro(", "case 1:", "case 2:",
+        "new Line(KOREAN", "new Line(CHINESE", "new Line(ENGLISH",
+        "public static List<Line> opening()", "public static List<Line> closing()")),
+    "V1.9.2 TTS changes language per segment": all(x in dj_voice for x in (
+        "public void sayLines(", "private void speakLine(",
+        "pendingLanguage = Math.max(", "tts.setLanguage(voices[index])")),
+    "V1.9.2 gift recipient language unknown defaults English": all(x in language_policy for x in (
+        "giftLanguage(String comment, int manualHint)",
+        "return ENGLISH; // unknown/default", "public static List<Line> gift(")),
+    "V1.9.2 broadcast start and closing English":
+        "RadioDjLanguagePolicy.opening()" in service
+        and "RadioDjLanguagePolicy.closing()" in service
+        and "ACTION_DJ_CLOSING" in dj_activity,
+    "V1.9.2 no five-language fixed rotation on air":
+        "RadioDjSettings.language(this)" not in service
+        and "RadioDjLanguagePolicy.songIntro(" in service,
+    "V1.9.2 gift sender language can be overridden":
+        "RadioDjSettings.giftLanguageHint(this)" in dj_activity
+        and "RadioDjSettings.setGiftLanguageHint(" in dj_activity
+        and "ACTION_DJ_GIFT" in dj_activity,
+})
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):

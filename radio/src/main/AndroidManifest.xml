@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <queries>
         <package android:name="sg.bigo.live" />
+        <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
     </queries>
     <application android:label="@string/app_name" android:icon="@drawable/ic_radio"
         android:theme="@android:style/Theme.Material.NoActionBar" android:appCategory="audio"
@@ -17,6 +18,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <activity android:name=".RadioDjActivity" android:exported="false" />
         <activity android:name=".RadioAutomationActivity" android:exported="false"
             android:launchMode="singleTop" />
         <activity android:name=".RadioActivity" android:exported="true" android:launchMode="singleTop">
