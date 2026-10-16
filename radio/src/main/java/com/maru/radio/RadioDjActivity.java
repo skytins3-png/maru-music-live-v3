@@ -487,11 +487,27 @@ public final class RadioDjActivity extends Activity {
 
     private void updateBigoChatStatus() {
         if (bigoChatStatus == null) return;
-        bigoChatStatus.setText("동의: "
-                + (BigoControlAssist.commentReplies(this) ? "댓글 감지 ON" : "OFF")
-                + " | Android 서비스: "
-                + (BigoControlAssist.connected(this) ? "연결됨" : "연결 안 됨")
-                + "\\n" + BigoControlAssist.chatState(this));
+        boolean consent = BigoControlAssist.commentReplies(this);
+        boolean connected = BigoControlAssist.connected(this);
+        boolean voice = RadioDjSettings.isVoiceEnabled(this);
+        boolean direct = RadioDirectRtmpService.isActive();
+        String check;
+        if (!consent)
+            check = "대기 원인: BIGO 댓글 자동 읽기 동의가 꺼졌어요.";
+        else if (!connected)
+            check = "대기 원인: MARU BIGO 접근성 서비스가 연결되지 않았어요.";
+        else if (!voice)
+            check = "대기 원인: 아나운서 음성(TTS)이 꺼졌어요.";
+        else
+            check = "감지 준비: BIGO 호스트 LIVE 화면을 켠 뒤 새 댓글을 기다려 주세요.";
+        bigoChatStatus.setText("댓글 동의 " + (consent ? "ON" : "OFF")
+                + " · 접근성 " + (connected ? "연결" : "미연결")
+                + " · TTS " + (voice ? "ON" : "OFF")
+                + "\\n" + check
+                + "\\n" + BigoControlAssist.chatState(this)
+                + "\\n청취자 음성 경로: " + (direct
+                        ? "독립 RTMP 실험 (서버·청취자 별도 검증)"
+                        : "휴대폰 로컬 TTS만 · BIGO 마이크 전달은 별도 확인"));
     }
 
     @Override protected void onResume() {
