@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 18" in gradle
-        and "versionName '1.9.6-volume-leveling'" in gradle
-        and "MARU RADIO V1.9.6 아환 균일 음량" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.7.2 correct Android version": "versionCode 19" in gradle
+        and "versionName '1.9.7-bigo-chat-audio-prototype'" in gradle
+        and "MARU RADIO V1.9.7 아환 채팅 실험" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -382,6 +382,40 @@ checks.update({
                   "setLimiterAllChannelsTo", "dsp.release()")),
     "V1.9.6 user profile and viewer caveat": "selectPlaybackLevel" in activity
         and "RadioProgram.setLeveling(" in activity,
+})
+chat_policy = (root / "radio/src/main/java/com/maru/radio/BigoChatRule.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.9.7 scoped BIGO comment read-only opt-in":
+        "commentReplies(Context ctx)" in assist
+        and "setCommentReplies(Context ctx, boolean enabled)" in assist
+        and 'getBoolean("comment_reply_opt_in", false)' in assist
+        and "BigoAutomationPolicy.isHostLive(allLabels(root))" in assist
+        and "BIGO.contentEquals(root.getPackageName())" in assist,
+    "V1.9.7 limits chat rate and discards old events":
+        "chatPrimed" in assist and "chatSeen.size() > 80" in assist
+        and "15000L" in assist and "chatSeen.clear()" in assist,
+    "V1.9.7 no hidden AI chat upload":
+        "HttpURLConnection" not in chat_policy
+        and "INTERNET" not in manifest
+        and "SharedPreferences" not in chat_policy,
+    "V1.9.7 no private chat storage, fixed status only":
+        'putString("chat_state", message)' in assist
+        and "transientFingerprint" in chat_policy,
+    "V1.9.7 local Ahwan TTS for BIGO greeting/gift":
+        "ACTION_DJ_AUTO_COMMENT" in service
+        and "RadioDjLanguagePolicy.gift(" in chat_policy
+        and "BigoChatRule.match(" in assist,
+    "V1.9.7 separate explicit user agreement":
+        "BIGO 댓글 화면 읽기 별도 동의" in dj_activity
+        and "BigoControlAssist.setCommentReplies(this, true)" in dj_activity
+        and "BigoControlAssist.setCommentReplies(this, false)" in dj_activity,
+    "V1.9.7 Android audio capturable but not microphone injection":
+        'android:allowAudioPlaybackCapture="true"' in manifest
+        and "setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL)" in service
+        and "setAllowedCapturePolicy" in dj_voice,
+    "V1.9.7 viewer sound checklist disclosure":
+        "BIGO 청취자 실제 소리 경로 점검" in dj_activity
+        and "자동 입력되지 않습니다" in dj_activity,
 })
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
