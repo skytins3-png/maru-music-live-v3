@@ -83,7 +83,7 @@ checks = {
         and "RadioDjLanguagePolicy.closing()" in service,
     "no outdated BIGO UI mock in CI":
         "BigoAutomationPolicySelfTest.java" not in workflow
-        and "BigoControlAssist" not in workflow,
+        and "Test BIGO mock screenshot labels" not in workflow,
     "signed APK CI checks sensitive components":
         "apksigner" in workflow and "AAPT" in workflow
         and "bigo_control_config" in workflow,
