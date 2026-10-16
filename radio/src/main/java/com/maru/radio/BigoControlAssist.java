@@ -121,8 +121,11 @@ public final class BigoControlAssist extends AccessibilityService {
         if (e == null || e.getPackageName() == null
                 || !BIGO.contentEquals(e.getPackageName()) || !approved(this)) return;
         if (!pref().contains("op")) return;
+        // BIGO may generate frequent UI events (e.g. animation). Replacing the
+        // delay on every event starves automation forever. Coalesce instead.
+        if (android.os.Build.VERSION.SDK_INT >= 29 && handler.hasCallbacks(work)) return;
         handler.removeCallbacks(work);
-        handler.postDelayed(work, 450);
+        handler.postDelayed(work, 250L);
     }
 
     private void evaluate() {
