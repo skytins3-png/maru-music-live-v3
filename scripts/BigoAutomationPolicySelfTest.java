@@ -22,6 +22,11 @@ public final class BigoAutomationPolicySelfTest {
         Set<String> confirm = Set.of("방송을 종료하시겠습니까?", "라이브 종료하기");
         ok(BigoAutomationPolicy.isSetup(screenshot), "actual composer screenshot recognized");
         ok(BigoAutomationPolicy.isMixer(mixer), "actual mic/mixer screenshot recognized");
+        ok(BigoAutomationPolicy.isMicOneShown(mixer), "mic value already 1 skips unnecessary adjustment");
+        ok(!BigoAutomationPolicy.isMicOneShown(screenshot), "composer must not pretend mixer is at level 1");
+        ok(!BigoAutomationPolicy.isReadyToStart(mixer), "cannot press start under mixer overlay");
+        ok(BigoAutomationPolicy.isReadyToStart(screenshot), "start permitted only on composer with mixer closed");
+        ok(!BigoAutomationPolicy.isReadyToStart(host), "cannot start from a live host room");
         ok(!BigoAutomationPolicy.isHostLive(screenshot), "composer is not live room");
         ok(!BigoAutomationPolicy.isHostLive(mixer), "mixer is not live room");
         ok(!BigoAutomationPolicy.isSetup(feed), "feed is not composer");
