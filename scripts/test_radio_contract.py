@@ -453,6 +453,29 @@ checks.update({
         and "new RadioRtmpTtsBridge" in rtmp_service
         and "RadioRtmpPcmVoiceMixer" in (root / "radio/src/main/java/com/maru/radio/RadioRtmpLevelAudioSource.java").read_text(encoding="utf-8"),
 })
+# Entire imported music catalog screen: no broadcast-genre filter by default.
+all_songs = (root / "radio/src/main/java/com/maru/radio/RadioAllSongsActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "All registered originals are listed independently from radio program filter":
+        'all.addAll(Originals.list(this))' in all_songs
+        and 'private int genre = 0' in all_songs
+        and 'RadioProgram.active(this)' not in all_songs
+        and 'visible.add(item)' in all_songs
+        and 'getCount() { return visible.size(); }' in all_songs,
+    "Full song titles, count, search, category, sorting, playback":
+        'title.setMaxLines(Integer.MAX_VALUE)' in all_songs
+        and 'all.size()' in all_songs
+        and 'private void clearFilter()' in all_songs
+        and 'private void chooseGenre()' in all_songs
+        and 'private void chooseSort()' in all_songs
+        and 'RadioPlaybackService.ACTION_PLAY' in all_songs,
+    "Song library screen reachable and locally scoped":
+        '.RadioAllSongsActivity' in manifest
+        and 'android:exported="false"' in manifest
+        and 'this::openAllSongs' in activity
+        and 'new Intent(this, RadioAllSongsActivity.class)' in activity,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
