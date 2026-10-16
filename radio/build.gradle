@@ -12,8 +12,8 @@ android {
         minSdk 26
         // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
         targetSdk 36
-        versionCode 24
-        versionName '1.9.10-mute-independent-chat-diagnostics'
+        versionCode 25
+        versionName '1.9.11-handsfree-ahwan'
     }
 
     // Store upload credentials must be supplied by the repository owner through
