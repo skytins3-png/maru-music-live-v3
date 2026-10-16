@@ -48,6 +48,52 @@ public final class RadioDjSettings {
         prefs(ctx).edit().putString("greeting_clip",
                 uri == null ? "" : uri.toString()).apply();
     }
+    public static int language(Context ctx) {
+        return Math.max(0, Math.min(RadioReplies.LANGUAGES.length - 1,
+                prefs(ctx).getInt("language", 0)));
+    }
+    public static void setLanguage(Context ctx, int language) {
+        prefs(ctx).edit().putInt("language", Math.max(0,
+                Math.min(RadioReplies.LANGUAGES.length - 1, language))).apply();
+    }
+
+    /** Host-authored phrases only, never automatically store audience comments. */
+    public static void teach(Context ctx, String trigger, String response) {
+        if (trigger == null || response == null) return;
+        String word = trigger.trim().toLowerCase(java.util.Locale.ROOT);
+        String answer = response.trim();
+        if (word.length() < 2 || word.length() > 40
+                || answer.length() < 2 || answer.length() > 160) return;
+        try {
+            SharedPreferences sp = prefs(ctx);
+            JSONObject known = new JSONObject(sp.getString("host_rules", "{}"));
+            if (!known.has(word) && known.length() >= 20) return;
+            known.put(word, answer);
+            sp.edit().putString("host_rules", known.toString()).apply();
+        } catch (Exception ignored) {}
+    }
+
+    public static String hostReply(Context ctx, String message) {
+        if (message == null || message.trim().isEmpty()) return "";
+        try {
+            JSONObject known = new JSONObject(prefs(ctx).getString("host_rules", "{}"));
+            java.util.Iterator<String> items = known.keys();
+            String lower = message.toLowerCase(java.util.Locale.ROOT);
+            String best = "";
+            int length = 0;
+            while (items.hasNext()) {
+                String trigger = items.next();
+                if (lower.contains(trigger) && trigger.length() > length) {
+                    best = known.optString(trigger, "");
+                    length = trigger.length();
+                }
+            }
+            return best;
+        } catch (Exception ex) { return ""; }
+    }
+    public static void clearHostRules(Context ctx) {
+        prefs(ctx).edit().remove("host_rules").apply();
+    }
     public static int replyCount(Context ctx) {
         return prefs(ctx).getInt("replies", 0);
     }
