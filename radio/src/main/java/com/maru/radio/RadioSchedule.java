@@ -228,6 +228,19 @@ public final class RadioSchedule extends BroadcastReceiver {
         }
     }
 
+    private static void tryOpenBigo(Context context) {
+        try {
+            Intent launch = context.getPackageManager()
+                    .getLaunchIntentForPackage("sg.bigo.live");
+            if (launch == null) return;
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(launch);
+        } catch (RuntimeException denied) {
+            // Android 14+ background activity launch can be denied. The finite
+            // UI automation request simply times out, never bypassing locks.
+        }
+    }
+
     @Override public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
@@ -253,13 +266,21 @@ public final class RadioSchedule extends BroadcastReceiver {
         if (isEnd) {
             try { context.stopService(new Intent(context, RadioPlaybackService.class)); }
             catch (RuntimeException ignored) {}
+            // Experimental, user-opted BIGO only. Unknown/locked screens fail closed.
+            // A background Android activity launch can still be denied by OS.
+            if (BigoControlAssist.queue(context, false)) tryOpenBigo(context);
         } else if (automatic) {
             long end = sp.getLong("end_when", 0L);
             // A delayed start alarm must not restart playback after the end
             // alarm has already fired and removed the stored end_when key.
             skippedForEnd = (end > 0L && now >= end)
                     || sp.getLong("last_end_at", 0L) >= expected;
-            if (!skippedForEnd) started = startLocalMusic(context);
+            if (!skippedForEnd) {
+                started = startLocalMusic(context);
+                // No consent / unavailable service => never manipulate BIGO.
+                // Never try to unlock the device or override Android protection.
+                if (BigoControlAssist.queue(context, true)) tryOpenBigo(context);
+            }
         }
 
         if (!notificationsAllowed(context)) return;
