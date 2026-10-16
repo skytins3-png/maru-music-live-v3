@@ -22,6 +22,7 @@ import kotlin.Unit;
 public final class RadioRtmpLevelAudioSource extends AudioSource {
     private final AudioFileSource file;
     private final RadioRtmpPcmVoiceMixer voiceMixer = new RadioRtmpPcmVoiceMixer();
+    private boolean outputStereo;
     private float envelope = 0f;
     private float smoothedGain = 1f;
 
@@ -32,6 +33,7 @@ public final class RadioRtmpLevelAudioSource extends AudioSource {
 
     @Override protected boolean create(int rate, boolean isStereo,
             boolean echoCanceler, boolean suppressor) {
+        outputStereo = isStereo;
         return file.init(rate, isStereo, echoCanceler, suppressor);
     }
 
@@ -40,7 +42,7 @@ public final class RadioRtmpLevelAudioSource extends AudioSource {
             limitPcm(frame);
             // This mixes synthesised Ahwan PCM before network AAC encoding;
             // STREAM_MUSIC / phone mute doesn't touch these bytes.
-            voiceMixer.mix(frame.getBuffer(), frame.getOffset(), frame.getSize(), isStereo());
+            voiceMixer.mix(frame.getBuffer(), frame.getOffset(), frame.getSize(), outputStereo);
             receive.inputPCMData(frame);
         });
     }
@@ -73,8 +75,6 @@ public final class RadioRtmpLevelAudioSource extends AudioSource {
     public int queuedAnnouncements() { return voiceMixer.queued(); }
 
     public void clearAnnouncements() { voiceMixer.clear(); }
-
-    private boolean isStereo() { return getIsStereo(); }
 
     public void replaceFile(Context ctx, Uri source) throws java.io.IOException {
         envelope = 0f;
