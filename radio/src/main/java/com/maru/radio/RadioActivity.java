@@ -168,6 +168,8 @@ public final class RadioActivity extends Activity {
         quickRow(root, "🎤 아환 인사 녹음", () ->
                         startActivity(new Intent(this, RadioAhwanRecorderActivity.class)),
                 "■ BIGO 종료 화면", this::requestBigoEnd);
+        root.addView(compactButton("🎵 BIGO 믹서용 원곡 준비 · Music 폴더에 공유", () ->
+                startActivity(new Intent(this, RadioBigoMusicPrepActivity.class))));
         gap(root, 8);
 
         LinearLayout playerCard = new LinearLayout(this);
