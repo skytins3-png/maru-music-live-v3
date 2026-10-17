@@ -84,6 +84,8 @@ public final class RadioFeatureMenuActivity extends Activity {
         item(root, "📋 전체 노래 · 재생", () -> go(RadioAllSongsActivity.class));
         item(root, "📥 노래 가져오기", () -> mainAction("download"));
         item(root, "🤖 아환 · 댓글 자동답변", () -> go(RadioDjActivity.class));
+        item(root, "🔍 접근성 차단·MARU 중복 확인", () ->
+                go(RadioAccessDoctorActivity.class));
         item(root, "🚀 BIGO 오디오 LIVE 자동 시작 (동의 필요)", () ->
                 BigoBroadcastGuide.startAutomatic(this));
         item(root, "▶ BIGO 수동 방송 안내", () -> mainAction("bigo_start"));
