@@ -37,8 +37,8 @@ public final class BigoHostChatGateSelfTest {
                 "numbered seats without host mic are insufficient");
         check(!BigoAutomationPolicy.isOnAirSeatLayout(composer),
                 "pre-live composer never qualifies as host room");
-        check(!BigoAutomationPolicy.isOnAirSeatLayout(privateChat),
-                "private chat with only 3 digits and mic does not qualify with zero proof");
+        check(!BigoHostChatGate.mayReadPublicChat(privateChat, 0L, observedAt+5L),
+                "private chat with only 3 digits and mic does not qualify without owner proof");
         check(!BigoHostChatGate.mayReadPublicChat(realHostRoom, 0, observedAt+10L),
                 "on-air UI alone does not bypass proof requirement");
         check(BigoHostChatGate.mayReadPublicChat(realHostRoom, observedAt, observedAt+10L),
