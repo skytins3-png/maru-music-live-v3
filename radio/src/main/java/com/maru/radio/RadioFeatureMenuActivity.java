@@ -116,7 +116,13 @@ public final class RadioFeatureMenuActivity extends Activity {
         root.addView(label("현재 아환은 Android TTS/규칙 기반입니다. " +
                 "실제 BIGO 청취자 음성·댓글 자동 처리 여부는 검증이 필요합니다.", 12, WHITE));
 
-        heading(root, "📡 4. BIGO 오디오 LIVE · 독립 RTMP");
+        heading(root, "📱 4. 스트림 키 없는 BIGO 오디오 LIVE (형의 방송 방식)");
+        item(root, "🧪 음소거에도 청취자 음악 일정? · 아환 답변 실제 수신 검증",
+                () -> go(RadioBigoNoKeyTestActivity.class));
+        root.addView(label("BIGO 내부 음악/BGM 경로 확인부터 진행합니다. "
+                + "다른 휴대폰에서 직접 확인하기 전에는 성공으로 표시하지 않습니다.", 12, WHITE));
+
+        heading(root, "📡 5. BIGO 기존 안내 · 선택적 RTMP");
         item(root, "▶ BIGO 오디오 LIVE 시작 안내", () -> mainAction("bigo_start"));
         item(root, "■ BIGO 오디오 LIVE 종료 안내", () -> mainAction("bigo_end"));
         item(root, "📱 BIGO LIVE 앱 직접 열기", () -> mainAction("bigo_open"));
