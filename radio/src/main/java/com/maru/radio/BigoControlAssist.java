@@ -781,9 +781,22 @@ public final class BigoControlAssist extends AccessibilityService {
                 } else abort("방송하기 버튼을 안전하게 찾지 못했어요.");
                 return;
             case VERIFY_STREAM:
-                if (BigoAutomationPolicy.isHostRoomAfterPress(labels))
+                if (BigoAutomationPolicy.isHostRoomAfterPress(labels)) {
+                    // The user explicitly approved an automatic start, and we
+                    // saw the broadcaster composer, pressed Broadcast, then
+                    // observed its own mic/guest-seat room. This is stronger
+                    // scoped host proof than an unrelated public viewer room.
+                    hostToolsObservedAt = android.os.SystemClock.elapsedRealtime();
+                    chatPrimed = false;
+                    pendingPublicChatEvent = null;
+                    chatSeen.clear();
                     complete("BIGO 방송하기 누른 뒤 호스트 LIVE 화면 전환 확인 · "
-                            + "실제 서버 수신·청취자 음악·아환 음성 송출은 미검증");
+                            + "청취자 음악·아환 음성 송출은 미검증");
+                    if (commentReplies(this) && RadioDjSettings.isVoiceEnabled(this)) {
+                        handler.removeCallbacks(chatWork);
+                        handler.postDelayed(chatWork, 800L);
+                    }
+                }
                 return;
             default:
                 abort("알 수 없는 방송 시작 상태"); return;
