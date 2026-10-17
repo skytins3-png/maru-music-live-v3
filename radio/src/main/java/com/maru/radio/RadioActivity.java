@@ -153,7 +153,7 @@ public final class RadioActivity extends Activity {
                 () -> startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
-        root.addView(label("V1.9.13 스트림 키 없는 BIGO 실제 청취 검증 · 원곡 보호.", 13,
+        root.addView(label("V1.9.14 아환 마이크 인사 녹음 · 기존 원곡 보호.", 13,
                 0xFFFFD998, false));
         root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
                 new AlertDialog.Builder(this)
