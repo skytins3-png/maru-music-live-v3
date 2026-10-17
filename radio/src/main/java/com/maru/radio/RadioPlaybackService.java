@@ -38,6 +38,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_DJ_CLOSING = "com.maru.radio.DJ_CLOSING";
     public static final String ACTION_DJ_TEST_RECORDED = "com.maru.radio.DJ_TEST_RECORDED";
     public static final String ACTION_DJ_GIFT = "com.maru.radio.DJ_GIFT";
+    public static final String ACTION_DJ_FOLLOW = "com.maru.radio.DJ_FOLLOW";
     public static final String ACTION_DJ_AUTO_COMMENT = "com.maru.radio.DJ_AUTO_COMMENT";
     public static final String EXTRA_DJ_LANGUAGE = "dj_language";
     public static final String EXTRA_DJ_HINT = "dj_language_hint";
@@ -170,7 +171,8 @@ public final class RadioPlaybackService extends Service {
         }
         if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_AUTO_COMMENT.equals(action)
                 || ACTION_DJ_GREETING.equals(action) || ACTION_DJ_ANNOUNCE_NEXT.equals(action)
-                || ACTION_DJ_CLOSING.equals(action) || ACTION_DJ_GIFT.equals(action)) {
+                || ACTION_DJ_CLOSING.equals(action) || ACTION_DJ_GIFT.equals(action)
+                || ACTION_DJ_FOLLOW.equals(action)) {
             java.util.List<RadioDjLanguagePolicy.Line> lines;
             if (ACTION_DJ_GREETING.equals(action)) {
                 lines = RadioDjLanguagePolicy.opening(); // English only
@@ -179,6 +181,10 @@ public final class RadioPlaybackService extends Service {
             } else if (ACTION_DJ_GIFT.equals(action)) {
                 lines = RadioDjLanguagePolicy.gift(intent.getStringExtra(EXTRA_DJ_TEXT),
                         intent.getIntExtra(EXTRA_DJ_HINT, RadioDjLanguagePolicy.AUTO));
+            } else if (ACTION_DJ_FOLLOW.equals(action)) {
+                lines = java.util.Collections.singletonList(
+                        new RadioDjLanguagePolicy.Line(RadioDjLanguagePolicy.ENGLISH,
+                                RadioReplies.message(RadioDjLanguagePolicy.ENGLISH, 3)));
             } else if (ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
                 if (queue.isEmpty()) {
                     error = "소개할 다음 음악이 없어요.";
@@ -212,6 +218,15 @@ public final class RadioPlaybackService extends Service {
             };
             if (ACTION_DJ_GREETING.equals(action)) {
                 playBroadcastOpening(afterSpeech);
+            } else if (ACTION_DJ_CLOSING.equals(action)) {
+                voice().playClip(RadioAhwanClipSlot.CLOSING,
+                        lines.get(0).text, lines.get(0).language, afterSpeech);
+            } else if (ACTION_DJ_GIFT.equals(action)) {
+                voice().playClip(RadioAhwanClipSlot.GIFT,
+                        lines.get(0).text, lines.get(0).language, afterSpeech);
+            } else if (ACTION_DJ_FOLLOW.equals(action)) {
+                voice().playClip(RadioAhwanClipSlot.FOLLOW,
+                        lines.get(0).text, lines.get(0).language, afterSpeech);
             } else {
                 voice().sayLines(lines, afterSpeech);
             }
