@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.17 keyless BIGO local Music prep version": "versionCode 31" in gradle
-        and "versionName '1.9.17-keyless-bigo-music-prep'" in gradle
-        and "MARU RADIO V1.9.17 BIGO 음악 준비" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.18 BIGO composer mixer live one-tap version": "versionCode 32" in gradle
+        and "versionName '1.9.18-bigo-one-tap-auto-start'" in gradle
+        and "MARU RADIO V1.9.18 방송 자동 시작" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -669,7 +669,7 @@ checks.update({
         'quickRow(root, "📋 전체 노래", this::openAllSongs' in activity
         and '📥 노래 가져오기' in activity
         and '🤖 아환 · 자동 댓글' in activity
-        and '▶ BIGO 방송 열기' in activity
+        and '🚀 BIGO 자동 시작' in activity
         and '📅 방송 시간 예약' in activity
         and '🎼 4장르 자동 편성' in activity
         and '🎤 아환 인사 녹음' in activity
@@ -779,6 +779,45 @@ checks.update({
         "running.hostToolsObservedAt = 0L" in assist
         and "hostToolsObservedAt = 0L;" in assist
         and "releaseCommentVoice()" in assist,
+})
+
+# Real owner-provided pre-LIVE screens show Audio LIVE -> MIC value 1 ->
+# Original EFFECT -> X close -> 방송하기. Passing a test here is only
+# verification of app control logic, NOT remote music/voice transmission.
+guide = (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java").read_text(encoding="utf-8")
+bigo_policy = (root / "radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java").read_text(encoding="utf-8")
+checks.update({
+    "One-tap auto start is visible in home, schedule and full menu":
+        '🚀 BIGO 자동 시작' in activity
+        and 'BigoBroadcastGuide.startAutomatic(this)' in activity
+        and '🚀 지금 BIGO 오디오 LIVE 자동 시작' in automation
+        and 'BigoBroadcastGuide.startAutomatic(this)' in automation
+        and '🚀 BIGO 오디오 LIVE 자동 시작' in menu
+        and 'BigoBroadcastGuide.startAutomatic(this)' in menu,
+    "Auto start requires prior explicit consent and connected accessibility service":
+        'if (!BigoControlAssist.approved(host) || !BigoControlAssist.connected(host))' in guide
+        and 'BigoControlAssist.queue(host, true)' in guide
+        and 'openBigo(host, false)' in guide
+        and 'startAutomatic(Activity host)' in guide,
+    "BIGO auto-start follows actual composer to Original effect to stream press":
+        'case OPEN_COMPOSER:' in assist
+        and 'case SELECT_AUDIO:' in assist
+        and 'case OPEN_MIXER:' in assist
+        and 'case SET_MIC_ONE:' in assist
+        and 'case SELECT_ORIGINAL:' in assist
+        and 'case CLOSE_MIXER:' in assist
+        and 'case START_STREAM:' in assist
+        and 'case VERIFY_STREAM:' in assist
+        and 'BigoAutomationPolicy.isHostRoomAfterPress(labels)' in assist
+        and 'complete("BIGO 방송하기 누른 뒤' in assist
+        and '실제 서버 수신·청취자 음악·아환 음성 송출은 미검증' in assist,
+    "BIGO real on-air owner controls recognized from allowed UI labels":
+        all(x in assist for x in
+            ('"라이브 툴"', '"프로그램 목록"', '"실시간 지원"',
+             '"마이크"', '"2"', '"3"', '"4"', '"5"', '"6"'))
+        and 'isHostRoomAfterPress(Set<String> labels)' in bigo_policy
+        and 'has(labels, "오디오 라이브")' in bigo_policy
+        and 'has(labels, "믹서")' in bigo_policy,
 })
 
 for name, okay in checks.items():
