@@ -29,19 +29,26 @@ public final class BigoBroadcastGuide {
         new AlertDialog.Builder(host)
                 .setTitle("🎙 BIGO 오디오 라이브 시작")
                 .setMessage("형이 보내준 BIGO 오디오 LIVE 준비 화면 기준:\n\n"
-                        + "① BIGO에서 방송 준비 → '오디오 라이브' 선택\n"
-                        + "② 하단 '믹서' 열기 → 마이크 볼륨 1로 설정\n"
-                        + "③ 음악 효과는 'Original(원본)' 선택\n"
-                        + "④ 오른쪽 X로 믹서 닫고 '방송하기' 누르기\n"
-                        + "⑤ MARU의 'BIGO 믹서용 원곡 준비'에서 Music/MARU RADIO에 원곡 복사\n"
-                        + "⑥ BIGO 믹서 BGM/음악에 '내 음악/로컬 음악' 선택이 있으면 파일 찾기\n"
-                        + "⑦ 반드시 청취자 측 음량·휴대폰 음소거·아환 TTS를 각각 검증\n"
-                        + "BIGO가 로컬 음악 불러오기를 지원하지 않으면 공유만으로 송출되지 않습니다.\n\n"
-                        + "BIGO에서 MARU TTS/재생 소리가 자동 송출되지는 않습니다. " 
-                        + "청취자 확인 없는 '음량 고정 성공' 표시는 하지 않습니다.\n\n"
-                        + "MARU가 BIGO 앱은 열지만, 다른 앱의 마이크 슬라이더나 "
-                        + "방송하기 버튼을 대신 누를 수는 없어요. "
-                        + "화면에서 직접 조작해 주세요.")
+                        + "① 방송 시작 전 믹서에는 마이크 볼륨, 미리 듣기, 지능형 오디오 효과, "
+                        + "음악 효과(Original/리버브/Live Concert/KTV), 이퀄라이저, "
+                        + "변조 기능이 보입니다.\n"
+                        + "② 중요: 여기서 Original은 '효과 없음'을 선택하는 버튼이지 "
+                        + "MARU의 Suno 원곡을 불러오는 기능이 아닙니다. "
+                        + "커스텀 이퀄라이저도 파일 가져오기가 아닙니다.\n"
+                        + "③ 이 세 장의 사진에서는 '내 음악·BGM·파일 가져오기' 버튼이 "
+                        + "확인되지 않았어요. 음악을 BIGO에 송출했다고 판단하지 않습니다.\n"
+                        + "④ 방송을 시작한 후 도구/메뉴(☰)에서 별도의 '음악' 또는 'BGM' "
+                        + "항목이 있는지 확인하세요. BIGO 공식 안내는 방송 중 도구에 "
+                        + "음악 관련 기능이 있을 수 있다고 설명합니다.\n"
+                        + "⑤ '내 음악/로컬 파일'이 실제 보이는 경우에만 MARU에서 "
+                        + "Music/MARU RADIO 폴더로 복사한 Suno 원곡을 선택해 볼 수 있습니다.\n"
+                        + "⑥ 청취자에게 확인해야 하는 것은 '폰 미디어 음량 0에서도 "
+                        + "노래가 일정하게 들리는가'와 '아환 답변이 실제 들리는가' "
+                        + "두 가지입니다.\n\n"
+                        + "Android MARU는 BIGO의 마이크 채널에 TTS PCM을 "
+                        + "직접 주입하지 못합니다. 현재 효과 메뉴만으로는 "
+                        + "두 핵심 기능을 완성한 것이 아닙니다. "
+                        + "형의 원곡과 녹음 파일은 삭제하지 않습니다.")
                 .setPositiveButton("BIGO 열어 설정하기", (d, w) -> openBigo(host, false))
                 .setNegativeButton("취소", null)
                 .show();
@@ -101,7 +108,7 @@ public final class BigoBroadcastGuide {
         String title = ending ? "BIGO 방송 종료 확인" : "BIGO 오디오 LIVE 방송 준비";
         String details = ending
                 ? "BIGO 방송 화면의 X → '라이브 종료하기'를 직접 확인하세요."
-                : "오디오 라이브 → 믹서 → 마이크 1 → Original → 방송하기";
+                : "오디오라이브 믹서는 음향효과 전용. 방송 중 도구에서 별도 음악/BGM 찾기";
         Notification note = new Notification.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_radio)
                 .setContentTitle(title)
