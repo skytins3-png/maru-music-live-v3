@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.12 BIGO chat visibility Android version": "versionCode 26" in gradle
-        and "versionName '1.9.12-bigo-chat-visibility-diagnostics'" in gradle
-        and "MARU RADIO V1.9.12 댓글 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.13 no-key listener evidence Android version": "versionCode 27" in gradle
+        and "versionName '1.9.13-bigo-no-key-receiver-test'" in gradle
+        and "MARU RADIO V1.9.13 실방송 검증" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -560,6 +560,35 @@ checks.update({
         and 'handler.postDelayed(chatWork, 550L)' in assist
         and 'RadioDirectRtmpService.ACTION_SAY' in assist
         and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' in assist,
+})
+
+# Simulated evidence is NOT a live listener. The user must explicitly check
+# separate-device output when using ordinary keyless BIGO Audio LIVE.
+no_key = (root / "radio/src/main/java/com/maru/radio/BigoNoKeyEvidence.java").read_text(encoding="utf-8")
+no_key_ui = (root / "radio/src/main/java/com/maru/radio/RadioBigoNoKeyTestActivity.java").read_text(encoding="utf-8")
+menu = (root / "radio/src/main/java/com/maru/radio/RadioFeatureMenuActivity.java").read_text(encoding="utf-8")
+dj = (root / "radio/src/main/java/com/maru/radio/RadioDjActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "No-key BIGO route checks actual second-device music at normal AND zero phone volume":
+        's.bigoMusicSelected' in no_key
+        and 's.heardAtNormal && s.heardAtMuted' in no_key
+        and 's.bigoCommentArrived && s.ahwanHeardRemotely' in no_key,
+    "No-key test page defaults to unverified and claims no automatic receiver access":
+        'c.setChecked(false)' in no_key_ui
+        and '실제 청취자' in no_key_ui
+        and 'BigoNoKeyEvidence.complete(x)' in no_key_ui
+        and '스트림 키 없는' in no_key_ui,
+    "No-key page accessible from main, menu, Ahwan; original data stays unchanged":
+        '.RadioBigoNoKeyTestActivity' in manifest
+        and 'new Intent(this, RadioBigoNoKeyTestActivity.class)' in activity
+        and 'RadioBigoNoKeyTestActivity.class' in menu
+        and 'RadioBigoNoKeyTestActivity.class' in dj
+        and 'Originals.list(' not in no_key_ui
+        and 'deleteFile(' not in no_key_ui,
+    "No-key UI never sends RTMP keys nor fabricates BIGO audio integration":
+        'EXTRA_KEY' not in no_key_ui
+        and 'RadioDirectRtmpService.ACTION_START' not in no_key_ui
+        and 'startService(' not in no_key_ui,
 })
 
 for name, okay in checks.items():
