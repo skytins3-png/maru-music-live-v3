@@ -33,9 +33,9 @@ checks = {
     "removal never deletes source downloads": "if (item.isDownloadReference())" in store and "releasePersistableUriPermission" in store,
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
-    "no recording or capture permissions": all(word not in manifest for word in (
-        "RECORD_AUDIO", "MEDIA_PROJECTION",
-        "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE")),
+    "no audio capture or media read permissions beyond opt-in microphone": all(word not in manifest for word in (
+        "MEDIA_PROJECTION", "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE"))
+        and 'android.permission.RECORD_AUDIO' in manifest,
     "four song groups": all(n in (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8") for n in ("한국노래", "중국노래", "서양노래", "연주곡")),
     "genre-filtered queue": "RadioProgram.category(this, track) == category" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
     "music auto-end service timer": "SystemClock.elapsedRealtime()" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8") and "ACTION_SET_TIMER" in activity,
@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.13 no-key listener evidence Android version": "versionCode 27" in gradle
-        and "versionName '1.9.13-bigo-no-key-receiver-test'" in gradle
-        and "MARU RADIO V1.9.13 실방송 검증" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.14 host mic prerecorded announcement version": "versionCode 28" in gradle
+        and "versionName '1.9.14-ahwan-mic-voice-clips'" in gradle
+        and "MARU RADIO V1.9.14 아환 음성녹음" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -259,10 +259,10 @@ checks.update({
     "V1.9 offline announcer screen linked": "new Intent(this, RadioDjActivity.class)" in activity
         and ".RadioDjActivity" in manifest
         and "ACTION_DJ_SAY" in service,
-    "V1.9 system TTS, no voice clone or microphone recording":
+    "V1.9 system TTS and separate user-started mic recording, no voice clone":
         "android.speech.tts.TextToSpeech" in dj_voice
         and "getPersistedUriPermissions" not in dj_voice
-        and "RECORD_AUDIO" not in manifest
+        and "android.permission.RECORD_AUDIO" in manifest
         and "INTERNET" in manifest,
     "V1.9 user recorded greeting only": all(x in dj_activity for x in (
         "Intent.ACTION_OPEN_DOCUMENT", "takePersistableUriPermission",
@@ -589,6 +589,41 @@ checks.update({
         'EXTRA_KEY' not in no_key_ui
         and 'RadioDirectRtmpService.ACTION_START' not in no_key_ui
         and 'startService(' not in no_key_ui,
+})
+
+# The explicit host microphone only records finite preset clips while the
+# Ahwan recording Activity is foreground; there is NO new always-on microphone,
+# voice cloning, background permission or authenticated BIGO stream connection.
+mic = (root / "radio/src/main/java/com/maru/radio/RadioAhwanRecorderActivity.java").read_text(encoding="utf-8")
+slots = (root / "radio/src/main/java/com/maru/radio/RadioAhwanClipSlot.java").read_text(encoding="utf-8")
+checks.update({
+    "Ahwan microphone room is opt-in and reachable from main, DJ and full menu":
+        '.RadioAhwanRecorderActivity' in manifest
+        and 'RadioAhwanRecorderActivity.class' in activity
+        and 'RadioAhwanRecorderActivity.class' in dj_activity
+        and 'RadioAhwanRecorderActivity.class' in menu,
+    "Ahwan mic requires explicit foreground user permission and record/stop":
+        'requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}' in mic
+        and 'recorder.setAudioSource(MediaRecorder.AudioSource.MIC)' in mic
+        and 'recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)' in mic
+        and 'finishRecording(true)' in mic
+        and 'onPause()' in mic
+        and 'abandonRecording()' in mic,
+    "Ahwan four independent clips with safe backups and explicit activation":
+        all(k in slots for k in ('OPENING', 'GIFT', 'FOLLOW', 'CLOSING'))
+        and 'backup' in mic
+        and 'setRecordedClipUri(this, slot, Uri.fromFile(destination))' in mic
+        and 'RadioDjSettings.setClipEnabled(this, slot, enabled)' in mic
+        and 'ACTION_CREATE_DOCUMENT' in mic,
+    "Ahwan prerecorded clips really dispatch on gift follow closing; opening preserved":
+        'voice().playClip(RadioAhwanClipSlot.GIFT' in service
+        and 'voice().playClip(RadioAhwanClipSlot.FOLLOW' in service
+        and 'voice().playClip(RadioAhwanClipSlot.CLOSING' in service
+        and 'voice().greeting(' in service
+        and 'RadioDjSettings.recordedOpening(this)' in service
+        and 'playStored(' in dj_voice,
+    "Ahwan microphone recordings are never claimed as arbitrary AI voice clones":
+        'voice clone' in mic or '목소리로 만들어' in mic,
 })
 
 for name, okay in checks.items():
