@@ -15,8 +15,8 @@ public final class RadioBigoExportNaming {
         String base = ext.isEmpty() ? input : input.substring(0, input.length() - ext.length());
         if (ext.isEmpty()) ext = ".mp3"; // other import formats require their own extension
         base = base.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}\\p{Cf}]", "_")
-                .replaceAll("\\\\.{2,}", "_")
-                .replaceAll("^\\\\.+", "")
+                .replaceAll("\\.{2,}", "_")
+                .replaceAll("^\\.+", "")
                 .replaceAll("\\s+", " ").trim();
         if (base.length() > 64) base = base.substring(0, 64).trim();
         if (base.isEmpty()) base = "Original";
