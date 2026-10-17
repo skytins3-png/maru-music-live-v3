@@ -61,8 +61,13 @@ public final class RadioBigoMediaExporter {
                 report.failed++;
                 report.error = failure instanceof java.io.InterruptedIOException
                         ? "사용자가 복사를 중단했습니다."
+                        : failure.getMessage() != null
+                            && failure.getMessage().contains("Insufficient device storage")
+                        ? "휴대폰 저장 공간 부족 · 원본은 그대로, 부분 복사는 폐기했습니다."
                         : "선택한 원본의 읽기/복사/검증 실패: " + t.title;
-                if (failure instanceof java.io.InterruptedIOException) {
+                if (failure instanceof java.io.InterruptedIOException
+                        || failure.getMessage() != null
+                        && failure.getMessage().contains("Insufficient device storage")) {
                     report.cancelled = true;
                     break;
                 }
@@ -76,17 +81,30 @@ public final class RadioBigoMediaExporter {
             AtomicBoolean cancel) throws Exception {
         if (track == null || track.title == null || track.hash == null)
             throw new IOException("Invalid original reference");
-        if (!RadioBigoExportNaming.extension(track.title.toLowerCase(java.util.Locale.ROOT))
-                .isEmpty()) {
-            // Keep actual format; no lossy transcode or app loudness processing.
-        } else {
-            // Some providers omit an extension; the current original export
-            // mechanism also assumes MP3. An unknown format must not be faked.
-            throw new IOException("Unknown audio extension");
-        }
+        if (RadioBigoExportNaming.extension(track.title.toLowerCase(java.util.Locale.ROOT))
+                .isEmpty())
+            throw new IOException("원본 파일 확장자 확인 불가 · 임의로 MP3 변환하지 않음");
         ContentResolver resolver = ctx.getContentResolver();
         String name = RadioBigoExportNaming.fileName(track.hash, track.title);
         if (exists(resolver, name)) return false;
+        // Preserve free disk space for Android/One UI while copying a
+        // 152-song library. For SAF sources the provider size may be unknown.
+        long bytesNeeded = 0L;
+        if (!track.isDownloadReference()) {
+            bytesNeeded = track.file().length();
+        } else {
+            try (Cursor sizeCursor = resolver.query(track.sourceUri(),
+                    new String[]{android.provider.OpenableColumns.SIZE},
+                    null, null, null)) {
+                if (sizeCursor != null && sizeCursor.moveToFirst()
+                        && !sizeCursor.isNull(0)) bytesNeeded = sizeCursor.getLong(0);
+            } catch (RuntimeException ignored) {}
+        }
+        android.os.StatFs disk = new android.os.StatFs(
+                Environment.getExternalStorageDirectory().getAbsolutePath());
+        long reserve = 150L * 1024 * 1024;
+        if (disk.getAvailableBytes() < reserve + Math.max(0, bytesNeeded))
+            throw new IOException("Insufficient device storage");
 
         ContentValues values = new ContentValues();
         values.put(MediaStore.Audio.Media.DISPLAY_NAME, name);
