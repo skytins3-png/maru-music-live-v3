@@ -87,8 +87,8 @@ checks.update({
         and "android.intent.action.BOOT_COMPLETED" in manifest
         and "restore(context)" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
-    "V1.8 no recording or overlay permission": all(x not in manifest for x in
-        ("SYSTEM_ALERT_WINDOW", "RECORD_AUDIO"))
+    "V1.8 no overlay or background capture permission": "SYSTEM_ALERT_WINDOW" not in manifest
+        and "android.permission.RECORD_AUDIO" in manifest
         and "context.stopService(new Intent(context, RadioPlaybackService.class))" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
     "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
@@ -288,12 +288,12 @@ checks.update({
         "host_rules", "known.length() >= 20", "clearMemory(Context ctx)"))
         and 'getSharedPreferences(STORE, Context.MODE_PRIVATE)' in dj_settings
         and "context.getContentResolver()" not in dj_settings,
-    "V1.9 explicit user speech input with no app microphone permission": all(x in dj_activity for x in (
+    "V1.9 explicit external speech input is optional alongside foreground microphone recording": all(x in dj_activity for x in (
         "RecognizerIntent.ACTION_RECOGNIZE_SPEECH",
         "REQUEST_SPOKEN_QUERY",
         "startActivityForResult(speech, REQUEST_SPOKEN_QUERY)",
         "comment.setText(phrases.get(0))"))
-        and "RECORD_AUDIO" not in manifest,
+        and "android.permission.RECORD_AUDIO" in manifest,
     "V1.9 fail-fast unavailable system TTS": all(x in dj_voice for x in (
         "private boolean initializationFailed;",
         "else if (initializationFailed) complete(ticket)",
@@ -371,8 +371,8 @@ checks.update({
         and "녹음 인사가 아직 등록되지 않았어" in dj_activity
         and "Intent.ACTION_OPEN_DOCUMENT" in dj_activity,
     "V1.9.5 recorded clip media failure falls back to TTS":
-        "fallbackGreeting(ticket, fallback, after)" in dj_voice
-        and "say(EnglishText, RadioDjLanguagePolicy.ENGLISH, after)" in dj_voice,
+        "fallbackRecorded(ticket, fallback, language, after)" in dj_voice
+        and "say(fallback, language, after)" in dj_voice,
 })
 checks.update({
     "V1.9.6 balanced audio preset": 'getInt("leveling", RadioLevelPolicy.EVEN)' in program,
@@ -428,13 +428,12 @@ checks.update({
         and "intent.removeExtra(EXTRA_KEY)" in rtmp_service
         and "key.setText(\"\")" in rtmp_activity
         and "FLAG_SECURE" in rtmp_activity,
-    "V1.9.8 no microphone/camera source":
+    "V1.9.8 RTMP stream uses file decoder only, no mic/camera source":
         "AudioFileSource" in rtmp_service
         and "BitmapSource" in rtmp_service
         and "playAudioDevice();" not in rtmp_service
         and "RadioRtmpLevelAudioSource" in rtmp_service
         and "MicrophoneSource" not in rtmp_service
-        and "android.permission.RECORD_AUDIO" not in manifest
         and "android.permission.CAMERA" not in manifest,
     "V1.9.8 foreground service with direct transport":
         'android:name=".RadioDirectRtmpService"' in manifest
