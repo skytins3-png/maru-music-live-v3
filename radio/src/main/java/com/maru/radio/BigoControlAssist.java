@@ -205,6 +205,16 @@ public final class BigoControlAssist extends AccessibilityService {
         if (!operation.isEmpty() && approved(this)) notifyResult(operation, message);
     }
 
+    private void complete(String message) {
+        String operation = pref().getString("op", "");
+        pref().edit().remove("op").remove("expires").remove("phase")
+                .putString("status", message).apply();
+        handler.removeCallbacks(work);
+        handler.removeCallbacks(expiryWatchdog);
+        waitingGesture = false;
+        if (!operation.isEmpty() && approved(this)) notifyResult(operation, message);
+    }
+
     private void notifyResult(String operation, String message) {
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -771,8 +781,9 @@ public final class BigoControlAssist extends AccessibilityService {
                 } else abort("방송하기 버튼을 안전하게 찾지 못했어요.");
                 return;
             case VERIFY_STREAM:
-                if (BigoAutomationPolicy.isHostLive(labels))
-                    abort("BIGO 라이브 화면 확인됨(참고: 서버 송출·청취자 음질은 별도 검증 필요)");
+                if (BigoAutomationPolicy.isHostRoomAfterPress(labels))
+                    complete("BIGO 방송하기 누른 뒤 호스트 LIVE 화면 전환 확인 · "
+                            + "실제 서버 수신·청취자 음악·아환 음성 송출은 미검증");
                 return;
             default:
                 abort("알 수 없는 방송 시작 상태"); return;
@@ -907,7 +918,10 @@ public final class BigoControlAssist extends AccessibilityService {
             "1", "Original", "원본", "닫기", "Close", "종료",
             "라이브 종료하기", "추천", "인기", "발견", "홈", "라이브",
             "자리", "시청자", "명 시청", "방송 시간",
-            "BGM", "배경 음악", "내 음악", "음악 추가"
+            "BGM", "배경 음악", "내 음악", "음악 추가",
+            "라이브 툴", "프로그램 목록", "실시간 지원", "관리", "녹화",
+            "마이크", "2", "3", "4", "5", "6", "7",
+            "8", "9", "10", "11", "12"
     };
 
     private static void addControlLabel(HashSet<String> recognized, CharSequence text) {
@@ -920,7 +934,10 @@ public final class BigoControlAssist extends AccessibilityService {
                 return;
             }
         }
-        if (normalized.equals("오디오live") || normalized.equals("audiolive")) {
+        if (normalized.equals("마이크") || normalized.equals("mic")
+                || normalized.equals("마이크...") || normalized.equals("마이크…")) {
+            recognized.add("마이크");
+        } else if (normalized.equals("오디오live") || normalized.equals("audiolive")) {
             recognized.add("오디오 라이브");
         } else if (normalized.startsWith("시청자")
                 && normalized.length() < 16
