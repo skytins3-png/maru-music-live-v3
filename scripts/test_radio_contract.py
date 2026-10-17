@@ -641,7 +641,7 @@ checks.update({
     "BIGO auto-comment voice resets on revoke/unbind and reports LOCAL-only":
         'running.releaseCommentVoice()' in assist
         and 'service.releaseCommentVoice()' in assist
-        and 'BIGO 청취자 전달은' in assist
+        and 'BIGO 청취자 음성은' in assist
         and 'Android 접근성에서 MARU BIGO 연결 확인' in dj_activity,
 })
 
