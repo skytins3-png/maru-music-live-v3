@@ -58,6 +58,8 @@ public final class BigoControlAssist extends AccessibilityService {
     private final Runnable chatWork = this::checkChat;
     private final LinkedHashSet<Integer> chatSeen = new LinkedHashSet<>();
     private boolean chatPrimed;
+    // One ephemeral public BIGO chat message event, never written to disk.
+    private BigoChatRule.Match pendingPublicChatEvent;
     private long chatLastHandledAt;
     // A bound AccessibilityService can talk locally without trying to launch
     // a new media foreground service from BIGO's background-app context.
@@ -93,6 +95,7 @@ public final class BigoControlAssist extends AccessibilityService {
         BigoControlAssist running = connectedService.get();
         if (running != null) {
             running.handler.removeCallbacks(running.chatWork);
+            running.pendingPublicChatEvent = null;
             running.chatSeen.clear();
             running.chatPrimed = false;
             if (!enabled) running.releaseCommentVoice();
@@ -236,6 +239,7 @@ public final class BigoControlAssist extends AccessibilityService {
         handler.removeCallbacks(work);
         handler.removeCallbacks(expiryWatchdog);
         handler.removeCallbacks(chatWork);
+        pendingPublicChatEvent = null;
         chatSeen.clear();
         chatPrimed = false;
         releaseCommentVoice();
@@ -248,6 +252,7 @@ public final class BigoControlAssist extends AccessibilityService {
 
     @Override public void onInterrupt() {
         handler.removeCallbacks(chatWork);
+        pendingPublicChatEvent = null;
         chatSeen.clear();
         chatPrimed = false;
         releaseCommentVoice();
@@ -258,8 +263,29 @@ public final class BigoControlAssist extends AccessibilityService {
         if (e == null || e.getPackageName() == null
                 || !BIGO.contentEquals(e.getPackageName()) || !approved(this)) return;
         if (commentReplies(this) && RadioDjSettings.isVoiceEnabled(this)) {
-            // This merely schedules a read-only check of the named LIVE chat
-            // surface; it NEVER clicks, posts, or saves viewer messages.
+            // Some BIGO builds expose an accessibility event on a visible
+            // public comment row but omit its text from later tree scans.
+            // Accept only labeled, non-editable chat widgets in the BIGO
+            // package; defer host-LIVE verification to checkChat().
+            AccessibilityNodeInfo source = e.getSource();
+            if (source != null && source.isVisibleToUser()
+                    && source.getPackageName() != null
+                    && BIGO.contentEquals(source.getPackageName())
+                    && source.getClassName() != null
+                    && !source.getClassName().toString().contains("EditText")) {
+                String resource = source.getViewIdResourceName();
+                CharSequence description = source.getContentDescription();
+                String labeled = description == null ? null : description.toString();
+                if (BigoChatRule.isChatWidget(resource, labeled)
+                        && e.getText() != null) {
+                    for (CharSequence candidateText : e.getText()) {
+                        if (candidateText == null) continue;
+                        BigoChatRule.Match parsed = BigoChatRule.match(resource,
+                                labeled, candidateText.toString());
+                        if (parsed != null) pendingPublicChatEvent = parsed;
+                    }
+                }
+            }
             if (Build.VERSION.SDK_INT < 29 || !handler.hasCallbacks(chatWork))
                 handler.postDelayed(chatWork, 550L);
         }
@@ -322,12 +348,14 @@ public final class BigoControlAssist extends AccessibilityService {
         if (root == null || root.getPackageName() == null
                 || !BIGO.contentEquals(root.getPackageName())) {
             chatPrimed = false;
+            pendingPublicChatEvent = null;
             chatSeen.clear();
             setChatState("BIGO 화면의 공개 댓글 접근 불가 · BIGO 방송 화면이 전면에 표시되어야 합니다.");
             return;
         }
         if (!BigoAutomationPolicy.isHostLive(allLabels(root))) {
             chatPrimed = false;
+            pendingPublicChatEvent = null;
             chatSeen.clear();
             setChatState("BIGO 호스트 LIVE 화면 표식 확인 불가: 방송 종료/시청자 UI가 보이지 않으면 댓글을 읽지 않습니다.");
             return;
@@ -335,6 +363,12 @@ public final class BigoControlAssist extends AccessibilityService {
         // The first observed screen may contain old comments. Prime only and
         // reply to NEW matching rows on later accessibility content changes.
         java.util.ArrayList<BigoChatRule.Match> candidates = new java.util.ArrayList<>();
+        // A public chat event is only trusted after verifying the current
+        // host LIVE root; only the bounded reply + fingerprint survives here.
+        BigoChatRule.Match eventMatch = pendingPublicChatEvent;
+        pendingPublicChatEvent = null;
+        if (eventMatch != null && !chatSeen.contains(eventMatch.transientFingerprint))
+            candidates.add(eventMatch);
         ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<>();
         queue.add(root);
         int scanned = 0;
