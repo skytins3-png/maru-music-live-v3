@@ -88,6 +88,8 @@ public final class RadioBigoNoKeyTestActivity extends Activity {
         addButton(root, "🔎 청취자 기준으로 결과 다시 판정", this::update);
         addButton(root, "🎙 아환 댓글 감지 상태·동의 확인", () ->
                 startActivity(new Intent(this, RadioDjActivity.class)));
+        addButton(root, "🎵 BIGO 자체 음악 목록용 원곡 Music 폴더 준비", () ->
+                startActivity(new Intent(this, RadioBigoMusicPrepActivity.class)));
         addButton(root, "📱 BIGO 오디오 LIVE 열기 (키 불필요)", () ->
                 BigoBroadcastGuide.openBigo(this, false));
         addButton(root, "🎵 전체 원곡 목록 열기", () ->
