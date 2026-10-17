@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.18 BIGO composer mixer live one-tap version": "versionCode 32" in gradle
-        and "versionName '1.9.18-bigo-one-tap-auto-start'" in gradle
-        and "MARU RADIO V1.9.18 방송 자동 시작" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.19 BIGO user-access diagnostic without OS restricted-settings bypass": "versionCode 33" in gradle
+        and "versionName '1.9.19-accessibility-diagnostics'" in gradle
+        and "MARU RADIO V1.9.19 접근성 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -820,6 +820,40 @@ checks.update({
         and 'isHostRoomAfterPress(Set<String> labels)' in bigo_policy
         and 'has(labels, "오디오 라이브")' in bigo_policy
         and 'has(labels, "믹서")' in bigo_policy,
+})
+
+# Samsung Android screenshot: user sees two grey "MARU BIGO Audio LIVE"
+# entries, access "제한된 설정으로 제어됨", but no app-details
+# "허용" menu. The app CANNOT grant Accessibility/AppOps privileges.
+access_doctor = (root / "radio/src/main/java/com/maru/radio/RadioAccessDoctorActivity.java").read_text(encoding="utf-8")
+access_state = (root / "radio/src/main/java/com/maru/radio/RadioAccessState.java").read_text(encoding="utf-8")
+strings_xml = (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+guide = (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java").read_text(encoding="utf-8")
+checks.update({
+    "On-device secure accessibility connection doctor is installed, no app permissions bypass":
+        '.RadioAccessDoctorActivity' in manifest
+        and 'getInstallSourceInfo(getPackageName())' in access_doctor
+        and 'BigoControlAssist.connected(this)' in access_doctor
+        and 'BigoControlAssist.approved(this)' in access_doctor
+        and 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS' in access_doctor
+        and 'Settings.ACTION_ACCESSIBILITY_SETTINGS' in access_doctor
+        and 'android.permission.WRITE_SECURE_SETTINGS' not in manifest
+        and 'AppOpsManager.setMode' not in access_doctor,
+    "Accessibility service is labeled uniquely V1.9.19 to differentiate old apps":
+        'MARU V1.9.19 · BIGO 자동 조작' in strings_xml
+        and 'bigo_accessibility_label' in manifest,
+    "Blocked UI shows manual BIGO and never incorrectly claims automatic broadcast":
+        'RadioAccessState.description(consent, connected)' in access_doctor
+        and 'RADIO' in access_doctor
+        and '▶ BIGO 수동 열기' in access_doctor
+        and 'RadioAccessDoctorActivity.class' in guide
+        and 'RadioAccessDoctorActivity.class' in activity
+        and 'RadioAccessDoctorActivity.class' in automation
+        and 'RadioAccessDoctorActivity.class' in menu,
+    "Permissions stay optional for controls; microphone not confused with accessibility":
+        '마이크·알림 권한' in guide
+        and '앱 권한의' in guide
+        and '접근성 허용은 음악·아환 음성의 BIGO 청취자 송출' in access_doctor,
 })
 
 for name, okay in checks.items():
