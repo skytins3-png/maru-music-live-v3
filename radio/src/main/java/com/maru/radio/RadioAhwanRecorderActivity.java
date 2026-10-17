@@ -29,6 +29,7 @@ import java.io.IOException;
  */
 public final class RadioAhwanRecorderActivity extends Activity {
     private static final int ASK_MIC = 930;
+    private static final int ASK_EXPORT = 931;
     private static final String[] SLOTS = {
             RadioAhwanClipSlot.OPENING, RadioAhwanClipSlot.GIFT,
             RadioAhwanClipSlot.FOLLOW, RadioAhwanClipSlot.CLOSING
@@ -37,6 +38,7 @@ public final class RadioAhwanRecorderActivity extends Activity {
     private MediaRecorder recorder;
     private MediaPlayer preview;
     private String pendingSlot;
+    private String exportSlot;
     private String recordingSlot;
     private File temporary;
     private long startedAt;
@@ -98,6 +100,7 @@ public final class RadioAhwanRecorderActivity extends Activity {
             button(root, slot.equals(recordingSlot)
                     ? "■ 녹음 끝내고 저장" : "🎤 마이크로 직접 녹음", () -> toggleRecording(slot));
             button(root, "▶ 실제 목소리 미리듣기", () -> playPreview(slot));
+            button(root, "💾 녹음 파일 외부 폴더에 백업", () -> exportClip(slot));
             button(root, RadioDjSettings.clipEnabled(this,slot)
                     ? "☑ 방송에서 사용 중 · 누르면 해제" : "□ 방송에서 사용하기",
                     () -> toggleEnabled(slot));
@@ -237,6 +240,53 @@ public final class RadioAhwanRecorderActivity extends Activity {
             status.setText("녹음 파일 재생 실패 · 권한이나 저장 파일을 확인해 주세요.");
         }
     }
+    private void exportClip(String slot) {
+        String saved = RadioDjSettings.recordedClipUri(this, slot);
+        if (saved == null || saved.isEmpty()) {
+            status.setText("백업할 녹음이 없습니다.");
+            return;
+        }
+        if (recordingSlot != null) {
+            status.setText("현재 녹음을 먼저 끝내 주세요.");
+            return;
+        }
+        exportSlot = slot;
+        android.content.Intent dest = new android.content.Intent(
+                android.content.Intent.ACTION_CREATE_DOCUMENT)
+                .addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                .setType("audio/mp4")
+                .putExtra(android.content.Intent.EXTRA_TITLE, RadioAhwanClipSlot.filename(slot));
+        try { startActivityForResult(dest, ASK_EXPORT); }
+        catch (RuntimeException e) {
+            exportSlot = null;
+            status.setText("백업 폴더 선택 창을 열 수 없습니다.");
+        }
+    }
+
+    @Override protected void onActivityResult(int request, int result,
+            android.content.Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != ASK_EXPORT) return;
+        String slot = exportSlot;
+        exportSlot = null;
+        if (result != RESULT_OK || data == null || data.getData() == null
+                || !RadioAhwanClipSlot.valid(slot)) return;
+        String source = RadioDjSettings.recordedClipUri(this, slot);
+        try (java.io.InputStream in = getContentResolver().openInputStream(Uri.parse(source));
+             java.io.OutputStream out = getContentResolver().openOutputStream(data.getData())) {
+            if (in == null || out == null) throw new IOException("파일 읽기/쓰기 실패");
+            byte[] buf = new byte[16 * 1024];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                if (n > 0) out.write(buf, 0, n);
+            }
+            out.flush();
+            status.setText("녹음 백업 완료 · 선택한 폴더에서 파일을 확인하세요.");
+        } catch (Exception error) {
+            status.setText("녹음 백업 실패 · 다시 시도하세요.");
+        }
+    }
+
     private void stopPreview() {
         if (preview != null) {
             try { preview.stop(); } catch (RuntimeException ignored) {}
