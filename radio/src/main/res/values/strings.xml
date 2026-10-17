@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="app_name">MARU RADIO V1.9.13 실방송 검증</string>
+  <string name="app_name">MARU RADIO V1.9.14 아환 음성녹음</string>
   <string name="bigo_accessibility_label">MARU BIGO 오디오 LIVE 지원 (실험)</string>
   <string name="bigo_accessibility_description">사용자가 동의한 경우 BIGO 공개 호스트 LIVE 화면에서 방송 시작·종료 설정을 확인하고, 댓글 자동응답에 별도 동의한 경우 공개 LIVE 댓글의 화면 표시를 일시적으로 읽어 휴대폰에서 아환 TTS를 실행합니다. 댓글·닉네임은 저장하지 않으며 비밀번호·개인 메시지는 읽지 않습니다. 방송 청취자에게 실제 음성이 들리는지는 별도로 확인해야 합니다.</string>
 </resources>
