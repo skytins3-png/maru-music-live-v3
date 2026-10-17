@@ -161,13 +161,16 @@ public final class RadioActivity extends Activity {
                 "📥 노래 가져오기", this::pickDownloads);
         quickRow(root, "🤖 아환 · 자동 댓글", () ->
                         startActivity(new Intent(this, RadioDjActivity.class)),
-                "▶ BIGO 방송 열기", this::requestBigoStart);
+                "🚀 BIGO 자동 시작", () -> BigoBroadcastGuide.startAutomatic(this));
         quickRow(root, "📅 방송 시간 예약", () ->
                         startActivity(new Intent(this, RadioAutomationActivity.class)),
                 "🎼 4장르 자동 편성", this::selectProgramCategory);
         quickRow(root, "🎤 아환 인사 녹음", () ->
                         startActivity(new Intent(this, RadioAhwanRecorderActivity.class)),
                 "■ BIGO 종료 화면", this::requestBigoEnd);
+        root.addView(label("자동 시작은 접근성 허용 후에만 BIGO 버튼을 누릅니다. "
+                + "BIGO로 음악·아환 소리 전달은 아직 미검증입니다.",
+                12, 0xFFE4D4A9, false));
         root.addView(compactButton("🎵 BIGO 믹서용 원곡 준비 · Music 폴더에 공유", () ->
                 startActivity(new Intent(this, RadioBigoMusicPrepActivity.class))));
         gap(root, 8);
