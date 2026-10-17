@@ -112,7 +112,7 @@ checks.update({
     "BIGO guided start/end based on user screenshots": all(
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
                  .read_text(encoding="utf-8") for text in (
-        "'믹서'", "마이크 볼륨", "Original", "방송하기",
+        "믹서", "마이크 볼륨", "Original", "방송을 시작한 후",
         "방송을 시작한 후 도구/메뉴(☰)", "라이브 종료하기",
         "stopService(new Intent(host, RadioPlaybackService.class))")),
     "BIGO navigation is safe launch-only": all(
