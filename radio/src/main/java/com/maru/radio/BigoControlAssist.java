@@ -61,7 +61,7 @@ public final class BigoControlAssist extends AccessibilityService {
     // Only an observed owner-exclusive live tools sheet can prime the weak
     // seat-layout fallback. This is transient, never persisted as viewer data.
     private long hostToolsObservedAt;
-    private static final long CHAT_HOST_HINT_MS = 60L * 60L * 1000L;
+
     // One ephemeral public BIGO chat message event, never written to disk.
     private BigoChatRule.Match pendingPublicChatEvent;
     private long chatLastHandledAt;
@@ -373,15 +373,11 @@ public final class BigoControlAssist extends AccessibilityService {
                 || BigoAutomationPolicy.isEndConfirmation(labels)) {
             hostToolsObservedAt = 0L;
         }
-        long observedAge = android.os.SystemClock.elapsedRealtime() - hostToolsObservedAt;
-        boolean verifiedFromOwnTools = hostToolsObservedAt > 0L
-                && observedAge >= 0L
-                && observedAge <= CHAT_HOST_HINT_MS
-                && BigoAutomationPolicy.isOnAirSeatLayout(labels);
         // Do NOT lower the test used to automate BIGO's broadcast start/end.
         // The weak layout is a chat-read hint only after a recent host-exclusive
         // controls sheet; no UI click, DM access or raw chat logging added.
-        if (!BigoAutomationPolicy.isHostLive(labels) && !verifiedFromOwnTools) {
+        if (!BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt,
+                android.os.SystemClock.elapsedRealtime())) {
             chatPrimed = false;
             pendingPublicChatEvent = null;
             chatSeen.clear();
