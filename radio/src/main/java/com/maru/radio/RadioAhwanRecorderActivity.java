@@ -114,8 +114,10 @@ public final class RadioAhwanRecorderActivity extends Activity {
             status.setText("먼저 해당 인사 문장을 녹음해 주세요.");
             return;
         }
-        RadioDjSettings.setClipEnabled(this, slot,
-                !RadioDjSettings.clipEnabled(this, slot));
+        boolean enabled = !RadioDjSettings.clipEnabled(this, slot);
+        RadioDjSettings.setClipEnabled(this, slot, enabled);
+        if (enabled && RadioAhwanClipSlot.OPENING.equals(slot))
+            RadioDjSettings.setOpening(this, true);
         redraw();
     }
     private void toggleRecording(String slot) {
@@ -189,16 +191,22 @@ public final class RadioAhwanRecorderActivity extends Activity {
             File staged = new File(folder, "ready_" + RadioAhwanClipSlot.filename(slot));
             if (staged.exists()) staged.delete();
             if (temp.renameTo(staged)) {
-                if (destination.exists() && !destination.delete()) {
-                    staged.delete();
+                File backup = new File(folder, RadioAhwanClipSlot.filename(slot) + ".previous");
+                boolean hadOld = destination.exists();
+                boolean preserved = !hadOld
+                        || (!backup.exists() || backup.delete()) && destination.renameTo(backup);
+                if (!preserved) {
                     save = false;
-                } else if (!staged.renameTo(destination)) {
-                    save = false;
-                } else {
+                } else if (staged.renameTo(destination)) {
                     RadioDjSettings.setRecordedClipUri(this, slot, Uri.fromFile(destination));
-                    // Playback remains OFF until the owner explicitly enables it.
+                    // Broadcast use remains OFF until separately enabled by host.
+                    if (backup.exists()) backup.delete();
                     save = true;
+                } else {
+                    if (hadOld && backup.isFile()) backup.renameTo(destination);
+                    save = false;
                 }
+                if (staged.exists()) staged.delete();
             } else save = false;
         } else save = false;
         if (temp != null && temp.exists()) temp.delete();
