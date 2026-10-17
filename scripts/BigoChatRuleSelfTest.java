@@ -87,6 +87,15 @@ public final class BigoChatRuleSelfTest {
         check(BigoChatRule.matchSplitChat("sg.bigo.live:id/chat_msg", null,
                 "someone:else", "hi") == null,
                 "nickname separators cannot fake a chat row");
+        check(BigoChatRule.match("sg.bigo.live:id/chat_input", null,
+                "host: hello") == null,
+                "never answer owner typing in BIGO's chat input field");
+        check(BigoChatRule.match("sg.bigo.live:id/private_chat_message", null,
+                "friend: hello") == null,
+                "never answer potentially private BIGO messages");
+        check(BigoChatRule.match("sg.bigo.live:id/live_chat_message", null,
+                "viewer: hello") != null,
+                "actual public LIVE message row remains recognized");
         System.out.println("BIGO chat parser tests passed. NOT a live-BIGO acceptance test.");
     }
 }
