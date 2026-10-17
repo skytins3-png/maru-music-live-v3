@@ -63,7 +63,6 @@ public final class BigoControlAssist extends AccessibilityService {
     // a new media foreground service from BIGO's background-app context.
     // This never injects audio into the BIGO microphone / remote stream.
     private RadioDjVoice scopedCommentVoice;
-    private String chatSoundStatus = "아직 BIGO 자동 댓글 음성 시도 없음";
 
     private SharedPreferences pref() { return getSharedPreferences(STORE, MODE_PRIVATE); }
 
@@ -284,8 +283,14 @@ public final class BigoControlAssist extends AccessibilityService {
         // on Android 12+/One UI while BIGO is foreground. Speak directly from
         // this already-bound opt-in service instead. Local TTS != BIGO ingest.
         if (scopedCommentVoice == null) scopedCommentVoice = new RadioDjVoice(this);
-        scopedCommentVoice.say(reply, language, null);
-        chatSoundStatus = "아환 휴대폰 TTS 실행 요청 · BIGO 청취자 전달은 미연결/미검증";
+        scopedCommentVoice.say(reply, language, () -> {
+            // This is a LOCAL engine callback, not an acknowledgement from BIGO.
+            if (!commentReplies(this)) return;
+            String engine = scopedCommentVoice == null ? "음성 재생 상태 확인 불가"
+                    : scopedCommentVoice.status();
+            setChatState("아환 로컬 음성 처리 종료 · " + engine
+                    + " · BIGO 청취자 음성은 별도 확인 필요");
+        });
     }
 
     private void setChatState(String message) {
@@ -431,7 +436,6 @@ public final class BigoControlAssist extends AccessibilityService {
                         .setAction(RadioDirectRtmpService.ACTION_SAY)
                         .putExtra(RadioDirectRtmpService.EXTRA_SAY, match.reply)
                         .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, match.language));
-                chatSoundStatus = "실행 중인 독립 RTMP 음성 요청 · 청취자 측 확인 필요";
             } else {
                 // Crucial repair: do not start RadioPlaybackService as an
                 // Android 12+ background foreground service just for a reply.
