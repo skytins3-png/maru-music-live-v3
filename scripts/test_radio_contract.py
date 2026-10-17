@@ -392,7 +392,8 @@ checks.update({
         "commentReplies(Context ctx)" in assist
         and "setCommentReplies(Context ctx, boolean enabled)" in assist
         and 'getBoolean("comment_reply_opt_in", false)' in assist
-        and "BigoAutomationPolicy.isHostLive(allLabels(root))" in assist
+        and "BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt," in assist
+        and "BigoAutomationPolicy.isHostToolsSheet(labels)" in assist
         and "BIGO.contentEquals(root.getPackageName())" in assist,
     "V1.9.7 limits chat rate and discards old events":
         "chatPrimed" in assist and "chatSeen.size() > 80" in assist
@@ -753,6 +754,31 @@ checks.update({
         "'내 음악·BGM·파일 가져오기' 버튼이 " in official_mixer_guide
         and "방송을 시작한 후 도구/메뉴(☰)" in official_mixer_guide
         and "직접 주입하지 못합니다" in official_mixer_guide,
+})
+
+# 2026-10-18 user-verified owner LIVE tools: chat reader may use a
+# bounded owner-tools proof, but the broadcast START/END policy MUST remain
+# unchanged. This does NOT create an outgoing BIGO PCM path.
+host_policy = (root / "radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java").read_text(encoding="utf-8")
+host_gate = (root / "radio/src/main/java/com/maru/radio/BigoHostChatGate.java").read_text(encoding="utf-8")
+checks.update({
+    "Actual BIGO owner LIVE tools and seat-numbered mic UI modeled conservatively":
+        "isHostToolsSheet(Set<String> labels)" in host_policy
+        and all(x in host_policy for x in
+                ('라이브 툴', '실시간 지원', '프로그램 목록', '관리', '녹화'))
+        and "isOnAirSeatLayout(Set<String> labels)" in host_policy
+        and 'has(labels, "마이크")' in host_policy,
+    "Scoped chat fallback works only after owner-exclusive live tools proof":
+        "BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt," in assist
+        and "BigoAutomationPolicy.isHostToolsSheet(labels)" in assist
+        and "HOST_TOOL_PROOF_MS" in host_gate
+        and "observedOwnerToolsAt <= 0" in host_gate
+        and "BigoAutomationPolicy.isOnAirSeatLayout(labels)" in host_gate
+        and "BigoAutomationPolicy.isHostLive(labels)" in host_gate,
+    "Host chat proof cleared on permission revoke and accessibility disconnect":
+        "running.hostToolsObservedAt = 0L" in assist
+        and "hostToolsObservedAt = 0L;" in assist
+        and "releaseCommentVoice()" in assist,
 })
 
 for name, okay in checks.items():
