@@ -544,6 +544,11 @@ public final class RadioDjActivity extends Activity {
             syncingChatToggle = false;
         }
         updateBigoChatStatus();
+        if (useRecordedGreeting != null)
+            useRecordedGreeting.setChecked(RadioDjSettings.recordedOpening(this));
+        if (useOpening != null)
+            useOpening.setChecked(RadioDjSettings.opening(this));
+        updateGreetingStatus();
     }
 
     private void updateGreetingStatus() {
