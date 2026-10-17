@@ -81,6 +81,8 @@ public final class BigoAutomationPolicy {
      */
     public static boolean isOnAirSeatLayout(Set<String> labels) {
         if (labels == null || has(labels, "방송하기")
+                || has(labels, "오디오 라이브")
+                || has(labels, "믹서")
                 || has(labels, "라이브 종료하기")) return false;
         if (!has(labels, "마이크")) return false;
         int seats = 0;
@@ -93,6 +95,16 @@ public final class BigoAutomationPolicy {
             }
         }
         return seats >= 3;
+    }
+
+    /**
+     * On-air UI confirmation after a verified composer -> mic 1 -> Original ->
+     * '방송하기' press. The owner-provided BIGO LIVE screen uses a mic label
+     * plus numbered guest seats rather than literal '시청자/명 시청' text.
+     * This ONLY confirms the visible host-room transition, never server audio.
+     */
+    public static boolean isHostRoomAfterPress(Set<String> labels) {
+        return isHostLive(labels) || isOnAirSeatLayout(labels);
     }
 
     public static boolean isEndConfirmation(Set<String> labels) {
