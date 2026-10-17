@@ -168,6 +168,8 @@ public final class RadioActivity extends Activity {
         quickRow(root, "🎤 아환 인사 녹음", () ->
                         startActivity(new Intent(this, RadioAhwanRecorderActivity.class)),
                 "■ BIGO 종료 화면", this::requestBigoEnd);
+        root.addView(compactButton("🔍 접근성 차단·MARU 중복 설치 확인", () ->
+                startActivity(new Intent(this, RadioAccessDoctorActivity.class))));
         root.addView(label("자동 시작은 접근성 허용 후에만 BIGO 버튼을 누릅니다. "
                 + "BIGO로 음악·아환 소리 전달은 아직 미검증입니다.",
                 12, 0xFFE4D4A9, false));
