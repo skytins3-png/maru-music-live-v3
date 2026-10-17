@@ -143,11 +143,8 @@ public final class RadioDjActivity extends Activity {
         body.addView(button("☰ MARU 전체 기능 목록 · 음악·아환·방송",
                 () -> startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
 
-        body.addView(text("인사 · 신청곡 소개/재생 · 댓글 답변 · 선물 감사 · 진행 멘트", 14, WHITE));
-        body.addView(text("현재는 휴대폰 내부 규칙 대화 + Android TTS입니다. "
-                + "형의 실제 목소리로 자유롭게 합성하는 음성 복제 모델은 아직 없습니다. "
-                + "직접 녹음한 형의 인사말은 재생할 수 있어요. "
-                + "다른 앱 BIGO로 음성을 직접 송출하는 기능도 아직 검증되지 않았습니다.",
+        body.addView(text("댓글 자동 인식은 BIGO 공개 호스트 LIVE 화면에서만 시도합니다. "
+                + "아환의 로컬 음성이 청취자에게 들리는지는 아직 미검증입니다.",
                 13, 0xFFE4D4A9));
 
         CheckBox spoken = new CheckBox(this);
@@ -172,96 +169,8 @@ public final class RadioDjActivity extends Activity {
         between.setChecked(RadioDjSettings.interSong(this));
         between.setOnCheckedChangeListener((b,v)->RadioDjSettings.setInterSong(this,v));
         body.addView(between);
-        CheckBox memory = new CheckBox(this);
-        memory.setText("방송 취향 학습 (곡 요청 횟수만 로컬 저장)");
-        memory.setTextColor(WHITE);
-        memory.setChecked(RadioDjSettings.isMemoryEnabled(this));
-        memory.setOnCheckedChangeListener((b,v)->RadioDjSettings.setMemoryEnabled(this,v));
-        body.addView(memory);
-        body.addView(text("선물 보낸 사람 언어: 자동 판별 / 모르면 영어", 15, PURPLE));
-        body.addView(text("한국곡: 한국어→영어 · 중국곡: 중국어→영어 · "
-                + "서양곡과 연주곡: 영어만 · 시작과 종료: 영어만. "
-                + "선물은 입력한 메시지의 언어로 답하고 알 수 없으면 영어로 말합니다. "
-                + "BIGO 댓글은 동의·접근성·호스트 LIVE 화면 조건을 충족할 때 제한적으로 읽습니다.", 13, WHITE));
-        languageSpinner = new Spinner(this);
-        String[] giftChoices = {"자동 (모르면 English)", "한국어", "中文",
-                "English", "日本語", "Русский"};
-        ArrayAdapter<String> langs = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, giftChoices);
-        languageSpinner.setAdapter(langs);
-        languageSpinner.setSelection(RadioDjSettings.giftLanguageHint(this) + 1);
-        languageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
-                RadioDjSettings.setGiftLanguageHint(RadioDjActivity.this,pos - 1);
-            }
-            @Override public void onNothingSelected(AdapterView<?> p) {}
-        });
-        body.addView(languageSpinner);
-        gap(body);
 
-        body.addView(text("📻 진행자 인사와 멘트", 19, PURPLE));
-        body.addView(button("🎙 마이크 녹음실 · 시작/선물/팔로우/종료 인사 만들기", () ->
-                startActivity(new Intent(this, RadioAhwanRecorderActivity.class))));
-        body.addView(text("마이크로 녹음한 목소리를 인사별로 등록해 둘 수 있어요. "
-                + "각 인사 녹음은 사용을 켠 경우에만 재생하고, "
-                + "평소 댓글 대답과 새로운 문장은 시스템 TTS를 사용합니다. "
-                + "BIGO 청취자 송출 여부는 별도로 확인해야 합니다.", 13, WHITE));
-
-        body.addView(button("🎙 방송 시작 인사 (영어만)", () -> {
-            String speech = RadioDjLanguagePolicy.opening().get(0).text;
-            lastReply = speech;
-            oneLine("아환 방송 시작 인사: " + speech);
-            send(RadioPlaybackService.ACTION_DJ_GREETING, null, null);
-        }));
-        body.addView(button("🌹 선물 감사 인사 (보낸 사람 언어)", this::thankGift));
-        body.addView(button("💗 팔로우 감사 인사 (녹음 또는 영어 TTS)", () ->
-                send(RadioPlaybackService.ACTION_DJ_FOLLOW, null, null)));
-        body.addView(button("🎵 현재 방송목록의 다음 곡 소개", () -> {
-            oneLine("현재 MARU 재생 대기열의 다음 곡을 소개해요.");
-            send(RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT, null, null);
-        }));
-        body.addView(button("■ 방송 종료 인사 (영어만)", () ->
-                send(RadioPlaybackService.ACTION_DJ_CLOSING, null, null)));
-        body.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
-        greetingStatus = text("", 14, 0xFFB0E4C5);
-        body.addView(greetingStatus);
-        useRecordedGreeting = new CheckBox(this);
-        useRecordedGreeting.setText("✅ 방송 시작 때 형의 녹음 인사를 재생");
-        useRecordedGreeting.setTextColor(WHITE);
-        useRecordedGreeting.setChecked(RadioDjSettings.recordedOpening(this));
-        useRecordedGreeting.setOnCheckedChangeListener((button, checked) -> {
-            if (checked && RadioDjSettings.voiceClip(this).isEmpty()) {
-                useRecordedGreeting.setChecked(false);
-                oneLine("먼저 형의 영어 인사 녹음 파일을 선택해 줘.");
-                return;
-            }
-            RadioDjSettings.setRecordedOpening(this, checked);
-            if (checked && useOpening != null) useOpening.setChecked(true);
-            updateGreetingStatus();
-        });
-        body.addView(useRecordedGreeting);
-        body.addView(button("▶ 형의 녹음 인사 실제 소리 미리듣기", () -> {
-            if (RadioDjSettings.voiceClip(this).isEmpty()) {
-                oneLine("형의 녹음 인사가 아직 등록되지 않았어. 먼저 음성 파일을 골라 줘.");
-                return;
-            }
-            send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null);
-        }));
-        body.addView(button("🗑 등록한 인사 음성 해제", () -> {
-            RadioDjSettings.setRecordedOpening(this, false);
-            RadioDjSettings.setVoiceClip(this, null);
-            useRecordedGreeting.setChecked(false);
-            updateGreetingStatus();
-            oneLine("녹음 인사 연결만 해제했어. 원본 음성은 삭제하지 않았어.");
-        }));
-        body.addView(text("자동 방송 시작은 영어 인사 규칙이에요. "
-                + "형이 영어로 직접 녹음한 파일을 선택하고 위 항목을 켜면 "
-                + "실제 방송 시작 시 녹음된 형 목소리가 먼저 나옵니다. "
-                + "파일이 없거나 재생 오류면 영어 TTS로 이어집니다. "
-                + "단, 녹음만으로 새 문장까지 형 목소리로 합성할 수는 없어요.",
-                12, 0xFFDDCDDB));
-        updateGreetingStatus();
-
+        body.addView(text("🤖 BIGO 댓글 자동답변", 21, PURPLE));
         gap(body);
         body.addView(text("💬 BIGO 댓글 자동 감지 · 실험", 19, PURPLE));
         body.addView(text("BIGO 공식 댓글 API 연결이 아닌, 별도 동의 후 BIGO "
@@ -343,6 +252,115 @@ public final class RadioDjActivity extends Activity {
                     .setNegativeButton("취소", null).show()));
         updateBigoChatStatus();
         gap(body);
+
+        body.addView(button("🎤 아환 인사·감사 목소리 녹음", () ->
+                startActivity(new Intent(this, RadioAhwanRecorderActivity.class))));
+        body.addView(button("▶ BIGO 방송 화면 열기", () ->
+                BigoBroadcastGuide.openBigo(this, false)));
+        gap(body);
+        LinearLayout moreDj = new LinearLayout(this);
+        moreDj.setOrientation(LinearLayout.VERTICAL);
+        moreDj.setVisibility(getSharedPreferences("maru_radio_ui", MODE_PRIVATE)
+                .getBoolean("dj_advanced_open", false) ? View.VISIBLE : View.GONE);
+        Button advancedDjToggle = button("⚙ 인사·음성·언어·학습 상세 설정 펼치기", () -> {
+            boolean show = moreDj.getVisibility() != View.VISIBLE;
+            moreDj.setVisibility(show ? View.VISIBLE : View.GONE);
+            getSharedPreferences("maru_radio_ui", MODE_PRIVATE).edit()
+                    .putBoolean("dj_advanced_open", show).apply();
+        });
+        body.addView(advancedDjToggle);
+        body.addView(moreDj);
+
+        CheckBox memory = new CheckBox(this);
+        memory.setText("방송 취향 학습 (곡 요청 횟수만 로컬 저장)");
+        memory.setTextColor(WHITE);
+        memory.setChecked(RadioDjSettings.isMemoryEnabled(this));
+        memory.setOnCheckedChangeListener((b,v)->RadioDjSettings.setMemoryEnabled(this,v));
+        moreDj.addView(memory);
+        moreDj.addView(text("선물 보낸 사람 언어: 자동 판별 / 모르면 영어", 15, PURPLE));
+        moreDj.addView(text("한국곡: 한국어→영어 · 중국곡: 중국어→영어 · "
+                + "서양곡과 연주곡: 영어만 · 시작과 종료: 영어만. "
+                + "선물은 입력한 메시지의 언어로 답하고 알 수 없으면 영어로 말합니다. "
+                + "BIGO 댓글은 동의·접근성·호스트 LIVE 화면 조건을 충족할 때 제한적으로 읽습니다.", 13, WHITE));
+        languageSpinner = new Spinner(this);
+        String[] giftChoices = {"자동 (모르면 English)", "한국어", "中文",
+                "English", "日本語", "Русский"};
+        ArrayAdapter<String> langs = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, giftChoices);
+        languageSpinner.setAdapter(langs);
+        languageSpinner.setSelection(RadioDjSettings.giftLanguageHint(this) + 1);
+        languageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                RadioDjSettings.setGiftLanguageHint(RadioDjActivity.this,pos - 1);
+            }
+            @Override public void onNothingSelected(AdapterView<?> p) {}
+        });
+        moreDj.addView(languageSpinner);
+        gap(moreDj);
+
+        moreDj.addView(text("📻 진행자 인사와 멘트", 19, PURPLE));
+        moreDj.addView(button("🎙 마이크 녹음실 · 시작/선물/팔로우/종료 인사 만들기", () ->
+                startActivity(new Intent(this, RadioAhwanRecorderActivity.class))));
+        moreDj.addView(text("마이크로 녹음한 목소리를 인사별로 등록해 둘 수 있어요. "
+                + "각 인사 녹음은 사용을 켠 경우에만 재생하고, "
+                + "평소 댓글 대답과 새로운 문장은 시스템 TTS를 사용합니다. "
+                + "BIGO 청취자 송출 여부는 별도로 확인해야 합니다.", 13, WHITE));
+
+        moreDj.addView(button("🎙 방송 시작 인사 (영어만)", () -> {
+            String speech = RadioDjLanguagePolicy.opening().get(0).text;
+            lastReply = speech;
+            oneLine("아환 방송 시작 인사: " + speech);
+            send(RadioPlaybackService.ACTION_DJ_GREETING, null, null);
+        }));
+        moreDj.addView(button("🌹 선물 감사 인사 (보낸 사람 언어)", this::thankGift));
+        moreDj.addView(button("💗 팔로우 감사 인사 (녹음 또는 영어 TTS)", () ->
+                send(RadioPlaybackService.ACTION_DJ_FOLLOW, null, null)));
+        moreDj.addView(button("🎵 현재 방송목록의 다음 곡 소개", () -> {
+            oneLine("현재 MARU 재생 대기열의 다음 곡을 소개해요.");
+            send(RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT, null, null);
+        }));
+        moreDj.addView(button("■ 방송 종료 인사 (영어만)", () ->
+                send(RadioPlaybackService.ACTION_DJ_CLOSING, null, null)));
+        moreDj.addView(button("🎤 형 목소리로 녹음한 인사 파일 선택", this::pickRecordedGreeting));
+        greetingStatus = text("", 14, 0xFFB0E4C5);
+        moreDj.addView(greetingStatus);
+        useRecordedGreeting = new CheckBox(this);
+        useRecordedGreeting.setText("✅ 방송 시작 때 형의 녹음 인사를 재생");
+        useRecordedGreeting.setTextColor(WHITE);
+        useRecordedGreeting.setChecked(RadioDjSettings.recordedOpening(this));
+        useRecordedGreeting.setOnCheckedChangeListener((button, checked) -> {
+            if (checked && RadioDjSettings.voiceClip(this).isEmpty()) {
+                useRecordedGreeting.setChecked(false);
+                oneLine("먼저 형의 영어 인사 녹음 파일을 선택해 줘.");
+                return;
+            }
+            RadioDjSettings.setRecordedOpening(this, checked);
+            if (checked && useOpening != null) useOpening.setChecked(true);
+            updateGreetingStatus();
+        });
+        moreDj.addView(useRecordedGreeting);
+        moreDj.addView(button("▶ 형의 녹음 인사 실제 소리 미리듣기", () -> {
+            if (RadioDjSettings.voiceClip(this).isEmpty()) {
+                oneLine("형의 녹음 인사가 아직 등록되지 않았어. 먼저 음성 파일을 골라 줘.");
+                return;
+            }
+            send(RadioPlaybackService.ACTION_DJ_TEST_RECORDED, null, null);
+        }));
+        moreDj.addView(button("🗑 등록한 인사 음성 해제", () -> {
+            RadioDjSettings.setRecordedOpening(this, false);
+            RadioDjSettings.setVoiceClip(this, null);
+            useRecordedGreeting.setChecked(false);
+            updateGreetingStatus();
+            oneLine("녹음 인사 연결만 해제했어. 원본 음성은 삭제하지 않았어.");
+        }));
+        moreDj.addView(text("자동 방송 시작은 영어 인사 규칙이에요. "
+                + "형이 영어로 직접 녹음한 파일을 선택하고 위 항목을 켜면 "
+                + "실제 방송 시작 시 녹음된 형 목소리가 먼저 나옵니다. "
+                + "파일이 없거나 재생 오류면 영어 TTS로 이어집니다. "
+                + "단, 녹음만으로 새 문장까지 형 목소리로 합성할 수는 없어요.",
+                12, 0xFFDDCDDB));
+        updateGreetingStatus();
+
         // The broadcaster never needs to type or dictate viewer comments.
         // Retain every prior manual feature only under this opt-in diagnostic area.
         LinearLayout manualTools = new LinearLayout(this);
@@ -352,12 +370,12 @@ public final class RadioDjActivity extends Activity {
             boolean opening = manualTools.getVisibility() != View.VISIBLE;
             manualTools.setVisibility(opening ? View.VISIBLE : View.GONE);
         });
-        body.addView(text("🤖 자동 답변 방송: 댓글을 직접 입력하거나 소리 내어 읽을 필요가 없습니다. "
+        moreDj.addView(text("🤖 자동 답변 방송: 댓글을 직접 입력하거나 소리 내어 읽을 필요가 없습니다. "
                 + "BIGO 호스트 LIVE 화면에서 허용된 새 댓글을 감지하면 아환이 "
                 + "일치하는 짧은 답변만 TTS로 말합니다. 댓글 인식과 실제 청취자 음성은 "
                 + "각각 검증이 필요합니다.", 14, 0xFFB0E4C5));
-        body.addView(testToggle);
-        body.addView(manualTools);
+        moreDj.addView(testToggle);
+        moreDj.addView(manualTools);
         manualTools.addView(text("🧪 수동 댓글·신청곡 테스트 (방송 필수 아님)", 19, PURPLE));
         manualTools.addView(text("진단을 위한 수동 입력입니다. 방송 중 자동 댓글답변에는 이 화면의 입력/버튼이 필요 없습니다. "
                 + "기존 수동 테스트와 학습 기능은 삭제하지 않고 이곳에 보관했습니다.",
