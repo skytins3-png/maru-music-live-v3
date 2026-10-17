@@ -12,8 +12,8 @@ android {
         minSdk 26
         // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
         targetSdk 36
-        versionCode 28
-        versionName '1.9.14-ahwan-mic-voice-clips'
+        versionCode 29
+        versionName '1.9.15-scoped-bigo-chat-local-tts'
     }
 
     // Store upload credentials must be supplied by the repository owner through
