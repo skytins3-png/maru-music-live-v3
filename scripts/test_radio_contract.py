@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.16 simplified BIGO broadcast dashboard version": "versionCode 30" in gradle
-        and "versionName '1.9.16-simple-broadcast-dashboard'" in gradle
-        and "MARU RADIO V1.9.16 쉬운 방송" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.17 keyless BIGO local Music prep version": "versionCode 31" in gradle
+        and "versionName '1.9.17-keyless-bigo-music-prep'" in gradle
+        and "MARU RADIO V1.9.17 BIGO 음악 준비" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -701,6 +701,43 @@ checks.update({
         and 'moreDj.addView(manualTools)' in dj_activity
         and 'body.addView(bigoChatEnabled)' in dj_activity
         and 'body.addView(bigoChatStatus)' in dj_activity,
+})
+
+# Android Music is a handoff to BIGO's *own* local-BGM picker when
+# available, not a software injection into BIGO's microphone/capture path.
+exporter = (root / "radio/src/main/java/com/maru/radio/RadioBigoMediaExporter.java").read_text(encoding="utf-8")
+export_ui = (root / "radio/src/main/java/com/maru/radio/RadioBigoMusicPrepActivity.java").read_text(encoding="utf-8")
+export_engine = (root / "radio/src/main/java/com/maru/radio/RadioBigoCopyEngine.java").read_text(encoding="utf-8")
+export_naming = (root / "radio/src/main/java/com/maru/radio/RadioBigoExportNaming.java").read_text(encoding="utf-8")
+checks.update({
+    "User-visible keyless BIGO Music export in home menu and actual visitor test":
+        '.RadioBigoMusicPrepActivity' in manifest
+        and 'RadioBigoMusicPrepActivity.class' in activity
+        and 'RadioBigoMusicPrepActivity.class' in feature_menu
+        and 'RadioBigoMusicPrepActivity.class' in no_key_ui,
+    "Original songs publicly exported as full-byte shared Music files, never transcoded":
+        'MediaStore.Audio.Media.EXTERNAL_CONTENT_URI' in exporter
+        and 'MediaStore.Audio.Media.RELATIVE_PATH' in exporter
+        and 'MediaStore.Audio.Media.IS_PENDING' in exporter
+        and 'Music' in export_ui
+        and 'new FileInputStream(track.file())' in exporter
+        and 'resolver.openInputStream(track.sourceUri())' in exporter
+        and 'RadioBigoCopyEngine.copyAndVerify(in, out, track.hash, cancel)' in exporter
+        and 'MediaCodec' not in exporter,
+    "Export uses SHA-256 and cancels incomplete copies without deleting original":
+        'MessageDigest.getInstance("SHA-256")' in export_engine
+        and 'InterruptedIOException' in export_engine
+        and 'if (!complete) resolver.delete(dst, null, null)' in exporter
+        and 'if (exists(resolver, name)) return false' in exporter
+        and 'MediaStore.Audio.Media.IS_PENDING, 0' in exporter
+        and 'track.file().delete()' not in exporter
+        and 'contentResolver.delete' not in exporter,
+    "Permission and receiver claims bounded in no-key Music prep":
+        'BIGO 믹서에 표시되는지는 BIGO 버전에 따라 다릅니다.' in export_ui
+        and '아환 댓글 TTS도 BIGO 마이크에 자동 연결되지 않습니다.' in export_ui
+        and '파일 복사 성공 ≠ BIGO 라이브 음성 송출 성공' in export_ui
+        and 'android.permission.MANAGE_EXTERNAL_STORAGE' not in manifest
+        and 'android.permission.READ_MEDIA_AUDIO' not in manifest,
 })
 
 for name, okay in checks.items():
