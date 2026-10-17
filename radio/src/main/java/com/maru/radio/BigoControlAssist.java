@@ -59,6 +59,11 @@ public final class BigoControlAssist extends AccessibilityService {
     private final LinkedHashSet<Integer> chatSeen = new LinkedHashSet<>();
     private boolean chatPrimed;
     private long chatLastHandledAt;
+    // A bound AccessibilityService can talk locally without trying to launch
+    // a new media foreground service from BIGO's background-app context.
+    // This never injects audio into the BIGO microphone / remote stream.
+    private RadioDjVoice scopedCommentVoice;
+    private String chatSoundStatus = "아직 BIGO 자동 댓글 음성 시도 없음";
 
     private SharedPreferences pref() { return getSharedPreferences(STORE, MODE_PRIVATE); }
 
@@ -91,6 +96,8 @@ public final class BigoControlAssist extends AccessibilityService {
             running.handler.removeCallbacks(running.chatWork);
             running.chatSeen.clear();
             running.chatPrimed = false;
+            if (!enabled) running.releaseCommentVoice();
+            else running.setChatState("댓글 감시 ON · BIGO에서 진행 중인 호스트 LIVE 화면이 보여야 합니다.");
         }
         return true;
     }
@@ -142,6 +149,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 service.handler.removeCallbacks(service.chatWork);
                 service.chatSeen.clear();
                 service.chatPrimed = false;
+                service.releaseCommentVoice();
             }
         }
     }
@@ -231,6 +239,7 @@ public final class BigoControlAssist extends AccessibilityService {
         handler.removeCallbacks(chatWork);
         chatSeen.clear();
         chatPrimed = false;
+        releaseCommentVoice();
         connectedService = new WeakReference<>(null);
         pref().edit().putBoolean("connected", false)
                 .remove("op").remove("expires").remove("phase")
@@ -242,6 +251,7 @@ public final class BigoControlAssist extends AccessibilityService {
         handler.removeCallbacks(chatWork);
         chatSeen.clear();
         chatPrimed = false;
+        releaseCommentVoice();
         abort("자동 조작 중단: BIGO 상태 확인 필요");
     }
 
@@ -262,15 +272,40 @@ public final class BigoControlAssist extends AccessibilityService {
         handler.postDelayed(work, 250L);
     }
 
+    private void releaseCommentVoice() {
+        if (scopedCommentVoice != null) {
+            scopedCommentVoice.close();
+            scopedCommentVoice = null;
+        }
+    }
+
+    private void sayLocalComment(String reply, int language) {
+        // A media foreground service launched from background can be refused
+        // on Android 12+/One UI while BIGO is foreground. Speak directly from
+        // this already-bound opt-in service instead. Local TTS != BIGO ingest.
+        if (scopedCommentVoice == null) scopedCommentVoice = new RadioDjVoice(this);
+        scopedCommentVoice.say(reply, language, null);
+        chatSoundStatus = "아환 휴대폰 TTS 실행 요청 · BIGO 청취자 전달은 미연결/미검증";
+    }
+
     private void setChatState(String message) {
         // Keep only fixed status strings; never store a viewer's comment.
         pref().edit().putString("chat_state", message).apply();
     }
 
     private void checkChat() {
-        if (!approved(this) || !commentReplies(this)
-                || !RadioDjSettings.isVoiceEnabled(this)) return;
-        if (pref().contains("op") || pref().contains("preflight_expires")) return;
+        if (!approved(this) || !commentReplies(this)) {
+            setChatState("댓글 감시 OFF · BIGO 댓글 읽기 동의가 필요합니다.");
+            return;
+        }
+        if (!RadioDjSettings.isVoiceEnabled(this)) {
+            setChatState("아환 음성 OFF · 아나운서 음성 사용을 켜야 합니다.");
+            return;
+        }
+        if (pref().contains("op") || pref().contains("preflight_expires")) {
+            setChatState("BIGO 시작·종료 화면 조작 또는 점검 중 · 댓글 응답 잠시 보류");
+            return;
+        }
         KeyguardManager km = getSystemService(KeyguardManager.class);
         if (km != null && km.isKeyguardLocked()) {
             chatPrimed = false;
@@ -283,6 +318,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 || !BIGO.contentEquals(root.getPackageName())) {
             chatPrimed = false;
             chatSeen.clear();
+            setChatState("BIGO 화면의 공개 댓글 접근 불가 · BIGO 방송 화면이 전면에 표시되어야 합니다.");
             return;
         }
         if (!BigoAutomationPolicy.isHostLive(allLabels(root))) {
@@ -387,23 +423,27 @@ public final class BigoControlAssist extends AccessibilityService {
         }
         BigoChatRule.Match match = candidates.get(candidates.size() - 1);
         boolean directRtmp = RadioDirectRtmpService.isActive();
-        Intent spoken = directRtmp
-                ? new Intent(this, RadioDirectRtmpService.class)
-                    .setAction(RadioDirectRtmpService.ACTION_SAY)
-                    .putExtra(RadioDirectRtmpService.EXTRA_SAY, match.reply)
-                    .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, match.language)
-                : new Intent(this, RadioPlaybackService.class)
-                    .setAction(RadioPlaybackService.ACTION_DJ_AUTO_COMMENT)
-                    .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, match.reply)
-                    .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, match.language);
         try {
-            startService(spoken);
+            if (directRtmp) {
+                // Optional authorized RTMP can mix TTS PCM into the stream;
+                // the owner's normal BIGO Audio LIVE has no provided RTMP key.
+                startService(new Intent(this, RadioDirectRtmpService.class)
+                        .setAction(RadioDirectRtmpService.ACTION_SAY)
+                        .putExtra(RadioDirectRtmpService.EXTRA_SAY, match.reply)
+                        .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, match.language));
+                chatSoundStatus = "실행 중인 독립 RTMP 음성 요청 · 청취자 측 확인 필요";
+            } else {
+                // Crucial repair: do not start RadioPlaybackService as an
+                // Android 12+ background foreground service just for a reply.
+                sayLocalComment(match.reply, match.language);
+            }
             chatLastHandledAt = now;
-            setChatState(directRtmp
-                    ? "새 댓글 대응 → RTMP 아환 음성 전달 요청"
-                    : "새 댓글 대응 → 아환 로컬 TTS (BIGO 전달 미검증)");
+            setChatState("새 댓글 인식 · 1개 응답 처리 / "
+                    + (directRtmp ? "RTMP PCM 요청" : "휴대폰 로컬 TTS 요청")
+                    + " · BIGO 실제 청취 음성 미검증");
         } catch (RuntimeException denied) {
-            setChatState("댓글은 감지했지만 Android가 답변 음성 서비스를 제한");
+            setChatState("댓글은 감지했지만 안드로이드가 음성 실행을 차단함 · "
+                    + "녹음·앱 권한이 아니라 출력 실행 경로 오류");
         }
     }
 
