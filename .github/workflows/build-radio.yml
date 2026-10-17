@@ -77,6 +77,15 @@ jobs:
             scripts/RadioClockSelfTest.java
           java -cp /tmp/radio-clock-tests com.maru.radio.RadioClockSelfTest
 
+      - name: Simulate real BIGO live host chat proof and 128 denied unverified screens (offline)
+        run: |
+          mkdir -p /tmp/maru-bigo-host-chat-gate
+          javac -d /tmp/maru-bigo-host-chat-gate \
+            radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java \
+            radio/src/main/java/com/maru/radio/BigoHostChatGate.java \
+            scripts/BigoHostChatGateSelfTest.java
+          java -cp /tmp/maru-bigo-host-chat-gate com.maru.radio.BigoHostChatGateSelfTest
+
       - name: Test BIGO mock screenshot labels (never starts an actual LIVE)
         run: |
           mkdir -p /tmp/maru-ui-policy
