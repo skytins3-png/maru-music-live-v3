@@ -200,6 +200,13 @@ public final class RadioDjActivity extends Activity {
         gap(body);
 
         body.addView(text("📻 진행자 인사와 멘트", 19, PURPLE));
+        body.addView(button("🎙 마이크 녹음실 · 시작/선물/팔로우/종료 인사 만들기", () ->
+                startActivity(new Intent(this, RadioAhwanRecorderActivity.class))));
+        body.addView(text("마이크로 녹음한 목소리를 인사별로 등록해 둘 수 있어요. "
+                + "각 인사 녹음은 사용을 켠 경우에만 재생하고, "
+                + "평소 댓글 대답과 새로운 문장은 시스템 TTS를 사용합니다. "
+                + "BIGO 청취자 송출 여부는 별도로 확인해야 합니다.", 13, WHITE));
+
         body.addView(button("🎙 방송 시작 인사 (영어만)", () -> {
             String speech = RadioDjLanguagePolicy.opening().get(0).text;
             lastReply = speech;
@@ -207,8 +214,8 @@ public final class RadioDjActivity extends Activity {
             send(RadioPlaybackService.ACTION_DJ_GREETING, null, null);
         }));
         body.addView(button("🌹 선물 감사 인사 (보낸 사람 언어)", this::thankGift));
-        body.addView(button("💗 팔로우 감사 인사 (기본 영어)", () ->
-                say(RadioReplies.message(RadioDjLanguagePolicy.ENGLISH, 3))));
+        body.addView(button("💗 팔로우 감사 인사 (녹음 또는 영어 TTS)", () ->
+                send(RadioPlaybackService.ACTION_DJ_FOLLOW, null, null)));
         body.addView(button("🎵 현재 방송목록의 다음 곡 소개", () -> {
             oneLine("현재 MARU 재생 대기열의 다음 곡을 소개해요.");
             send(RadioPlaybackService.ACTION_DJ_ANNOUNCE_NEXT, null, null);
