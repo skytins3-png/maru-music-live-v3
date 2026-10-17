@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.14 host mic prerecorded announcement version": "versionCode 28" in gradle
-        and "versionName '1.9.14-ahwan-mic-voice-clips'" in gradle
-        and "MARU RADIO V1.9.14 아환 음성녹음" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.15 BIGO event chat and local TTS version": "versionCode 29" in gradle
+        and "versionName '1.9.15-scoped-bigo-chat-local-tts'" in gradle
+        and "MARU RADIO V1.9.15 아환 댓글 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -643,6 +643,20 @@ checks.update({
         and 'service.releaseCommentVoice()' in assist
         and 'BIGO 청취자 음성은' in assist
         and 'Android 접근성에서 MARU BIGO 연결 확인' in dj_activity,
+})
+
+checks.update({
+    "BIGO scoped event fallback uses source-public-chat only after host screen verification":
+        'e.getSource()' in assist
+        and 'pendingPublicChatEvent' in assist
+        and 'BigoChatRule.match(resource,' in assist
+        and 'BigoAutomationPolicy.isHostLive(allLabels(root))' in assist
+        and 'source.getClassName().toString().contains("EditText")' in assist
+        and 'pendingPublicChatEvent = null' in assist,
+    "BIGO public comment checker ignores composer and private fields":
+        'id.contains("input")' in chat_policy
+        and 'id.contains("private")' in chat_policy
+        and 'id.contains("direct_message")' in chat_policy,
 })
 
 for name, okay in checks.items():
