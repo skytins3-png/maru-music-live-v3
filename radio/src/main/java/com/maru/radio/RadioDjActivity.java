@@ -306,6 +306,9 @@ public final class RadioDjActivity extends Activity {
         bigoChatStatus = text("", 13, 0xFFB0E4C5);
         body.addView(bigoChatStatus);
         body.addView(button("BIGO 댓글 연결 상태 확인", this::updateBigoChatStatus));
+        body.addView(button("🧪 스트림 키 없는 BIGO 청취자 음량·아환 답변 실측", () ->
+                startActivity(new Intent(this, RadioBigoNoKeyTestActivity.class))));
+
         body.addView(button("🔊 BIGO 청취자 실제 소리 경로 점검", () ->
                 new AlertDialog.Builder(this)
                     .setTitle("음악·아환 멘트 → BIGO 청취자")
