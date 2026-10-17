@@ -116,10 +116,27 @@ public final class RadioDjVoice {
         say(line.text, line.language, () -> speakLine(lines, index + 1, after));
     }
 
-    /** User-provided previously-recorded audio: only a fixed greeting, not cloning. */
+    /** Manually selected opening recording; preview does not require broadcast activation. */
     public void greeting(String fallback, Runnable after) {
-        String saved = RadioDjSettings.voiceClip(context);
-        if (saved == null || saved.isEmpty()) { say(fallback, after); return; }
+        playStored(RadioDjSettings.voiceClip(context),
+                fallback, RadioDjLanguagePolicy.ENGLISH, after);
+    }
+
+    /** Prerecorded short real-human-voice samples, one per explicitly enabled slot. */
+    public void playClip(String slot, String fallback, int language, Runnable after) {
+        if (!RadioAhwanClipSlot.valid(slot) || !RadioDjSettings.clipEnabled(context, slot)) {
+            say(fallback, language, after);
+            return;
+        }
+        playStored(RadioDjSettings.recordedClipUri(context, slot),
+                fallback, language, after);
+    }
+
+    private void playStored(String saved, String fallback, int language, Runnable after) {
+        if (saved == null || saved.isEmpty()) {
+            say(fallback, language, after);
+            return;
+        }
         cancel();
         if (closed) { if (after != null) after.run(); return; }
         final int ticket = generation;
@@ -128,40 +145,38 @@ public final class RadioDjVoice {
         main.postDelayed(timeout, 15000L);
         try {
             clip = new MediaPlayer();
-            AudioAttributes.Builder voiceClipAttrs = new AudioAttributes.Builder()
+            AudioAttributes.Builder attributes = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
             if (android.os.Build.VERSION.SDK_INT >= 29)
-                voiceClipAttrs.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
-            clip.setAudioAttributes(voiceClipAttrs.build());
+                attributes.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+            clip.setAudioAttributes(attributes.build());
             clip.setDataSource(context, Uri.parse(saved));
             clip.setOnPreparedListener(p -> {
                 if (ticket == generation && !closed) {
-                    status = "형이 녹음한 인사 음성 재생";
+                    status = "등록한 아환 실제 녹음 음성 재생";
                     try { p.start(); }
-                    catch (RuntimeException e) {
-                        fallbackGreeting(ticket, fallback, after);
+                    catch (RuntimeException ex) {
+                        fallbackRecorded(ticket, fallback, language, after);
                     }
                 }
             });
             clip.setOnCompletionListener(p -> complete(ticket));
             clip.setOnErrorListener((p, what, extra) -> {
-                fallbackGreeting(ticket, fallback, after);
+                fallbackRecorded(ticket, fallback, language, after);
                 return true;
             });
             clip.prepareAsync();
-        } catch (Exception badClip) {
-            cancel();
-            say(fallback, after);
+        } catch (Exception err) {
+            fallbackRecorded(ticket, fallback, language, after);
         }
     }
 
-    private void fallbackGreeting(int ticket, String EnglishText, Runnable after) {
+    private void fallbackRecorded(int ticket, String fallback, int language, Runnable after) {
         if (ticket != generation || closed) return;
-        // A missing / corrupted / revoked recording must not stall the show.
         cancel();
-        status = "녹음 파일이 재생되지 않아 영어 TTS로 대신 인사합니다.";
-        say(EnglishText, RadioDjLanguagePolicy.ENGLISH, after);
+        status = "녹음 파일을 재생할 수 없어 지정된 언어 TTS로 대체합니다.";
+        say(fallback, language, after);
     }
 
     private void startSpeech(int ticket) {
