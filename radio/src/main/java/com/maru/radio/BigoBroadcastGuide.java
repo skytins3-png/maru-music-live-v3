@@ -36,13 +36,17 @@ public final class BigoBroadcastGuide {
         if (!BigoControlAssist.approved(host) || !BigoControlAssist.connected(host)) {
             new AlertDialog.Builder(host)
                     .setTitle("BIGO 자동 시작 · 연결 필요")
-                    .setMessage("현재 BIGO 접근성 연결 또는 자동 조작 동의가 없습니다. "
-                            + "MARU의 방송 예약 화면에서 '명시적 동의'를 확인하고 "
-                            + "휴대폰 접근성 설정에서 MARU BIGO 서비스를 켜 주세요. "
-                            + "허용하기 전에는 BIGO 방송 버튼을 대신 누르지 않습니다.")
-                    .setPositiveButton("연결 설정으로", (d, w) ->
+                    .setMessage("현재 BIGO 자동 조작에 필요한 앱 내부 동의 또는 "
+                            + "Android 접근성 연결이 없습니다. "
+                            + "삼성에서 '제한된 설정으로 제어됨'이 표시된 경우 "
+                            + "MARU는 보안 차단을 자체 해제하지 못합니다. "
+                            + "앱 권한의 '모든 권한'도 접근성 허용이 아닙니다. "
+                            + "연결 진단에서 설치 출처와 실제 접속 상태를 확인해 주세요. "
+                            + "형의 기존 음악·녹음 파일은 삭제하지 마세요.")
+                    .setPositiveButton("🔍 연결 상태 확인", (d, w) ->
                             host.startActivity(new Intent(host,
-                                    RadioAutomationActivity.class)))
+                                    RadioAccessDoctorActivity.class)))
+                    .setNeutralButton("▶ BIGO 수동 열기", (d, w) -> openBigo(host, false))
                     .setNegativeButton("취소", null).show();
             return;
         }
