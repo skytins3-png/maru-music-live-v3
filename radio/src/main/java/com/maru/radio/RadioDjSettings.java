@@ -59,6 +59,35 @@ public final class RadioDjSettings {
         prefs(ctx).edit().putString("greeting_clip",
                 uri == null ? "" : uri.toString()).apply();
     }
+    /** Explicitly opt-in prerecorded voice clips (NOT arbitrary generated speech). */
+    public static String recordedClipUri(Context ctx, String slot) {
+        if (!RadioAhwanClipSlot.valid(slot)) return "";
+        if (RadioAhwanClipSlot.OPENING.equals(slot)) return voiceClip(ctx);
+        return prefs(ctx).getString("ahwan_clip_" + slot, "");
+    }
+    public static void setRecordedClipUri(Context ctx, String slot, Uri uri) {
+        if (!RadioAhwanClipSlot.valid(slot)) return;
+        if (RadioAhwanClipSlot.OPENING.equals(slot)) {
+            setVoiceClip(ctx, uri);
+            return;
+        }
+        prefs(ctx).edit().putString("ahwan_clip_" + slot,
+                uri == null ? "" : uri.toString()).apply();
+    }
+    public static boolean clipEnabled(Context ctx, String slot) {
+        if (!RadioAhwanClipSlot.valid(slot)) return false;
+        if (RadioAhwanClipSlot.OPENING.equals(slot)) return recordedOpening(ctx);
+        return prefs(ctx).getBoolean("ahwan_clip_on_" + slot, false);
+    }
+    public static void setClipEnabled(Context ctx, String slot, boolean enabled) {
+        if (!RadioAhwanClipSlot.valid(slot)) return;
+        if (RadioAhwanClipSlot.OPENING.equals(slot)) {
+            setRecordedOpening(ctx, enabled);
+        } else {
+            prefs(ctx).edit().putBoolean("ahwan_clip_on_" + slot, enabled).apply();
+        }
+    }
+
     public static int language(Context ctx) {
         return Math.max(0, Math.min(RadioReplies.LANGUAGES.length - 1,
                 prefs(ctx).getInt("language", 0)));

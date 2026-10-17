@@ -21,6 +21,11 @@ public final class RadioProgram {
     public static void select(Context context, int category) {
         pref(context).edit().putInt("category", clamp(category)).apply();
     }
+    public static boolean isInActiveCategory(Context context, Originals.Track song) {
+        int active = active(context);
+        return active == 0 || active == 5 || category(context, song) == active;
+    }
+
     public static int category(Context context, Originals.Track song) {
         try {
             JSONObject map = new JSONObject(pref(context).getString("map", "{}"));

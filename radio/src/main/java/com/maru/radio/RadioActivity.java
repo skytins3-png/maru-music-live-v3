@@ -56,6 +56,14 @@ import java.util.concurrent.Executors;
  * This app prepares actual original audio files. BIGO controls live broadcast mixing.
  */
 public final class RadioActivity extends Activity {
+    public static final String EXTRA_MENU_ACTION = "com.maru.radio.EXTRA_MENU_ACTION";
+    private ScrollView mainScroll;
+    private View playerSection;
+    private View programSection;
+    private View songsSection;
+    private LinearLayout advancedPanel;
+    private Button advancedToggle;
+    private TextView quickCount;
     private static final int PICK_AUDIO = 101;
     private static final int EXPORT_AUDIO = 102;
     private static final int BACKGROUND = 0xFF110E21;
@@ -113,16 +121,19 @@ public final class RadioActivity extends Activity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         build();
         acceptShare(getIntent());
+        routeMenuAction(getIntent());
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         acceptShare(intent);
+        routeMenuAction(intent);
     }
 
     private void build() {
         ScrollView scroll = new ScrollView(this);
+        mainScroll = scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BACKGROUND);
         // One UI / Android 15+ force edge-to-edge for targetSdk 35+.
@@ -140,23 +151,30 @@ public final class RadioActivity extends Activity {
         root.setPadding(dp(18), dp(12), dp(18), dp(26));
         scroll.addView(root);
 
-        root.addView(label("MARU RADIO", 31, VIOLET, true));
-        root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
-        root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
-        root.addView(label("V1.8 실험판 별도 설치 · 기존 앱은 삭제하지 마세요.", 13,
-                0xFFFFD998, false));
-        root.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
-                new AlertDialog.Builder(this)
-                        .setTitle("V1.6 곡 보관 · V1.7 가져오기")
-                        .setMessage("V1.6은 삭제하지 마세요. V1.7은 서로 다른 앱으로 설치됩니다.\n\n"
-                                + "① 이 앱에서 'Download 바로가기'를 눌러 기존 Suno MP3/WAV를 "
-                                + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\n\n"
-                                + "② Download에 없는 곡은 기존 V1.6에서 그 곡의 "
-                                + "'BIGO용 저장'으로 Music 폴더에 내보낸 다음 "
-                                + "이 앱에서 '다른 폴더에서 가져오기'로 등록하세요.\n\n"
-                                + "V1.6만의 장르 분류/예약 설정은 자동으로 이전되지 않으며 "
-                                + "V1.7에서 다시 지정해야 합니다.")
-                        .setPositiveButton("확인", null).show()));
+        root.addView(label("📻 MARU RADIO", 28, VIOLET, true));
+        root.addView(label("노래 · 아환 · 방송 · 예약", 15, WHITE, false));
+        quickCount = label("등록된 원곡 확인 중...", 14, 0xFFB0E4C5, true);
+        root.addView(quickCount);
+        root.addView(label("실제 BIGO 청취자에게 MARU 음성이 전달되는지는 별도 확인이 필요해요.",
+                12, 0xFFE4D4A9, false));
+        quickRow(root, "📋 전체 노래", this::openAllSongs,
+                "📥 노래 가져오기", this::pickDownloads);
+        quickRow(root, "🤖 아환 · 자동 댓글", () ->
+                        startActivity(new Intent(this, RadioDjActivity.class)),
+                "🚀 BIGO 자동 시작", () -> BigoBroadcastGuide.startAutomatic(this));
+        quickRow(root, "📅 방송 시간 예약", () ->
+                        startActivity(new Intent(this, RadioAutomationActivity.class)),
+                "🎼 4장르 자동 편성", this::selectProgramCategory);
+        quickRow(root, "🎤 아환 인사 녹음", () ->
+                        startActivity(new Intent(this, RadioAhwanRecorderActivity.class)),
+                "■ BIGO 종료 화면", this::requestBigoEnd);
+        root.addView(compactButton("🔍 접근성 차단·MARU 중복 설치 확인", () ->
+                startActivity(new Intent(this, RadioAccessDoctorActivity.class))));
+        root.addView(label("자동 시작은 접근성 허용 후에만 BIGO 버튼을 누릅니다. "
+                + "BIGO로 음악·아환 소리 전달은 아직 미검증입니다.",
+                12, 0xFFE4D4A9, false));
+        root.addView(compactButton("🎵 BIGO 믹서용 원곡 준비 · Music 폴더에 공유", () ->
+                startActivity(new Intent(this, RadioBigoMusicPrepActivity.class))));
         gap(root, 8);
 
         LinearLayout playerCard = new LinearLayout(this);
@@ -170,6 +188,7 @@ public final class RadioActivity extends Activity {
                 new LinearLayout.LayoutParams(-1, -2);
         playerCardParams.bottomMargin = dp(14);
         root.addView(playerCard, playerCardParams);
+        playerSection = playerCard;
         playerCard.addView(label("🎵 원곡 플레이어", 20, VIOLET, true));
         playerTitle = label("보관곡을 선택하면 여기에서 재생돼요.", 15, WHITE, false);
         playerTitle.setMaxLines(2);
@@ -208,6 +227,37 @@ public final class RadioActivity extends Activity {
                 playerAction(RadioPlaybackService.ACTION_STOP)));
         gap(root, 8);
 
+        root.addView(compactButton("☰ 모든 기능 목록 보기", () ->
+                startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
+        advancedToggle = compactButton("⚙ 고급 설정 · 원곡 관리 · 진단 펼치기", this::toggleAdvanced);
+        advancedToggle.setTextSize(15);
+        root.addView(advancedToggle);
+        advancedPanel = new LinearLayout(this);
+        advancedPanel.setOrientation(LinearLayout.VERTICAL);
+        boolean openAdvanced = getSharedPreferences("maru_radio_ui", MODE_PRIVATE)
+                .getBoolean("advanced_open", false);
+        advancedPanel.setVisibility(openAdvanced ? View.VISIBLE : View.GONE);
+        root.addView(advancedPanel);
+        updateAdvancedToggle();
+        advancedPanel.addView(label("고급 설정 · 기존 기능은 모두 여기 있습니다.", 15, VIOLET, true));
+        advancedPanel.addView(compactButton("🧪 BIGO 청취자 실제 음량·아환 검증", () ->
+                startActivity(new Intent(this, RadioBigoNoKeyTestActivity.class))));
+
+        advancedPanel.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
+                new AlertDialog.Builder(this)
+                        .setTitle("기존 원곡 보관 · MARU 음악 가져오기")
+                        .setMessage("기존 앱은 삭제하지 마세요. 서명이 다른 APK는 기존 앱에 덮어쓰기가 제한될 수 있습니다.\n\n"
+                                + "① 이 앱에서 'Download 바로가기'를 눌러 기존 Suno MP3/WAV를 "
+                                + "여러 곡 선택하세요. 정확히 같은 파일은 자동 중복 제외됩니다.\n\n"
+                                + "② Download에 없는 곡은 기존 V1.6에서 그 곡의 "
+                                + "'BIGO용 저장'으로 Music 폴더에 내보낸 다음 "
+                                + "이 앱에서 '다른 폴더에서 가져오기'로 등록하세요.\n\n"
+                                + "V1.6만의 장르 분류/예약 설정은 자동으로 이전되지 않으며 "
+                                + "V1.7에서 다시 지정해야 합니다.")
+                        .setPositiveButton("확인", null).show()));
+
+        gap(advancedPanel, 8);
+
         LinearLayout programCard = new LinearLayout(this);
         programCard.setOrientation(LinearLayout.VERTICAL);
         programCard.setPadding(dp(14), dp(12), dp(14), dp(12));
@@ -217,7 +267,8 @@ public final class RadioActivity extends Activity {
         programCard.setBackground(programBg);
         LinearLayout.LayoutParams programParams = new LinearLayout.LayoutParams(-1, -2);
         programParams.bottomMargin = dp(14);
-        root.addView(programCard, programParams);
+        advancedPanel.addView(programCard, programParams);
+        programSection = programCard;
         programCard.addView(label("📻 방송 편성 · 시간 설정", 19, WHITE, true));
         programCategoryButton = compactButton("노래 분류 선택", this::selectProgramCategory);
         programCategoryButton.setTextSize(15);
@@ -260,13 +311,19 @@ public final class RadioActivity extends Activity {
                 startActivity(new Intent(this, RadioAutomationActivity.class))));
         programCard.addView(label("MARU 음악 예약 가능 · BIGO 실제 송출은 휴대폰 검증 필요",
                 12, 0xFFCCC0DA, false));
-        gap(root, 8);
-        root.addView(compactButton("🎙 아환 아나운서 · 인사/댓글/신청곡", () ->
+        gap(advancedPanel, 8);
+        advancedPanel.addView(compactButton("📡 독립 송출 · 휴대폰 음소거에도 RTMP 음악", () ->
+                startActivity(new Intent(this, RadioDirectRtmpActivity.class))));
+        advancedPanel.addView(label("BIGO OBS 서버 주소·스트림 키가 계정에 발급된 경우만 "
+                + "사용할 수 있는 독립 RTMP 음악 송출 실험입니다. "
+                + "음악+아환 TTS 실험 믹서 포함 · 실제 BIGO 청취자 수신 검증 필요.",
+                12, 0xFFE4D4A9, false));
+        advancedPanel.addView(compactButton("🎙 AI 아나운서 아환 · 방송 멘트/댓글/신청곡", () ->
                 startActivity(new Intent(this, RadioDjActivity.class))));
-        root.addView(label("AI 진행자 대화·곡 소개: 휴대폰 내부 TTS / 직접 녹음 인사 지원. "
+        advancedPanel.addView(label("AI 진행자 대화·곡 소개: 휴대폰 내부 TTS / 직접 녹음 인사 지원. "
                 + "BIGO 댓글 자동 읽기·외부 음성 송출·형 목소리 자유 합성은 미지원.",
                 12, 0xFFE4D4A9, false));
-        gap(root, 8);
+        gap(advancedPanel, 8);
 
         LinearLayout bigoStartEnd = new LinearLayout(this);
         bigoStartEnd.setOrientation(LinearLayout.VERTICAL);
@@ -277,7 +334,7 @@ public final class RadioActivity extends Activity {
         bigoStartEnd.setBackground(bigoBackground);
         LinearLayout.LayoutParams bigoBoxParams = new LinearLayout.LayoutParams(-1, -2);
         bigoBoxParams.bottomMargin = dp(14);
-        root.addView(bigoStartEnd, bigoBoxParams);
+        advancedPanel.addView(bigoStartEnd, bigoBoxParams);
         bigoStartEnd.addView(label("🎙 BIGO 오디오 LIVE 시작 · 종료", 18, WHITE, true));
         LinearLayout startEndButtons = new LinearLayout(this);
         startEndButtons.setOrientation(LinearLayout.HORIZONTAL);
@@ -292,18 +349,22 @@ public final class RadioActivity extends Activity {
                 + "예약된 BIGO 자동 시작·종료는 설정에서 명시적 동의/접근성 허용이 "
                 + "필요한 미검증 기능입니다.", 12, 0xFFDDD4F5, false));
 
-        card(root, "1  DOWNLOAD에서 원곡 가져오기",
+        card(advancedPanel, "1  DOWNLOAD에서 원곡 가져오기",
                 "이미 저장한 Suno MP3/WAV를 여러 곡 선택하세요. 같은 내용은 한 곡만 남깁니다.",
                 "Download 바로가기", this::pickDownloads,
                 "다른 폴더에서 가져오기", this::pickFiles);
 
-        card(root, "2  원곡 목록 · 선택 삭제",
+        card(advancedPanel, "2  원곡 목록 · 선택 삭제",
                 "다운로드 원곡은 복사하지 않고 읽기 권한만 보관합니다. 검색·선택 삭제는 MARU 목록에만 적용됩니다.",
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
 
+        advancedPanel.addView(compactButton("📋 전체 목록 크게 보기 · 등록곡 모두 보기", this::openAllSongs));
+        advancedPanel.addView(label("방송할 장르와 음악 보관 목록은 별개예요. 편성을 서양노래로 선택해도 저장한 노래 전체를 보여줍니다.",
+                12, 0xFFCCBFE1, false));
         songCount = label("보관 원곡 0곡", 16, VIOLET, true);
-        root.addView(songCount);
+        songsSection = songCount;
+        advancedPanel.addView(songCount);
         search = new EditText(this);
         search.setSingleLine(true);
         search.setTextColor(WHITE);
@@ -317,19 +378,19 @@ public final class RadioActivity extends Activity {
             }
             @Override public void afterTextChanged(Editable s) {}
         });
-        root.addView(search);
+        advancedPanel.addView(search);
 
         LinearLayout bulkTools = new LinearLayout(this);
         bulkTools.setOrientation(LinearLayout.HORIZONTAL);
         bulkTools.addView(compactButton("보이는 곡 선택", this::selectShown), new LinearLayout.LayoutParams(0, -2, 1f));
         bulkTools.addView(compactButton("선택 해제", this::clearSelection), new LinearLayout.LayoutParams(0, -2, 1f));
-        root.addView(bulkTools);
+        advancedPanel.addView(bulkTools);
         LinearLayout cleanupTools = new LinearLayout(this);
         cleanupTools.setOrientation(LinearLayout.HORIZONTAL);
         cleanupTools.addView(compactButton("선택 삭제", this::deleteSelected), new LinearLayout.LayoutParams(0, -2, 1f));
         cleanupTools.addView(compactButton("정렬", this::sortDialog), new LinearLayout.LayoutParams(0, -2, 0.6f));
         cleanupTools.addView(compactButton("중복 검사", this::pruneCatalogDuplicates), new LinearLayout.LayoutParams(0, -2, 1f));
-        root.addView(cleanupTools);
+        advancedPanel.addView(cleanupTools);
 
         songList = new ListView(this);
         songList.setDividerHeight(dp(2));
@@ -366,21 +427,55 @@ public final class RadioActivity extends Activity {
             }
         };
         songList.setAdapter(songAdapter);
-        root.addView(songList, new LinearLayout.LayoutParams(-1, dp(430)));
-        gap(root, 10);
+        advancedPanel.addView(songList, new LinearLayout.LayoutParams(-1, dp(430)));
+        gap(advancedPanel, 10);
 
-        card(root, "3  BIGO 오디오 LIVE",
+        card(advancedPanel, "3  BIGO 오디오 LIVE",
                 "BIGO 오디오 LIVE의 음악/믹서에 로컬 파일 선택 기능이 있는 경우 저장한 원곡을 불러오세요.",
                 "BIGO LIVE 열기", this::openBigo,
                 "송출 음량 확인 방법", this::broadcastGuide);
 
-        root.addView(compactButton("Suno 열기", this::openSuno));
+        advancedPanel.addView(compactButton("Suno 열기", this::openSuno));
         status = label("준비 완료 · 다운로드 원본 파일은 변경하지 않아요.", 13,
                 0xFF9BDEBC, false);
         root.addView(status);
         setContentView(scroll);
         refreshSongs();
         refreshProgramUI();
+    }
+
+    private void quickRow(LinearLayout root, String leftTitle, Runnable leftAction,
+                          String rightTitle, Runnable rightAction) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        Button left = button(leftTitle, leftAction);
+        Button right = button(rightTitle, rightAction);
+        left.setTextSize(14);
+        right.setTextSize(14);
+        LinearLayout.LayoutParams lpLeft = new LinearLayout.LayoutParams(0, dp(61), 1f);
+        LinearLayout.LayoutParams lpRight = new LinearLayout.LayoutParams(0, dp(61), 1f);
+        lpRight.leftMargin = dp(5);
+        row.addView(left, lpLeft);
+        row.addView(right, lpRight);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.bottomMargin = dp(5);
+        root.addView(row, rowParams);
+    }
+
+    private void updateAdvancedToggle() {
+        if (advancedToggle == null || advancedPanel == null) return;
+        advancedToggle.setText(advancedPanel.getVisibility() == View.VISIBLE
+                ? "⚙ 고급 설정 · 원곡 관리 · 진단 접기"
+                : "⚙ 고급 설정 · 원곡 관리 · 진단 펼치기");
+    }
+
+    private void toggleAdvanced() {
+        if (advancedPanel == null) return;
+        boolean show = advancedPanel.getVisibility() != View.VISIBLE;
+        advancedPanel.setVisibility(show ? View.VISIBLE : View.GONE);
+        getSharedPreferences("maru_radio_ui", MODE_PRIVATE).edit()
+                .putBoolean("advanced_open", show).apply();
+        updateAdvancedToggle();
     }
 
     private void card(LinearLayout root, String title, String body,
@@ -638,6 +733,49 @@ public final class RadioActivity extends Activity {
         refreshProgramUI();
     }
 
+    private void openAllSongs() {
+        startActivity(new Intent(this, RadioAllSongsActivity.class));
+    }
+
+    /** Only explicit local menu taps are dispatched; never auto-go-live. */
+    private void routeMenuAction(Intent intent) {
+        if (intent == null) return;
+        String action = intent.getStringExtra(EXTRA_MENU_ACTION);
+        if (action == null || action.isEmpty()) return;
+        intent.removeExtra(EXTRA_MENU_ACTION);
+        switch (action) {
+            case "player": scrollToSection(playerSection); break;
+            case "program": scrollToSection(programSection); break;
+            case "genre": scrollToSection(programSection); selectProgramCategory(); break;
+            case "timer": scrollToSection(programSection); configureProgramTimer(); break;
+            case "cancel_timer": scrollToSection(programSection); cancelProgramTimer(); break;
+            case "level": scrollToSection(programSection); selectPlaybackLevel(); break;
+            case "download": pickDownloads(); break;
+            case "folder": pickFiles(); break;
+            case "song_manage": scrollToSection(songsSection); break;
+            case "bigo_start": requestBigoStart(); break;
+            case "bigo_end": requestBigoEnd(); break;
+            case "bigo_open": openBigo(); break;
+            case "sound_test": broadcastGuide(); break;
+            case "suno": openSuno(); break;
+            default: say("알 수 없는 메뉴입니다. 전체 기능 목록에서 다시 선택하세요.");
+        }
+    }
+
+    private void scrollToSection(View section) {
+        if (section == null || mainScroll == null) return;
+        if (advancedPanel != null && section != playerSection
+                && advancedPanel.getVisibility() != View.VISIBLE)
+            toggleAdvanced();
+        mainScroll.post(() -> {
+            if (isFinishing()) return;
+            int y = section.getTop();
+            if (advancedPanel != null && section != playerSection)
+                y += advancedPanel.getTop();
+            mainScroll.smoothScrollTo(0, Math.max(0, y - dp(30)));
+        });
+    }
+
     private void refreshSongs() {
         if (songList == null) return;
         allTracks.clear();
@@ -647,6 +785,8 @@ public final class RadioActivity extends Activity {
 
     private void updateCount() {
         if (songCount == null) return;
+        if (quickCount != null) quickCount.setText("🎵 원곡 " + allTracks.size()
+                + "곡 보관 · 4장르 편성은 원곡 목록과 별개");
         songCount.setText("보관 " + allTracks.size() + "곡 · 표시 "
                 + shownTracks.size() + "곡 · 선택 " + selected.size() + "곡");
     }
@@ -665,10 +805,10 @@ public final class RadioActivity extends Activity {
         }
         String query = search == null ? "" :
                 search.getText().toString().trim().toLowerCase(Locale.ROOT);
-        int activeCategory = RadioProgram.active(this);
+        // Do not silently filter the storage list by broadcast genre:
+        // screenshots showed 152 imported songs but only 34 displayed due to
+        // 'Western music' selected in the unrelated broadcast scheduler.
         for (Originals.Track t : sorted) {
-            if (activeCategory != 0 && activeCategory != 5
-                    && RadioProgram.category(this, t) != activeCategory) continue;
             if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;

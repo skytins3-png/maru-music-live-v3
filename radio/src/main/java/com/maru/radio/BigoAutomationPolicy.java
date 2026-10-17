@@ -59,6 +59,54 @@ public final class BigoAutomationPolicy {
                 && (has(labels, "자리") || has(labels, "종료") || has(labels, "방송 시간"));
     }
 
+    /**
+     * Host-only control sheet observed in the broadcaster's real Audio LIVE
+     * screenshot. Recognizing this sheet is stronger evidence of the OWNER'S
+     * controls than a numeric viewer count; it DOES NOT prove audio ingest.
+     */
+    public static boolean isHostToolsSheet(Set<String> labels) {
+        if (labels == null || has(labels, "방송하기")) return false;
+        return has(labels, "라이브 툴")
+                && has(labels, "믹서")
+                && has(labels, "프로그램 목록")
+                && has(labels, "실시간 지원")
+                && has(labels, "관리")
+                && has(labels, "녹화");
+    }
+
+    /**
+     * Weak layout hint only: never use this by itself to authorize chat
+     * reading or to start/end BIGO. At least three distinct seat labels and
+     * a mic label must appear, matching the real host-room screenshot.
+     */
+    public static boolean isOnAirSeatLayout(Set<String> labels) {
+        if (labels == null || has(labels, "방송하기")
+                || has(labels, "오디오 라이브")
+                || has(labels, "믹서")
+                || has(labels, "라이브 종료하기")) return false;
+        if (!has(labels, "마이크")) return false;
+        int seats = 0;
+        for (int n = 1; n <= 12; n++) {
+            for (String word : labels) {
+                if (Integer.toString(n).equals(normalize(word))) {
+                    seats++;
+                    break;
+                }
+            }
+        }
+        return seats >= 3;
+    }
+
+    /**
+     * On-air UI confirmation after a verified composer -> mic 1 -> Original ->
+     * '방송하기' press. The owner-provided BIGO LIVE screen uses a mic label
+     * plus numbered guest seats rather than literal '시청자/명 시청' text.
+     * This ONLY confirms the visible host-room transition, never server audio.
+     */
+    public static boolean isHostRoomAfterPress(Set<String> labels) {
+        return isHostLive(labels) || isOnAirSeatLayout(labels);
+    }
+
     public static boolean isEndConfirmation(Set<String> labels) {
         return has(labels, "라이브 종료하기")
                 || (has(labels, "방송을 종료") && has(labels, "종료"));

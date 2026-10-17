@@ -45,12 +45,57 @@ public final class BigoChatRuleSelfTest {
         check(BigoChatRule.match("sg.bigo.live:id/chat_msg", null,
                 "guest: hallo") == null,
                 "unsupported unknown comment remains silent");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "청취자: 어떤 노래 추천해요?").reply.contains("제목"),
+                "Korean music question gets a short contextual suggestion without reading the comment aloud");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "청취자: 아환 이름이 뭐야?").reply.contains("아환"),
+                "Korean DJ identity answered automatically");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "user: What is your name?").reply.contains("Ahwan"),
+                "English identity answered automatically");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "粉丝: 你叫什么名字？").language == RadioDjLanguagePolicy.CHINESE,
+                "Chinese DJ name answered in Chinese");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "ゲスト: お名前を教えて").language == RadioDjLanguagePolicy.JAPANESE,
+                "Japanese identity answered in Japanese");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "гость: как тебя зовут?").language == RadioDjLanguagePolicy.RUSSIAN,
+                "Russian identity answered in Russian");
+        check(BigoChatRule.match("sg.bigo.live:id/comment_row", null,
+                "guest: good song").reply != null,
+                "common music comment gets a safe reply");
         BigoChatRule.Match a = BigoChatRule.match("sg.bigo.live:id/chat_msg", null,
                 "guest: hello");
         BigoChatRule.Match b = BigoChatRule.match("sg.bigo.live:id/chat_msg", null,
                 "guest: hello");
         check(a.transientFingerprint == b.transientFingerprint,
                 "in-memory dedupe key remains stable for identical row");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/live_chat", null,
+                "시청자", "안녕하세요").reply.contains("환영"),
+                "tagged chat container with split Korean name/comment replies");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/comment_row", null,
+                "listener", "great song").language == RadioDjLanguagePolicy.ENGLISH,
+                "tagged chat container with split English name/comment replies");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/profile_name", null,
+                "viewer", "hello") == null,
+                "no split comments outside identified public LIVE chat containers");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/chat_msg", null,
+                "viewer", "https://bad.example") == null,
+                "split comments containing links are ignored");
+        check(BigoChatRule.matchSplitChat("sg.bigo.live:id/chat_msg", null,
+                "someone:else", "hi") == null,
+                "nickname separators cannot fake a chat row");
+        check(BigoChatRule.match("sg.bigo.live:id/chat_input", null,
+                "host: hello") == null,
+                "never answer owner typing in BIGO's chat input field");
+        check(BigoChatRule.match("sg.bigo.live:id/private_chat_message", null,
+                "friend: hello") == null,
+                "never answer potentially private BIGO messages");
+        check(BigoChatRule.match("sg.bigo.live:id/live_chat_message", null,
+                "viewer: hello") != null,
+                "actual public LIVE message row remains recognized");
         System.out.println("BIGO chat parser tests passed. NOT a live-BIGO acceptance test.");
     }
 }

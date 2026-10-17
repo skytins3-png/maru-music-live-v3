@@ -177,6 +177,16 @@ public final class RadioAutomationActivity extends Activity {
                 13, 0xFFDDD2E8));
         bigoStatus = label("BIGO 자동 조작 동의 안 함", 14, PURPLE);
         bigo.addView(bigoStatus);
+        bigo.addView(button("🔍 접근성 차단 원인·앱 버전 바로 확인", () ->
+                startActivity(new Intent(this, RadioAccessDoctorActivity.class))));
+        bigo.addView(button("🚀 지금 BIGO 오디오 LIVE 자동 시작 (한 번 누르기)", () ->
+                BigoBroadcastGuide.startAutomatic(this)));
+        bigo.addView(label("이 버튼은 직접 누르면 BIGO를 열고 "
+                + "오디오라이브 → 믹서 → 마이크 1 → Original 효과 → 방송하기를 "
+                + "최대 90초 동안 자동 시도합니다. "
+                + "잠금·권한 미승인·알 수 없는 화면에서 중단합니다. "
+                + "BIGO 청취자 음악/아환 음성 송출은 별도 미검증입니다.",
+                12, 0xFFDDD2E8));
         bigo.addView(button("🔍 BIGO 화면 안전 진단 (방송 시작 안 함)", this::diagnoseBigo));
         bigo.addView(label("동의·접근성 연결 뒤 BIGO 앱만 열어 버튼/마이크 설정 "
                 + "인식 여부를 검사합니다. 화면 내용을 저장하지 않고 인식 결과만 "

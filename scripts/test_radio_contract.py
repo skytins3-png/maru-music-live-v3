@@ -12,7 +12,7 @@ settings = (root / "settings.gradle").read_text(encoding="utf-8")
 checks = {
     "own radio module": "include ':radio'" in settings,
     "own package": "applicationId 'com.maru.radio.ahwan'" in gradle,
-    "no external SDKs": "dependencies {" not in gradle,
+    "only pinned audited Apache2 RootEncoder SDK": "com.github.pedroSG94.RootEncoder:library:2.8.1" in gradle and "JitPack" not in gradle,
     "file picker": "Intent.ACTION_OPEN_DOCUMENT" in activity,
     "export picker": "Intent.ACTION_CREATE_DOCUMENT" in activity,
     "original file copying": "getContentResolver().openOutputStream(destination)" in activity,
@@ -33,9 +33,9 @@ checks = {
     "removal never deletes source downloads": "if (item.isDownloadReference())" in store and "releasePersistableUriPermission" in store,
     "imported bytes hashed": 'MessageDigest.getInstance("SHA-256")' in store,
     "no transcoding": "MediaCodec" not in activity and "MediaCodec" not in store,
-    "no recording or capture permissions": all(word not in manifest for word in (
-        "RECORD_AUDIO", "MEDIA_PROJECTION",
-        "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE")),
+    "no audio capture or media read permissions beyond opt-in microphone": all(word not in manifest for word in (
+        "MEDIA_PROJECTION", "READ_MEDIA_AUDIO", "READ_EXTERNAL_STORAGE"))
+        and 'android.permission.RECORD_AUDIO' in manifest,
     "four song groups": all(n in (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8") for n in ("한국노래", "중국노래", "서양노래", "연주곡")),
     "genre-filtered queue": "RadioProgram.category(this, track) == category" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
     "music auto-end service timer": "SystemClock.elapsedRealtime()" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8") and "ACTION_SET_TIMER" in activity,
@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.7.2 correct Android version": "versionCode 19" in gradle
-        and "versionName '1.9.7-bigo-chat-audio-prototype'" in gradle
-        and "MARU RADIO V1.9.7 아환 채팅 실험" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.19 BIGO user-access diagnostic without OS restricted-settings bypass": "versionCode 33" in gradle
+        and "versionName '1.9.19-accessibility-diagnostics'" in gradle
+        and "MARU RADIO V1.9.19 접근성 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -87,8 +87,8 @@ checks.update({
         and "android.intent.action.BOOT_COMPLETED" in manifest
         and "restore(context)" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
-    "V1.8 no recording or overlay permission": all(x not in manifest for x in
-        ("SYSTEM_ALERT_WINDOW", "RECORD_AUDIO"))
+    "V1.8 no overlay or background capture permission": "SYSTEM_ALERT_WINDOW" not in manifest
+        and "android.permission.RECORD_AUDIO" in manifest
         and "context.stopService(new Intent(context, RadioPlaybackService.class))" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8"),
     "V1.7 no hidden one-hour default": 'getInt("duration", 0)' in program
@@ -112,8 +112,9 @@ checks.update({
     "BIGO guided start/end based on user screenshots": all(
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
                  .read_text(encoding="utf-8") for text in (
-        "'믹서'", "마이크 볼륨 1", "Original(원본)", "방송하기",
-        "라이브 종료하기", "stopService(new Intent(host, RadioPlaybackService.class))")),
+        "믹서", "마이크 볼륨", "Original", "방송을 시작한 후",
+        "방송을 시작한 후 도구/메뉴(☰)", "라이브 종료하기",
+        "stopService(new Intent(host, RadioPlaybackService.class))")),
     "BIGO navigation is safe launch-only": all(
         text in (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java")
                  .read_text(encoding="utf-8") for text in (
@@ -259,14 +260,14 @@ checks.update({
     "V1.9 offline announcer screen linked": "new Intent(this, RadioDjActivity.class)" in activity
         and ".RadioDjActivity" in manifest
         and "ACTION_DJ_SAY" in service,
-    "V1.9 system TTS, no voice clone or microphone recording":
+    "V1.9 system TTS and separate user-started mic recording, no voice clone":
         "android.speech.tts.TextToSpeech" in dj_voice
         and "getPersistedUriPermissions" not in dj_voice
-        and "RECORD_AUDIO" not in manifest
-        and "INTERNET" not in manifest,
+        and "android.permission.RECORD_AUDIO" in manifest
+        and "INTERNET" in manifest,
     "V1.9 user recorded greeting only": all(x in dj_activity for x in (
         "Intent.ACTION_OPEN_DOCUMENT", "takePersistableUriPermission",
-        "RadioDjSettings.setVoiceClip(this, uri)", "형의 실제 목소리"))
+        "RadioDjSettings.setVoiceClip(this, uri)", "형의 녹음 인사"))
         and "voice().greeting(" in service
         and "ACTION_DJ_TEST_RECORDED" in dj_activity,
     "V1.9 intersong DJ announcement before actual music": all(x in service for x in (
@@ -288,12 +289,12 @@ checks.update({
         "host_rules", "known.length() >= 20", "clearMemory(Context ctx)"))
         and 'getSharedPreferences(STORE, Context.MODE_PRIVATE)' in dj_settings
         and "context.getContentResolver()" not in dj_settings,
-    "V1.9 explicit user speech input with no app microphone permission": all(x in dj_activity for x in (
+    "V1.9 explicit external speech input is optional alongside foreground microphone recording": all(x in dj_activity for x in (
         "RecognizerIntent.ACTION_RECOGNIZE_SPEECH",
         "REQUEST_SPOKEN_QUERY",
         "startActivityForResult(speech, REQUEST_SPOKEN_QUERY)",
         "comment.setText(phrases.get(0))"))
-        and "RECORD_AUDIO" not in manifest,
+        and "android.permission.RECORD_AUDIO" in manifest,
     "V1.9 fail-fast unavailable system TTS": all(x in dj_voice for x in (
         "private boolean initializationFailed;",
         "else if (initializationFailed) complete(ticket)",
@@ -371,8 +372,8 @@ checks.update({
         and "녹음 인사가 아직 등록되지 않았어" in dj_activity
         and "Intent.ACTION_OPEN_DOCUMENT" in dj_activity,
     "V1.9.5 recorded clip media failure falls back to TTS":
-        "fallbackGreeting(ticket, fallback, after)" in dj_voice
-        and "say(EnglishText, RadioDjLanguagePolicy.ENGLISH, after)" in dj_voice,
+        "fallbackRecorded(ticket, fallback, language, after)" in dj_voice
+        and "say(fallback, language, after)" in dj_voice,
 })
 checks.update({
     "V1.9.6 balanced audio preset": 'getInt("leveling", RadioLevelPolicy.EVEN)' in program,
@@ -391,15 +392,16 @@ checks.update({
         "commentReplies(Context ctx)" in assist
         and "setCommentReplies(Context ctx, boolean enabled)" in assist
         and 'getBoolean("comment_reply_opt_in", false)' in assist
-        and "BigoAutomationPolicy.isHostLive(allLabels(root))" in assist
+        and "BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt," in assist
+        and "BigoAutomationPolicy.isHostToolsSheet(labels)" in assist
         and "BIGO.contentEquals(root.getPackageName())" in assist,
     "V1.9.7 limits chat rate and discards old events":
         "chatPrimed" in assist and "chatSeen.size() > 80" in assist
         and "15000L" in assist and "chatSeen.clear()" in assist,
     "V1.9.7 no hidden AI chat upload":
         "HttpURLConnection" not in chat_policy
-        and "INTERNET" not in manifest
-        and "SharedPreferences" not in chat_policy,
+        and "SharedPreferences" not in chat_policy
+        and "ACTION_DJ_AUTO_COMMENT" in service,
     "V1.9.7 no private chat storage, fixed status only":
         'putString("chat_state", message)' in assist
         and "transientFingerprint" in chat_policy,
@@ -419,6 +421,441 @@ checks.update({
         "BIGO 청취자 실제 소리 경로 점검" in dj_activity
         and "자동 입력되지 않습니다" in dj_activity,
 })
+rtmp_service = (root / "radio/src/main/java/com/maru/radio/RadioDirectRtmpService.java").read_text(encoding="utf-8")
+rtmp_activity = (root / "radio/src/main/java/com/maru/radio/RadioDirectRtmpActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "V1.9.8 user-supplied BIGO RTMP credentials remain private in memory":
+        "EXTRA_SERVER" in rtmp_service
+        and "EXTRA_KEY" in rtmp_service
+        and "intent.removeExtra(EXTRA_KEY)" in rtmp_service
+        and "key.setText(\"\")" in rtmp_activity
+        and "FLAG_SECURE" in rtmp_activity,
+    "V1.9.8 RTMP stream uses file decoder only, no mic/camera source":
+        "AudioFileSource" in rtmp_service
+        and "BitmapSource" in rtmp_service
+        and "playAudioDevice();" not in rtmp_service
+        and "RadioRtmpLevelAudioSource" in rtmp_service
+        and "MicrophoneSource" not in rtmp_service
+        and "android.permission.CAMERA" not in manifest,
+    "V1.9.8 foreground service with direct transport":
+        'android:name=".RadioDirectRtmpService"' in manifest
+        and "android.permission.INTERNET" in manifest
+        and "FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK" in rtmp_service
+        and "new GenericStream(" in rtmp_service
+        and "stream.startStream(endpoint)" in rtmp_service
+        and "audioFile" not in rtmp_service,
+    "V1.9.8 fails closed without own stream key":
+        "if (!valid(server, key))" in rtmp_service
+        and "BIGO 공식" in rtmp_activity
+        and "getHost()" in rtmp_service,
+    "V1.9.8 honest receiver audio status":
+        "실제 BIGO 청취 수신은 별도 기기로 확인" in rtmp_activity
+        and "청취자 확인 필요" in rtmp_service
+        and "new RadioRtmpTtsBridge" in rtmp_service
+        and "RadioRtmpPcmVoiceMixer" in (root / "radio/src/main/java/com/maru/radio/RadioRtmpLevelAudioSource.java").read_text(encoding="utf-8"),
+})
+# Entire imported music catalog screen: no broadcast-genre filter by default.
+all_songs = (root / "radio/src/main/java/com/maru/radio/RadioAllSongsActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "All registered originals are listed independently from radio program filter":
+        'all.addAll(Originals.list(this))' in all_songs
+        and 'private int genre = 0' in all_songs
+        and 'RadioProgram.active(this)' not in all_songs
+        and 'visible.add(item)' in all_songs
+        and 'getCount() { return visible.size(); }' in all_songs,
+    "Full song titles, count, search, category, sorting, playback":
+        'title.setMaxLines(Integer.MAX_VALUE)' in all_songs
+        and 'all.size()' in all_songs
+        and 'private void clearFilter()' in all_songs
+        and 'private void chooseGenre()' in all_songs
+        and 'private void chooseSort()' in all_songs
+        and 'RadioPlaybackService.ACTION_PLAY' in all_songs,
+    "Song library screen reachable and locally scoped":
+        '.RadioAllSongsActivity' in manifest
+        and 'android:exported="false"' in manifest
+        and 'this::openAllSongs' in activity
+        and 'new Intent(this, RadioAllSongsActivity.class)' in activity,
+    "Ahwan presenter is visible in all-songs screen and in main":
+        '🎙 AI 아나운서 아환' in all_songs
+        and 'new Intent(this, RadioDjActivity.class)' in all_songs
+        and '🤖 아환 · 자동 댓글' in activity
+        and 'new Intent(this, RadioDjActivity.class)' in activity
+        and '.RadioDjActivity' in manifest,
+})
+
+# The main list must never silently shrink when the broadcast program is
+# changed: a user had 152 stored originals but only 34 shown in "Western".
+feature_menu = (root / "radio/src/main/java/com/maru/radio/RadioFeatureMenuActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "All 152-style imported songs visible regardless of active broadcast category":
+        'allTracks.addAll(Originals.list(this))' in activity
+        and 'for (Originals.Track t : sorted)' in activity
+        and 'RadioProgram.category(this, t) != activeCategory' not in activity,
+    "Complete menu entry and routing from main, library and Ahwan":
+        '.RadioFeatureMenuActivity' in manifest
+        and 'this, RadioFeatureMenuActivity.class' in activity
+        and 'this, RadioFeatureMenuActivity.class' in all_songs
+        and 'this, RadioFeatureMenuActivity.class' in dj_activity
+        and 'EXTRA_MENU_ACTION' in activity
+        and 'private void routeMenuAction(Intent intent)' in activity,
+    "Complete menu retains all dedicated activity destinations":
+        'RadioAllSongsActivity.class' in feature_menu
+        and 'RadioDjActivity.class' in feature_menu
+        and 'RadioAutomationActivity.class' in feature_menu
+        and 'RadioDirectRtmpActivity.class' in feature_menu,
+    "Complete menu routes all basic music, DJ, broadcast actions":
+        all(s in feature_menu for s in (
+            'mainAction("player")', 'mainAction("download")',
+            'mainAction("folder")', 'mainAction("song_manage")',
+            'mainAction("genre")', 'mainAction("timer")',
+            'mainAction("cancel_timer")', 'mainAction("level")',
+            'mainAction("program")', 'mainAction("bigo_start")',
+            'mainAction("bigo_end")', 'mainAction("bigo_open")',
+            'mainAction("sound_test")', 'mainAction("suno")')),
+    "No hidden automatic go-live from feature directory":
+        'RadioDirectRtmpService.ACTION_START' not in feature_menu
+        and 'startService(' not in feature_menu,
+})
+
+# Broadcast original music PCM must not be affected by phone volume OR
+# by an unintended loudness processor. TTS voice ducking is a separate
+# intentional exception during actual Ahwan announcements.
+network_source = (root / "radio/src/main/java/com/maru/radio/RadioRtmpLevelAudioSource.java").read_text(encoding="utf-8")
+checks.update({
+    "RTMP music PCM bypasses all auto-volume and device speaker gain":
+        'new AudioFileSource(context, source, false, onFinish)' in network_source
+        and 'receive.inputPCMData(frame)' in network_source
+        and 'musicLeveler' not in network_source
+        and 'RadioRtmpPcmLeveler' not in network_source
+        and 'setVolume(' not in network_source
+        and 'AudioManager' not in network_source,
+    "RTMP Ahwan announcements remain optional network PCM overlays":
+        'voiceMixer.mix(' in network_source
+        and 'queueAnnouncement(short[] monoPcm)' in network_source,
+    "Ahwan chat status differentiates consent, accessibility, TTS and stream":
+        'boolean consent = BigoControlAssist.commentReplies(this)' in dj_activity
+        and 'boolean connected = BigoControlAssist.connected(this)' in dj_activity
+        and 'boolean voice = RadioDjSettings.isVoiceEnabled(this)' in dj_activity
+        and 'boolean direct = RadioDirectRtmpService.isActive()' in dj_activity,
+})
+
+# No microphone/dialog button is necessary for hands-free comment replies.
+# Manual text input and owner-training tools remain available in a hidden
+# diagnostic drawer, but the opt-in LIVE comment service is independent of it.
+checks.update({
+    "Ahwan main screen starts in automatic-broadcast-first layout":
+        'LinearLayout manualTools = new LinearLayout(this)' in dj_activity
+        and 'manualTools.setVisibility(View.GONE)' in dj_activity
+        and 'manualTools.addView(comment)' in dj_activity
+        and 'manualTools.addView(teachTrigger)' in dj_activity
+        and 'manualTools.addView(teachAnswer)' in dj_activity
+        and 'manualTools.addView(button("✨ 대화 답변하고 읽어주기"' in dj_activity
+        and '방송 중 자동 댓글답변에는 이 화면의 입력/버튼이 필요 없습니다.' in dj_activity,
+    "Automatic replies process only explicitly tagged host LIVE rows":
+        'BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt,' in assist
+        and 'boolean taggedChat = BigoChatRule.isChatWidget(' in assist
+        and 'Math.min(8, n.getChildCount())' in assist
+        and 'BigoChatRule.match(n.getViewIdResourceName()' in assist,
+    "Automatic replies require consent and voice and run without new background FGS":
+        'commentReplies(this)' in assist
+        and 'RadioDjSettings.isVoiceEnabled(this)' in assist
+        and 'handler.postDelayed(chatWork, 550L)' in assist
+        and 'RadioDirectRtmpService.ACTION_SAY' in assist
+        and 'sayLocalComment(match.reply, match.language)' in assist
+        and 'new RadioDjVoice(this)' in assist
+        and 'releaseCommentVoice()' in assist
+        and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' not in assist,
+})
+
+# Simulated evidence is NOT a live listener. The user must explicitly check
+# separate-device output when using ordinary keyless BIGO Audio LIVE.
+no_key = (root / "radio/src/main/java/com/maru/radio/BigoNoKeyEvidence.java").read_text(encoding="utf-8")
+no_key_ui = (root / "radio/src/main/java/com/maru/radio/RadioBigoNoKeyTestActivity.java").read_text(encoding="utf-8")
+menu = (root / "radio/src/main/java/com/maru/radio/RadioFeatureMenuActivity.java").read_text(encoding="utf-8")
+dj = (root / "radio/src/main/java/com/maru/radio/RadioDjActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "No-key BIGO route checks actual second-device music at normal AND zero phone volume":
+        's.bigoMusicSelected' in no_key
+        and 's.heardAtNormal && s.heardAtMuted' in no_key
+        and 's.bigoCommentArrived && s.ahwanHeardRemotely' in no_key,
+    "No-key test page defaults to unverified and claims no automatic receiver access":
+        'c.setChecked(false)' in no_key_ui
+        and '실제 청취자' in no_key_ui
+        and 'BigoNoKeyEvidence.complete(x)' in no_key_ui
+        and '스트림 키 없는' in no_key_ui,
+    "No-key page accessible from main, menu, Ahwan; original data stays unchanged":
+        '.RadioBigoNoKeyTestActivity' in manifest
+        and 'new Intent(this, RadioBigoNoKeyTestActivity.class)' in activity
+        and 'RadioBigoNoKeyTestActivity.class' in menu
+        and 'RadioBigoNoKeyTestActivity.class' in dj
+        and 'Originals.list(' not in no_key_ui
+        and 'deleteFile(' not in no_key_ui,
+    "No-key UI never sends RTMP keys nor fabricates BIGO audio integration":
+        'EXTRA_KEY' not in no_key_ui
+        and 'RadioDirectRtmpService.ACTION_START' not in no_key_ui
+        and 'startService(' not in no_key_ui,
+})
+
+# The explicit host microphone only records finite preset clips while the
+# Ahwan recording Activity is foreground; there is NO new always-on microphone,
+# voice cloning, background permission or authenticated BIGO stream connection.
+mic = (root / "radio/src/main/java/com/maru/radio/RadioAhwanRecorderActivity.java").read_text(encoding="utf-8")
+slots = (root / "radio/src/main/java/com/maru/radio/RadioAhwanClipSlot.java").read_text(encoding="utf-8")
+checks.update({
+    "Ahwan microphone room is opt-in and reachable from main, DJ and full menu":
+        '.RadioAhwanRecorderActivity' in manifest
+        and 'RadioAhwanRecorderActivity.class' in activity
+        and 'RadioAhwanRecorderActivity.class' in dj_activity
+        and 'RadioAhwanRecorderActivity.class' in menu,
+    "Ahwan mic requires explicit foreground user permission and record/stop":
+        'requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}' in mic
+        and 'recorder.setAudioSource(MediaRecorder.AudioSource.MIC)' in mic
+        and 'recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)' in mic
+        and 'finishRecording(true)' in mic
+        and 'onPause()' in mic
+        and 'abandonRecording()' in mic,
+    "Ahwan four independent clips with safe backups and explicit activation":
+        all(k in slots for k in ('OPENING', 'GIFT', 'FOLLOW', 'CLOSING'))
+        and 'backup' in mic
+        and 'setRecordedClipUri(this, slot, Uri.fromFile(destination))' in mic
+        and 'RadioDjSettings.setClipEnabled(this, slot, enabled)' in mic
+        and 'ACTION_CREATE_DOCUMENT' in mic,
+    "Ahwan prerecorded clips really dispatch on gift follow closing; opening preserved":
+        'voice().playClip(RadioAhwanClipSlot.GIFT' in service
+        and 'voice().playClip(RadioAhwanClipSlot.FOLLOW' in service
+        and 'voice().playClip(RadioAhwanClipSlot.CLOSING' in service
+        and 'voice().greeting(' in service
+        and 'RadioDjSettings.recordedOpening(this)' in service
+        and 'playStored(' in dj_voice,
+    "Ahwan microphone recordings are never claimed as arbitrary AI voice clones":
+        'voice clone' in mic or '목소리로 만들어' in mic,
+})
+
+# Short-circuit the actual Android 12+ service-launch failure while BIGO is
+# foreground: use the already bound public chat service only with explicit
+# opt-in; never misstate local TTS as remote BIGO mic ingestion.
+checks.update({
+    "Scoped Ahwan avoids Android background start failure for BIGO auto-comments":
+        'private void sayLocalComment(String reply, int language)' in assist
+        and 'new RadioDjVoice(this)' in assist
+        and 'scopedCommentVoice.say(reply, language' in assist
+        and 'startService(spoken)' not in assist
+        and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' not in assist,
+    "BIGO auto-comment voice resets on revoke/unbind and reports LOCAL-only":
+        'running.releaseCommentVoice()' in assist
+        and 'service.releaseCommentVoice()' in assist
+        and 'BIGO 청취자 음성은' in assist
+        and 'Android 접근성에서 MARU BIGO 연결 확인' in dj_activity,
+})
+
+checks.update({
+    "BIGO scoped event fallback uses source-public-chat only after host screen verification":
+        'e.getSource()' in assist
+        and 'pendingPublicChatEvent' in assist
+        and 'BigoChatRule.match(resource,' in assist
+        and 'BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt,' in assist
+        and 'source.getClassName().toString().contains("EditText")' in assist
+        and 'pendingPublicChatEvent = null' in assist,
+    "BIGO public comment checker ignores composer and private fields":
+        'id.contains("input")' in chat_policy
+        and 'id.contains("private")' in chat_policy
+        and 'id.contains("direct_message")' in chat_policy,
+})
+
+# The default UI must be task-first: only core buttons and music player,
+# while ALL previous settings/data controls remain reachable when expanded.
+checks.update({
+    "Simple MARU default dashboard exposes songs Ahwan BIGO schedule genres":
+        'quickRow(root, "📋 전체 노래", this::openAllSongs' in activity
+        and '📥 노래 가져오기' in activity
+        and '🤖 아환 · 자동 댓글' in activity
+        and '🚀 BIGO 자동 시작' in activity
+        and '📅 방송 시간 예약' in activity
+        and '🎼 4장르 자동 편성' in activity
+        and '🎤 아환 인사 녹음' in activity
+        and '■ BIGO 종료 화면' in activity,
+    "Main player remains above collapsed advanced management":
+        activity.index('LinearLayout playerCard = new LinearLayout(this);')
+        < activity.index('advancedToggle = compactButton(')
+        < activity.index('LinearLayout programCard = new LinearLayout(this);')
+        and 'advancedPanel.setVisibility(openAdvanced ? View.VISIBLE : View.GONE)' in activity
+        and 'advancedPanel.addView(programCard' in activity
+        and 'advancedPanel.addView(songList' in activity
+        and 'card(advancedPanel, "1  DOWNLOAD에서 원곡 가져오기"' in activity,
+    "Main player and quick library count remain updated independently of advanced state":
+        'quickCount.setText("🎵 원곡 " + allTracks.size()' in activity
+        and 'songCount.setText("보관 " + allTracks.size()' in activity
+        and 'if (advancedPanel != null && section != playerSection)' in activity
+        and 'scrollToSection(programSection)' in activity,
+    "Feature menu retains all classic items in optional submenu":
+        'menu_advanced_open' in menu
+        and 'moreMenu.setVisibility(open ? android.view.View.VISIBLE : android.view.View.GONE)' in menu
+        and 'heading(moreMenu, "📋 1. 보관 음악 · 재생")' in menu
+        and 'heading(moreMenu, "📻 2. 방송 편성 · 자동 예약")' in menu
+        and 'heading(moreMenu, "🎙 3. AI 아나운서 아환 (기존 기능 전체)")' in menu
+        and 'heading(moreMenu, "📡 5. BIGO 기존 안내 · 선택적 RTMP")' in menu,
+    "Ahwan auto-comments stay up front and detailed mic/learning tools are optional":
+        dj_activity.index('body.addView(text("🤖 BIGO 댓글 자동답변"')
+        < dj_activity.index('LinearLayout moreDj = new LinearLayout(this);')
+        < dj_activity.index('CheckBox memory = new CheckBox(this);')
+        and 'moreDj.setVisibility(getSharedPreferences("maru_radio_ui", MODE_PRIVATE)' in dj_activity
+        and 'moreDj.addView(languageSpinner)' in dj_activity
+        and 'moreDj.addView(manualTools)' in dj_activity
+        and 'body.addView(bigoChatEnabled)' in dj_activity
+        and 'body.addView(bigoChatStatus)' in dj_activity,
+})
+
+# Android Music is a handoff to BIGO's *own* local-BGM picker when
+# available, not a software injection into BIGO's microphone/capture path.
+exporter = (root / "radio/src/main/java/com/maru/radio/RadioBigoMediaExporter.java").read_text(encoding="utf-8")
+export_ui = (root / "radio/src/main/java/com/maru/radio/RadioBigoMusicPrepActivity.java").read_text(encoding="utf-8")
+export_engine = (root / "radio/src/main/java/com/maru/radio/RadioBigoCopyEngine.java").read_text(encoding="utf-8")
+export_naming = (root / "radio/src/main/java/com/maru/radio/RadioBigoExportNaming.java").read_text(encoding="utf-8")
+checks.update({
+    "User-visible keyless BIGO Music export in home menu and actual visitor test":
+        '.RadioBigoMusicPrepActivity' in manifest
+        and 'RadioBigoMusicPrepActivity.class' in activity
+        and 'RadioBigoMusicPrepActivity.class' in feature_menu
+        and 'RadioBigoMusicPrepActivity.class' in no_key_ui,
+    "Original songs publicly exported as full-byte shared Music files, never transcoded":
+        'MediaStore.Audio.Media.EXTERNAL_CONTENT_URI' in exporter
+        and 'MediaStore.Audio.Media.RELATIVE_PATH' in exporter
+        and 'MediaStore.Audio.Media.IS_PENDING' in exporter
+        and 'Music' in export_ui
+        and 'new FileInputStream(track.file())' in exporter
+        and 'resolver.openInputStream(track.sourceUri())' in exporter
+        and 'RadioBigoCopyEngine.copyAndVerify(in, out, track.hash, cancel)' in exporter
+        and 'MediaCodec' not in exporter,
+    "Export uses SHA-256 and cancels incomplete copies without deleting original":
+        'MessageDigest.getInstance("SHA-256")' in export_engine
+        and 'InterruptedIOException' in export_engine
+        and 'if (!complete) resolver.delete(dst, null, null)' in exporter
+        and 'if (exists(resolver, name)) return false' in exporter
+        and 'MediaStore.Audio.Media.IS_PENDING, 0' in exporter
+        and 'track.file().delete()' not in exporter
+        and 'contentResolver.delete' not in exporter,
+    "Permission and receiver claims bounded in no-key Music prep":
+        'BIGO 믹서에 표시되는지는 BIGO 버전에 따라 다릅니다.' in export_ui
+        and '아환 댓글 TTS도 BIGO 마이크에 자동 연결되지 않습니다.' in export_ui
+        and '파일 복사 성공 ≠ BIGO 라이브 음성 송출 성공' in export_ui
+        and 'android.permission.MANAGE_EXTERNAL_STORAGE' not in manifest
+        and 'android.permission.READ_MEDIA_AUDIO' not in manifest,
+})
+
+# Actual 2026-10-18 user screenshots show no local BGM picker in the
+# pre-LIVE mixer; prevent treating Original effect as source-media ingest.
+official_mixer_guide = (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java").read_text(encoding="utf-8")
+checks.update({
+    "Actual BIGO prep mixer distinguishes effect Original from local Suno originals":
+        "Original은 '효과 없음'" in official_mixer_guide
+        and "MARU의 Suno 원곡을 불러오는 기능이 아닙니다." in official_mixer_guide
+        and "커스텀 이퀄라이저도 파일 가져오기가 아닙니다." in official_mixer_guide,
+    "Keyless BIGO guide asks for on-air BGM only and never falsely claims PCM injection":
+        "'내 음악·BGM·파일 가져오기' 버튼이 " in official_mixer_guide
+        and "방송을 시작한 후 도구/메뉴(☰)" in official_mixer_guide
+        and "직접 주입하지 못합니다" in official_mixer_guide,
+})
+
+# 2026-10-18 user-verified owner LIVE tools: chat reader may use a
+# bounded owner-tools proof, but the broadcast START/END policy MUST remain
+# unchanged. This does NOT create an outgoing BIGO PCM path.
+host_policy = (root / "radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java").read_text(encoding="utf-8")
+host_gate = (root / "radio/src/main/java/com/maru/radio/BigoHostChatGate.java").read_text(encoding="utf-8")
+checks.update({
+    "Actual BIGO owner LIVE tools and seat-numbered mic UI modeled conservatively":
+        "isHostToolsSheet(Set<String> labels)" in host_policy
+        and all(x in host_policy for x in
+                ('라이브 툴', '실시간 지원', '프로그램 목록', '관리', '녹화'))
+        and "isOnAirSeatLayout(Set<String> labels)" in host_policy
+        and 'has(labels, "마이크")' in host_policy,
+    "Scoped chat fallback works only after owner-exclusive live tools proof":
+        "BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt," in assist
+        and "BigoAutomationPolicy.isHostToolsSheet(labels)" in assist
+        and "HOST_TOOL_PROOF_MS" in host_gate
+        and "observedOwnerToolsAt <= 0" in host_gate
+        and "BigoAutomationPolicy.isOnAirSeatLayout(labels)" in host_gate
+        and "BigoAutomationPolicy.isHostLive(labels)" in host_gate,
+    "Host chat proof cleared on permission revoke and accessibility disconnect":
+        "running.hostToolsObservedAt = 0L" in assist
+        and "hostToolsObservedAt = 0L;" in assist
+        and "releaseCommentVoice()" in assist,
+})
+
+# Real owner-provided pre-LIVE screens show Audio LIVE -> MIC value 1 ->
+# Original EFFECT -> X close -> 방송하기. Passing a test here is only
+# verification of app control logic, NOT remote music/voice transmission.
+guide = (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java").read_text(encoding="utf-8")
+bigo_policy = (root / "radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java").read_text(encoding="utf-8")
+checks.update({
+    "One-tap auto start is visible in home, schedule and full menu":
+        '🚀 BIGO 자동 시작' in activity
+        and 'BigoBroadcastGuide.startAutomatic(this)' in activity
+        and '🚀 지금 BIGO 오디오 LIVE 자동 시작' in automation
+        and 'BigoBroadcastGuide.startAutomatic(this)' in automation
+        and '🚀 BIGO 오디오 LIVE 자동 시작' in menu
+        and 'BigoBroadcastGuide.startAutomatic(this)' in menu,
+    "Auto start requires prior explicit consent and connected accessibility service":
+        'if (!BigoControlAssist.approved(host) || !BigoControlAssist.connected(host))' in guide
+        and 'BigoControlAssist.queue(host, true)' in guide
+        and 'openBigo(host, false)' in guide
+        and 'startAutomatic(Activity host)' in guide,
+    "BIGO auto-start follows actual composer to Original effect to stream press":
+        'case OPEN_COMPOSER:' in assist
+        and 'case SELECT_AUDIO:' in assist
+        and 'case OPEN_MIXER:' in assist
+        and 'case SET_MIC_ONE:' in assist
+        and 'case SELECT_ORIGINAL:' in assist
+        and 'case CLOSE_MIXER:' in assist
+        and 'case START_STREAM:' in assist
+        and 'case VERIFY_STREAM:' in assist
+        and 'BigoAutomationPolicy.isHostRoomAfterPress(labels)' in assist
+        and 'complete("BIGO 방송하기 누른 뒤' in assist
+        and 'hostToolsObservedAt = android.os.SystemClock.elapsedRealtime();' in assist
+        and 'handler.postDelayed(chatWork, 800L);' in assist
+        and '청취자 음악·아환 음성 송출은 미검증' in assist,
+    "BIGO real on-air owner controls recognized from allowed UI labels":
+        all(x in assist for x in
+            ('"라이브 툴"', '"프로그램 목록"', '"실시간 지원"',
+             '"마이크"', '"2"', '"3"', '"4"', '"5"', '"6"'))
+        and 'isHostRoomAfterPress(Set<String> labels)' in bigo_policy
+        and 'has(labels, "오디오 라이브")' in bigo_policy
+        and 'has(labels, "믹서")' in bigo_policy,
+})
+
+# Samsung Android screenshot: user sees two grey "MARU BIGO Audio LIVE"
+# entries, access "제한된 설정으로 제어됨", but no app-details
+# "허용" menu. The app CANNOT grant Accessibility/AppOps privileges.
+access_doctor = (root / "radio/src/main/java/com/maru/radio/RadioAccessDoctorActivity.java").read_text(encoding="utf-8")
+access_state = (root / "radio/src/main/java/com/maru/radio/RadioAccessState.java").read_text(encoding="utf-8")
+strings_xml = (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+guide = (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java").read_text(encoding="utf-8")
+checks.update({
+    "On-device secure accessibility connection doctor is installed, no app permissions bypass":
+        '.RadioAccessDoctorActivity' in manifest
+        and 'getInstallSourceInfo(getPackageName())' in access_doctor
+        and 'BigoControlAssist.connected(this)' in access_doctor
+        and 'BigoControlAssist.approved(this)' in access_doctor
+        and 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS' in access_doctor
+        and 'Settings.ACTION_ACCESSIBILITY_SETTINGS' in access_doctor
+        and 'android.permission.WRITE_SECURE_SETTINGS' not in manifest
+        and 'AppOpsManager.setMode' not in access_doctor,
+    "Accessibility service is labeled uniquely V1.9.19 to differentiate old apps":
+        'MARU V1.9.19 · BIGO 자동 조작' in strings_xml
+        and 'bigo_accessibility_label' in manifest,
+    "Blocked UI shows manual BIGO and never incorrectly claims automatic broadcast":
+        'RadioAccessState.description(consent, connected)' in access_doctor
+        and 'RADIO' in access_doctor
+        and '▶ BIGO 수동 열기' in access_doctor
+        and 'RadioAccessDoctorActivity.class' in guide
+        and 'RadioAccessDoctorActivity.class' in activity
+        and 'RadioAccessDoctorActivity.class' in automation
+        and 'RadioAccessDoctorActivity.class' in menu,
+    "Permissions stay optional for controls; microphone not confused with accessibility":
+        '마이크·알림 권한' in guide
+        and '앱 권한의' in guide
+        and '접근성 허용은 음악·아환 음성의 BIGO 청취자 송출' in access_doctor,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
