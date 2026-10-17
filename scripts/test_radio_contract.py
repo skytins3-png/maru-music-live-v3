@@ -266,7 +266,7 @@ checks.update({
         and "INTERNET" in manifest,
     "V1.9 user recorded greeting only": all(x in dj_activity for x in (
         "Intent.ACTION_OPEN_DOCUMENT", "takePersistableUriPermission",
-        "RadioDjSettings.setVoiceClip(this, uri)", "형의 실제 목소리"))
+        "RadioDjSettings.setVoiceClip(this, uri)", "형의 녹음 인사"))
         and "voice().greeting(" in service
         and "ACTION_DJ_TEST_RECORDED" in dj_activity,
     "V1.9 intersong DJ announcement before actual music": all(x in service for x in (
@@ -476,7 +476,8 @@ checks.update({
     "Ahwan presenter is visible in all-songs screen and in main":
         '🎙 AI 아나운서 아환' in all_songs
         and 'new Intent(this, RadioDjActivity.class)' in all_songs
-        and 'AI 아나운서 아환 설정 열기' in activity
+        and '🤖 아환 · 자동 댓글' in activity
+        and 'new Intent(this, RadioDjActivity.class)' in activity
         and '.RadioDjActivity' in manifest,
 })
 
