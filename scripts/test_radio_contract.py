@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.15 BIGO event chat and local TTS version": "versionCode 29" in gradle
-        and "versionName '1.9.15-scoped-bigo-chat-local-tts'" in gradle
-        and "MARU RADIO V1.9.15 아환 댓글 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.16 simplified BIGO broadcast dashboard version": "versionCode 30" in gradle
+        and "versionName '1.9.16-simple-broadcast-dashboard'" in gradle
+        and "MARU RADIO V1.9.16 쉬운 방송" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -657,6 +657,49 @@ checks.update({
         'id.contains("input")' in chat_policy
         and 'id.contains("private")' in chat_policy
         and 'id.contains("direct_message")' in chat_policy,
+})
+
+# The default UI must be task-first: only core buttons and music player,
+# while ALL previous settings/data controls remain reachable when expanded.
+checks.update({
+    "Simple MARU default dashboard exposes songs Ahwan BIGO schedule genres":
+        'quickRow(root, "📋 전체 노래", this::openAllSongs' in activity
+        and '📥 노래 가져오기' in activity
+        and '🤖 아환 · 자동 댓글' in activity
+        and '▶ BIGO 방송 열기' in activity
+        and '📅 방송 시간 예약' in activity
+        and '🎼 4장르 자동 편성' in activity
+        and '🎤 아환 인사 녹음' in activity
+        and '■ BIGO 종료 화면' in activity,
+    "Main player remains above collapsed advanced management":
+        activity.index('LinearLayout playerCard = new LinearLayout(this);')
+        < activity.index('advancedToggle = compactButton(')
+        < activity.index('LinearLayout programCard = new LinearLayout(this);')
+        and 'advancedPanel.setVisibility(openAdvanced ? View.VISIBLE : View.GONE)' in activity
+        and 'advancedPanel.addView(programCard' in activity
+        and 'advancedPanel.addView(songList' in activity
+        and 'card(advancedPanel, "1  DOWNLOAD에서 원곡 가져오기"' in activity,
+    "Main player and quick library count remain updated independently of advanced state":
+        'quickCount.setText("🎵 원곡 " + allTracks.size()' in activity
+        and 'songCount.setText("보관 " + allTracks.size()' in activity
+        and 'if (advancedPanel != null && section != playerSection)' in activity
+        and 'scrollToSection(programSection)' in activity,
+    "Feature menu retains all classic items in optional submenu":
+        'menu_advanced_open' in menu
+        and 'moreMenu.setVisibility(open ? android.view.View.VISIBLE : android.view.View.GONE)' in menu
+        and 'heading(moreMenu, "📋 1. 보관 음악 · 재생")' in menu
+        and 'heading(moreMenu, "📻 2. 방송 편성 · 자동 예약")' in menu
+        and 'heading(moreMenu, "🎙 3. AI 아나운서 아환 (기존 기능 전체)")' in menu
+        and 'heading(moreMenu, "📡 5. BIGO 기존 안내 · 선택적 RTMP")' in menu,
+    "Ahwan auto-comments stay up front and detailed mic/learning tools are optional":
+        dj_activity.index('body.addView(text("🤖 BIGO 댓글 자동답변"')
+        < dj_activity.index('LinearLayout moreDj = new LinearLayout(this);')
+        < dj_activity.index('CheckBox memory = new CheckBox(this);')
+        and 'moreDj.setVisibility(getSharedPreferences("maru_radio_ui", MODE_PRIVATE)' in dj_activity
+        and 'moreDj.addView(languageSpinner)' in dj_activity
+        and 'moreDj.addView(manualTools)' in dj_activity
+        and 'body.addView(bigoChatEnabled)' in dj_activity
+        and 'body.addView(bigoChatStatus)' in dj_activity,
 })
 
 for name, okay in checks.items():
