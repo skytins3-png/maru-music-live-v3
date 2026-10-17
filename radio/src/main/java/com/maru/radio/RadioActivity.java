@@ -172,6 +172,8 @@ public final class RadioActivity extends Activity {
         root.addView(compactButton("📋 전체 보관곡 목록 열기 · 모든 곡 보기", this::openAllSongs));
         root.addView(compactButton("🎙 AI 아나운서 아환 설정 열기", () ->
                 startActivity(new Intent(this, RadioDjActivity.class))));
+        root.addView(compactButton("🎤 마이크 녹음 → 아환 인사·선물·팔로우·종료 멘트",
+                () -> startActivity(new Intent(this, RadioAhwanRecorderActivity.class))));
         root.addView(compactButton("🧪 BIGO 스트림 키 없는 실제 청취 검증 · 음소거·아환",
                 () -> startActivity(new Intent(this, RadioBigoNoKeyTestActivity.class))));
 
