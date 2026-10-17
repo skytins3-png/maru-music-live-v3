@@ -810,6 +810,8 @@ checks.update({
         and 'case VERIFY_STREAM:' in assist
         and 'BigoAutomationPolicy.isHostRoomAfterPress(labels)' in assist
         and 'complete("BIGO 방송하기 누른 뒤' in assist
+        and 'hostToolsObservedAt = android.os.SystemClock.elapsedRealtime();' in assist
+        and 'handler.postDelayed(chatWork, 800L);' in assist
         and '실제 서버 수신·청취자 음악·아환 음성 송출은 미검증' in assist,
     "BIGO real on-air owner controls recognized from allowed UI labels":
         all(x in assist for x in
