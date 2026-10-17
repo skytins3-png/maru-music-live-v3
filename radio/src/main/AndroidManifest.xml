@@ -23,6 +23,7 @@
             </intent-filter>
         </receiver>
         <activity android:name=".RadioBigoMusicPrepActivity" android:exported="false" />
+        <activity android:name=".RadioAccessDoctorActivity" android:exported="false" />
         <activity android:name=".RadioBigoNoKeyTestActivity" android:exported="false" />
         <activity android:name=".RadioFeatureMenuActivity" android:exported="false" />
         <activity android:name=".RadioAllSongsActivity" android:exported="false" />
