@@ -77,64 +77,91 @@ public final class RadioFeatureMenuActivity extends Activity {
         root.setPadding(dp(14), dp(12), dp(14), dp(36));
         scroll.addView(root);
         root.addView(label("☰ MARU RADIO · 전체 기능 목록", 23, PURPLE));
-        root.addView(label("원곡·아환·방송·예약·관리 기능을 빠짐없이 모았습니다. " +
-                "여기에 보이는 기능은 기존 설정 화면으로 연결됩니다.", 14, WHITE));
+        root.addView(label("여섯 가지 기본 메뉴만 먼저 보여줍니다. "
+                + "기존 기능은 아래 세부 메뉴에서 모두 찾을 수 있어요.", 14, WHITE));
 
-        heading(root, "📋 1. 보관 음악 · 재생");
-        item(root, "🎼 전체 보관곡 목록 · 모든 장르 · 검색·정렬", () -> go(RadioAllSongsActivity.class));
-        item(root, "▶ 원곡 플레이어 · 이전·다음·일시정지", () -> mainAction("player"));
-        item(root, "📥 Download에서 여러 곡 가져오기", () -> mainAction("download"));
-        item(root, "📂 다른 폴더에서 음악 가져오기", () -> mainAction("folder"));
-        item(root, "🗑 원곡 선택 삭제 · 같은 제목 확인 · 중복 검사", () -> mainAction("song_manage"));
-        item(root, "🔊 음악 음량 균일화", () -> mainAction("level"));
+        heading(root, "바로 사용");
+        item(root, "📋 전체 노래 · 재생", () -> go(RadioAllSongsActivity.class));
+        item(root, "📥 노래 가져오기", () -> mainAction("download"));
+        item(root, "🤖 아환 · 댓글 자동답변", () -> go(RadioDjActivity.class));
+        item(root, "▶ BIGO 오디오라이브 열기", () -> mainAction("bigo_start"));
+        item(root, "📅 방송 시작·종료 시간", () -> go(RadioAutomationActivity.class));
+        item(root, "🎼 한국·중국·서양·연주곡 편성", () -> mainAction("genre"));
+        Button advancedButton = new Button(this);
+        advancedButton.setAllCaps(false);
+        advancedButton.setTextSize(15);
+        LinearLayout moreMenu = new LinearLayout(this);
+        moreMenu.setOrientation(LinearLayout.VERTICAL);
+        boolean open = getSharedPreferences("maru_radio_ui", MODE_PRIVATE)
+                .getBoolean("menu_advanced_open", false);
+        moreMenu.setVisibility(open ? android.view.View.VISIBLE : android.view.View.GONE);
+        advancedButton.setText(open ? "⚙ 모든 세부 메뉴 접기" : "⚙ 모든 세부 메뉴 펼치기");
+        advancedButton.setOnClickListener(v -> {
+            boolean nextOpen = moreMenu.getVisibility() != android.view.View.VISIBLE;
+            moreMenu.setVisibility(nextOpen ? android.view.View.VISIBLE : android.view.View.GONE);
+            advancedButton.setText(nextOpen ? "⚙ 모든 세부 메뉴 접기" : "⚙ 모든 세부 메뉴 펼치기");
+            getSharedPreferences("maru_radio_ui", MODE_PRIVATE).edit()
+                    .putBoolean("menu_advanced_open", nextOpen).apply();
+        });
+        root.addView(advancedButton);
+        root.addView(moreMenu);
+        heading(moreMenu, "세부 기능 · 기존 메뉴 모두 유지");
 
-        heading(root, "📻 2. 방송 편성 · 자동 예약");
-        item(root, "🇰🇷🇨🇳🌍🎹 한국·중국·서양·연주·4장르 자동 편성",
+        heading(moreMenu, "📋 1. 보관 음악 · 재생");
+        item(moreMenu, "🎼 전체 보관곡 목록 · 모든 장르 · 검색·정렬", () -> go(RadioAllSongsActivity.class));
+        item(moreMenu, "▶ 원곡 플레이어 · 이전·다음·일시정지", () -> mainAction("player"));
+        item(moreMenu, "📥 Download에서 여러 곡 가져오기", () -> mainAction("download"));
+        item(moreMenu, "📂 다른 폴더에서 음악 가져오기", () -> mainAction("folder"));
+        item(moreMenu, "🗑 원곡 선택 삭제 · 같은 제목 확인 · 중복 검사", () -> mainAction("song_manage"));
+        item(moreMenu, "🔊 음악 음량 균일화", () -> mainAction("level"));
+
+        heading(moreMenu, "📻 2. 방송 편성 · 자동 예약");
+        item(moreMenu, "🇰🇷🇨🇳🌍🎹 한국·중국·서양·연주·4장르 자동 편성",
                 () -> mainAction("genre"));
-        item(root, "⏱ 음악 종료 타이머 설정", () -> mainAction("timer"));
-        item(root, "⏹ 음악 종료 타이머 취소", () -> mainAction("cancel_timer"));
-        item(root, "📅 음악 시작·종료 예약 · BIGO 실험 자동화",
+        item(moreMenu, "⏱ 음악 종료 타이머 설정", () -> mainAction("timer"));
+        item(moreMenu, "⏹ 음악 종료 타이머 취소", () -> mainAction("cancel_timer"));
+        item(moreMenu, "📅 음악 시작·종료 예약 · BIGO 실험 자동화",
                 () -> go(RadioAutomationActivity.class));
-        item(root, "🔀 BIGO와 MARU 동시 재생 설정 (실험)",
+        item(moreMenu, "🔀 BIGO와 MARU 동시 재생 설정 (실험)",
                 () -> mainAction("program"));
 
-        heading(root, "🎙 3. AI 아나운서 아환 (기존 기능 전체)");
-        item(root, "🎤 휴대폰 마이크로 인사 직접 녹음 · 방송 멘트 등록",
+        heading(moreMenu, "🎙 3. AI 아나운서 아환 (기존 기능 전체)");
+        item(moreMenu, "🎤 휴대폰 마이크로 인사 직접 녹음 · 방송 멘트 등록",
                 () -> go(RadioAhwanRecorderActivity.class));
-        item(root, "🎙 아환 전체 설정 · TTS·오프닝·곡 소개·언어",
+        item(moreMenu, "🎙 아환 전체 설정 · TTS·오프닝·곡 소개·언어",
                 () -> go(RadioDjActivity.class));
-        item(root, "👋 방송 시작·종료 인사 · 선물·팔로우 감사",
+        item(moreMenu, "👋 방송 시작·종료 인사 · 선물·팔로우 감사",
                 () -> go(RadioDjActivity.class));
-        item(root, "🎵 다음 곡 소개 · 신청곡 검색·재생·신청 순위",
+        item(moreMenu, "🎵 다음 곡 소개 · 신청곡 검색·재생·신청 순위",
                 () -> go(RadioDjActivity.class));
-        item(root, "🧪 수동 댓글·말로 입력·멘트 복사 (접힌 테스트 메뉴)",
+        item(moreMenu, "🧪 수동 댓글·말로 입력·멘트 복사 (접힌 테스트 메뉴)",
                 () -> go(RadioDjActivity.class));
-        item(root, "🎤 녹음 인사 등록·미리듣기·해제",
+        item(moreMenu, "🎤 녹음 인사 등록·미리듣기·해제",
                 () -> go(RadioDjActivity.class));
-        item(root, "🧠 아환 학습 답변 지정·삭제 (최대 20개)",
+        item(moreMenu, "🧠 아환 학습 답변 지정·삭제 (최대 20개)",
                 () -> go(RadioDjActivity.class));
-        item(root, "🔎 BIGO 댓글 연결·청취자 소리 확인",
+        item(moreMenu, "🔎 BIGO 댓글 연결·청취자 소리 확인",
                 () -> go(RadioDjActivity.class));
-        root.addView(label("현재 아환은 Android TTS/규칙 기반입니다. " +
+        moreMenu.addView(label("현재 아환은 Android TTS/규칙 기반입니다. " +
                 "실제 BIGO 청취자 음성·댓글 자동 처리 여부는 검증이 필요합니다.", 12, WHITE));
 
-        heading(root, "📱 4. 스트림 키 없는 BIGO 오디오 LIVE (형의 방송 방식)");
-        item(root, "🧪 음소거에도 청취자 음악 일정? · 아환 답변 실제 수신 검증",
+        heading(moreMenu, "📱 4. 스트림 키 없는 BIGO 오디오 LIVE (형의 방송 방식)");
+        item(moreMenu, "🧪 음소거에도 청취자 음악 일정? · 아환 답변 실제 수신 검증",
                 () -> go(RadioBigoNoKeyTestActivity.class));
-        root.addView(label("BIGO 내부 음악/BGM 경로 확인부터 진행합니다. "
+        moreMenu.addView(label("BIGO 내부 음악/BGM 경로 확인부터 진행합니다. "
                 + "다른 휴대폰에서 직접 확인하기 전에는 성공으로 표시하지 않습니다.", 12, WHITE));
 
-        heading(root, "📡 5. BIGO 기존 안내 · 선택적 RTMP");
-        item(root, "▶ BIGO 오디오 LIVE 시작 안내", () -> mainAction("bigo_start"));
-        item(root, "■ BIGO 오디오 LIVE 종료 안내", () -> mainAction("bigo_end"));
-        item(root, "📱 BIGO LIVE 앱 직접 열기", () -> mainAction("bigo_open"));
-        item(root, "📡 휴대폰 볼륨과 독립적인 RTMP 음악 송출 (실험)",
+        heading(moreMenu, "📡 5. BIGO 기존 안내 · 선택적 RTMP");
+        item(moreMenu, "▶ BIGO 오디오 LIVE 시작 안내", () -> mainAction("bigo_start"));
+        item(moreMenu, "■ BIGO 오디오 LIVE 종료 안내", () -> mainAction("bigo_end"));
+        item(moreMenu, "📱 BIGO LIVE 앱 직접 열기", () -> mainAction("bigo_open"));
+        item(moreMenu, "📡 휴대폰 볼륨과 독립적인 RTMP 음악 송출 (실험)",
                 () -> go(RadioDirectRtmpActivity.class));
-        item(root, "🔊 BIGO 방송 소리 확인 방법", () -> mainAction("sound_test"));
+        item(moreMenu, "🔊 BIGO 방송 소리 확인 방법", () -> mainAction("sound_test"));
 
-        heading(root, "🔗 5. 기타");
-        item(root, "☀ Suno 열기", () -> mainAction("suno"));
-        item(root, "← MARU RADIO 메인으로", this::finish);
+        heading(moreMenu, "🔗 5. 기타");
+        item(moreMenu, "☀ Suno 열기", () -> mainAction("suno"));
+        item(moreMenu, "← MARU RADIO 메인으로", this::finish);
         setContentView(scroll);
     }
 }
