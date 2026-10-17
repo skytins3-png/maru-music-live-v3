@@ -25,6 +25,46 @@ public final class BigoBroadcastGuide {
 
     private BigoBroadcastGuide() {}
 
+    /**
+     * Foreground user action only. Once the owner has independently opted
+     * in to narrowly-scoped BIGO Accessibility controls, launch BIGO and
+     * request the guarded five-screen composer/mixer/live start sequence.
+     * This does not auto-unlock, invent credentials, route audio to BIGO,
+     * or confirm a remote listener's reception.
+     */
+    public static void startAutomatic(Activity host) {
+        if (!BigoControlAssist.approved(host) || !BigoControlAssist.connected(host)) {
+            new AlertDialog.Builder(host)
+                    .setTitle("BIGO 자동 시작 · 연결 필요")
+                    .setMessage("현재 BIGO 접근성 연결 또는 자동 조작 동의가 없습니다. "
+                            + "MARU의 방송 예약 화면에서 '명시적 동의'를 확인하고 "
+                            + "휴대폰 접근성 설정에서 MARU BIGO 서비스를 켜 주세요. "
+                            + "허용하기 전에는 BIGO 방송 버튼을 대신 누르지 않습니다.")
+                    .setPositiveButton("연결 설정으로", (d, w) ->
+                            host.startActivity(new Intent(host,
+                                    RadioAutomationActivity.class)))
+                    .setNegativeButton("취소", null).show();
+            return;
+        }
+        Intent bigo = host.getPackageManager().getLaunchIntentForPackage(BIGO_PACKAGE);
+        if (bigo == null) {
+            new AlertDialog.Builder(host).setTitle("BIGO 앱 없음")
+                    .setMessage("BIGO LIVE 설치 상태를 먼저 확인해 주세요.")
+                    .setPositiveButton("확인", null).show();
+            return;
+        }
+        if (!BigoControlAssist.queue(host, true)) {
+            new AlertDialog.Builder(host).setTitle("BIGO 자동 시작 불가")
+                    .setMessage("자동 조작 연결에 실패했습니다. "
+                            + "MARU에서 동의·접근성 상태를 다시 확인해 주세요.")
+                    .setPositiveButton("확인", null).show();
+            return;
+        }
+        // This is started only after an explicit tap while MARU is foreground.
+        // Android may restrict later background launches for alarms.
+        openBigo(host, false);
+    }
+
     public static void showStart(Activity host) {
         new AlertDialog.Builder(host)
                 .setTitle("🎙 BIGO 오디오 라이브 시작")
