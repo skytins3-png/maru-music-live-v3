@@ -13,7 +13,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -100,29 +99,12 @@ public final class RadioBigoMediaExporter {
         if (dst == null) throw new IOException("Cannot insert shared Music item");
         boolean complete = false;
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            long copied = 0;
             try (InputStream in = track.isDownloadReference()
                     ? resolver.openInputStream(track.sourceUri())
                     : new FileInputStream(track.file());
                  OutputStream out = resolver.openOutputStream(dst, "w")) {
-                if (in == null || out == null) throw new IOException("Cannot open audio");
-                byte[] data = new byte[64 * 1024];
-                int n;
-                while ((n = in.read(data)) != -1) {
-                    if (cancel != null && cancel.get())
-                        throw new java.io.InterruptedIOException("Cancelled");
-                    if (n == 0) continue;
-                    copied += n;
-                    if (copied > 300L * 1024 * 1024)
-                        throw new IOException("Original audio exceeds 300MB");
-                    digest.update(data, 0, n);
-                    out.write(data, 0, n);
-                }
-                out.flush();
+                RadioBigoCopyEngine.copyAndVerify(in, out, track.hash, cancel);
             }
-            if (copied <= 0 || !hex(digest.digest()).equalsIgnoreCase(track.hash))
-                throw new IOException("Source SHA-256 mismatches stored original");
             ContentValues ready = new ContentValues();
             ready.put(MediaStore.Audio.Media.IS_PENDING, 0);
             if (resolver.update(dst, ready, null, null) != 1)
@@ -151,13 +133,4 @@ public final class RadioBigoMediaExporter {
         }
     }
 
-    private static String hex(byte[] bytes) {
-        char[] digits = "0123456789abcdef".toCharArray();
-        char[] out = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++) {
-            out[i*2] = digits[(bytes[i] >>> 4) & 15];
-            out[i*2+1] = digits[bytes[i] & 15];
-        }
-        return new String(out);
-    }
 }
