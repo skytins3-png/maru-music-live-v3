@@ -172,13 +172,8 @@ public final class RadioDjActivity extends Activity {
 
         body.addView(text("🤖 BIGO 댓글 자동답변", 21, PURPLE));
         gap(body);
-        body.addView(text("💬 BIGO 댓글 자동 감지 · 실험", 19, PURPLE));
-        body.addView(text("BIGO 공식 댓글 API 연결이 아닌, 별도 동의 후 BIGO "
-                + "호스트 LIVE 화면에서 인식되는 채팅 표시만 읽습니다. "
-                + "안녕/감사/선물 같은 정해진 댓글에 한해 15초 이상 간격으로 "
-                + "휴대폰 TTS로 응답을 시도합니다. "
-                + "댓글·이름은 저장하지 않으며 BIGO 채팅창에 글을 쓰지 않습니다. "
-                + "실제 댓글 인식과 청취자에게 음성 전달은 아직 검증이 필요해요.",
+        body.addView(text("방송 화면이 보일 때만 댓글을 감지하고 간단한 인사에 응답합니다. "
+                + "댓글은 저장하지 않습니다. 휴대폰 TTS와 BIGO 청취자 송출은 별개예요.",
                 13, 0xFFDBD0E7));
         bigoChatEnabled = new CheckBox(this);
         bigoChatEnabled.setText("✅ BIGO 새 댓글 자동 인식 → 아환 짧은 음성답변 허용");
@@ -232,24 +227,6 @@ public final class RadioDjActivity extends Activity {
         body.addView(button("🧪 스트림 키 없는 BIGO 청취자 음량·아환 답변 실측", () ->
                 startActivity(new Intent(this, RadioBigoNoKeyTestActivity.class))));
 
-        body.addView(button("🔊 BIGO 청취자 실제 소리 경로 점검", () ->
-                new AlertDialog.Builder(this)
-                    .setTitle("음악·아환 멘트 → BIGO 청취자")
-                    .setMessage("MARU의 음악·녹음 인사·TTS 음성을 Android "
-                            + "미디어 캡처 허용 형식으로 출력하도록 준비했어요. "
-                            + "하지만 이것만으로 BIGO 마이크에 자동 입력되지 않습니다. "
-                            + "BIGO가 내부 BGM 또는 권한 있는 오디오 캡처 경로를 "
-                            + "제공하는지 실제 기기에서 확인해야 해요.\\n\\n"
-                            + "① BIGO 오디오 LIVE 실행\\n"
-                            + "② 도구/믹서/BGM에서 로컬 원곡을 불러오는지 확인\\n"
-                            + "③ 다른 휴대폰으로 음악과 아환 TTS가 들리는지 확인\\n"
-                            + "④ 방송용 휴대폰 미디어 음량을 0으로 내려도 "
-                            + "두 소리가 계속 들리는지 확인\\n\\n"
-                            + "위 검증 전에는 '시청자 무음 독립 송출 완성'이라 "
-                            + "말할 수 없어요.")
-                    .setPositiveButton("BIGO 열어 실제 확인",
-                            (dialog, which) -> BigoBroadcastGuide.openBigo(this, false))
-                    .setNegativeButton("취소", null).show()));
         updateBigoChatStatus();
         gap(body);
 
@@ -270,6 +247,24 @@ public final class RadioDjActivity extends Activity {
         });
         body.addView(advancedDjToggle);
         body.addView(moreDj);
+        moreDj.addView(button("🔊 BIGO 청취자 실제 소리 경로 점검", () ->
+                new AlertDialog.Builder(this)
+                    .setTitle("음악·아환 멘트 → BIGO 청취자")
+                    .setMessage("MARU의 음악·녹음 인사·TTS 음성을 Android "
+                            + "미디어 캡처 허용 형식으로 출력하도록 준비했어요. "
+                            + "하지만 이것만으로 BIGO 마이크에 자동 입력되지 않습니다. "
+                            + "BIGO가 내부 BGM 또는 권한 있는 오디오 캡처 경로를 "
+                            + "제공하는지 실제 기기에서 확인해야 해요.\\n\\n"
+                            + "① BIGO 오디오 LIVE 실행\\n"
+                            + "② 도구/믹서/BGM에서 로컬 원곡을 불러오는지 확인\\n"
+                            + "③ 다른 휴대폰으로 음악과 아환 TTS가 들리는지 확인\\n"
+                            + "④ 방송용 휴대폰 미디어 음량을 0으로 내려도 "
+                            + "두 소리가 계속 들리는지 확인\\n\\n"
+                            + "위 검증 전에는 '시청자 무음 독립 송출 완성'이라 "
+                            + "말할 수 없어요.")
+                    .setPositiveButton("BIGO 열어 실제 확인",
+                            (dialog, which) -> BigoBroadcastGuide.openBigo(this, false))
+                    .setNegativeButton("취소", null).show()));
 
         CheckBox memory = new CheckBox(this);
         memory.setText("방송 취향 학습 (곡 요청 횟수만 로컬 저장)");
