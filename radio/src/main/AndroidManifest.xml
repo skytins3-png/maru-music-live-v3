@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Only when host presses Start in the Ahwan mic recording studio. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
@@ -24,6 +26,7 @@
         <activity android:name=".RadioFeatureMenuActivity" android:exported="false" />
         <activity android:name=".RadioAllSongsActivity" android:exported="false" />
         <activity android:name=".RadioDirectRtmpActivity" android:exported="false" />
+        <activity android:name=".RadioAhwanRecorderActivity" android:exported="false" />
         <activity android:name=".RadioDjActivity" android:exported="false" />
         <activity android:name=".RadioAutomationActivity" android:exported="false"
             android:launchMode="singleTop" />
