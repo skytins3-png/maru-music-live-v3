@@ -272,7 +272,7 @@ public final class RadioDjActivity extends Activity {
                 + "실제 댓글 인식과 청취자에게 음성 전달은 아직 검증이 필요해요.",
                 13, 0xFFDBD0E7));
         bigoChatEnabled = new CheckBox(this);
-        bigoChatEnabled.setText("🔍 BIGO 방송 댓글 자동 읽기·짧은 음성 답변 허용");
+        bigoChatEnabled.setText("✅ BIGO 새 댓글 자동 인식 → 아환 짧은 음성답변 허용");
         bigoChatEnabled.setTextColor(WHITE);
         bigoChatEnabled.setChecked(BigoControlAssist.commentReplies(this));
         bigoChatEnabled.setOnCheckedChangeListener((b, checked) -> {
@@ -313,6 +313,13 @@ public final class RadioDjActivity extends Activity {
         bigoChatStatus = text("", 13, 0xFFB0E4C5);
         body.addView(bigoChatStatus);
         body.addView(button("BIGO 댓글 연결 상태 확인", this::updateBigoChatStatus));
+        body.addView(button("⚙ Android 접근성에서 MARU BIGO 연결 확인", () -> {
+            try {
+                startActivity(new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            } catch (RuntimeException ex) {
+                oneLine("Android 접근성 설정을 열 수 없습니다. 휴대폰 설정에서 직접 확인해 주세요.");
+            }
+        }));
         body.addView(button("🧪 스트림 키 없는 BIGO 청취자 음량·아환 답변 실측", () ->
                 startActivity(new Intent(this, RadioBigoNoKeyTestActivity.class))));
 
@@ -531,6 +538,8 @@ public final class RadioDjActivity extends Activity {
                 + " · TTS " + (voice ? "ON" : "OFF")
                 + "\n" + check
                 + "\n" + BigoControlAssist.chatState(this)
+                + "\n아환 로컬 TTS는 접근성 서비스에서 직접 실행합니다. "
+                + "BIGO 자체 마이크에는 자동 연결되지 않습니다."
                 + "\n청취자 음성 경로: " + (direct
                         ? "독립 RTMP 실험 (서버·청취자 별도 검증)"
                         : "휴대폰 로컬 TTS만 · BIGO 마이크 전달은 별도 확인"));
