@@ -177,6 +177,8 @@ public final class RadioAutomationActivity extends Activity {
                 13, 0xFFDDD2E8));
         bigoStatus = label("BIGO 자동 조작 동의 안 함", 14, PURPLE);
         bigo.addView(bigoStatus);
+        bigo.addView(button("🔍 접근성 차단 원인·앱 버전 바로 확인", () ->
+                startActivity(new Intent(this, RadioAccessDoctorActivity.class))));
         bigo.addView(button("🚀 지금 BIGO 오디오 LIVE 자동 시작 (한 번 누르기)", () ->
                 BigoBroadcastGuide.startAutomatic(this)));
         bigo.addView(label("이 버튼은 직접 누르면 BIGO를 열고 "
