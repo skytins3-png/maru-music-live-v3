@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.13 independent phone audio-to-RTMP build
+name: MARU RADIO V1.9.14 independent phone audio-to-RTMP build
 
 on:
   workflow_dispatch:
@@ -51,6 +51,14 @@ jobs:
             radio/src/main/java/com/maru/radio/BigoNoKeyEvidence.java \
             scripts/BigoNoKeyEvidenceSelfTest.java
           java -cp /tmp/bigo-no-key-tests com.maru.radio.BigoNoKeyEvidenceSelfTest
+
+      - name: Test four Ahwan microphone clip slots, file safety, and preset mappings (offline JVM)
+        run: |
+          mkdir -p /tmp/maru-ahwan-recording-tests
+          javac -d /tmp/maru-ahwan-recording-tests \
+            radio/src/main/java/com/maru/radio/RadioAhwanClipSlot.java \
+            scripts/RadioAhwanClipSlotSelfTest.java
+          java -cp /tmp/maru-ahwan-recording-tests com.maru.radio.RadioAhwanClipSlotSelfTest
 
       - name: Test next-day and overnight clock calculations (plain Java)
         run: |
@@ -134,14 +142,15 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.13 실방송 검증'" /tmp/radio-badging.txt
-            ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.14 아환 음성녹음'" /tmp/radio-badging.txt
+            grep -q "RECORD_AUDIO" /tmp/radio-badging.txt
+            ! grep -Eq "READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.13-RTMP-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.13-RTMP-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.14-RTMP-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.14-RTMP-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.13-RTMP-CI-ONLY
-          path: MARU-RADIO-V1.9.13-RTMP-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.14-RTMP-CI-ONLY
+          path: MARU-RADIO-V1.9.14-RTMP-CI-ONLY-INSTALL.apk
           if-no-files-found: error
