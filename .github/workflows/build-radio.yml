@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.17 independent phone audio-to-RTMP build
+name: MARU RADIO V1.9.18 independent phone audio-to-RTMP build
 
 on:
   workflow_dispatch:
@@ -160,15 +160,15 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.17 BIGO 음악 준비'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.18 방송 자동 시작'" /tmp/radio-badging.txt
             grep -q "RECORD_AUDIO" /tmp/radio-badging.txt
             ! grep -Eq "READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.17-AHWAN-CHAT-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.17-AHWAN-CHAT-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.18-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.18-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.17-AHWAN-CHAT-CI-ONLY
-          path: MARU-RADIO-V1.9.17-AHWAN-CHAT-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.18-BIGO-ONE-TAP-CI-ONLY
+          path: MARU-RADIO-V1.9.18-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
           if-no-files-found: error
