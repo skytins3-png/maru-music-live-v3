@@ -220,6 +220,8 @@ public final class RadioActivity extends Activity {
                 playerAction(RadioPlaybackService.ACTION_STOP)));
         gap(root, 8);
 
+        root.addView(compactButton("☰ 모든 기능 목록 보기", () ->
+                startActivity(new Intent(this, RadioFeatureMenuActivity.class))));
         advancedToggle = compactButton("⚙ 고급 설정 · 원곡 관리 · 진단 펼치기", this::toggleAdvanced);
         advancedToggle.setTextSize(15);
         root.addView(advancedToggle);
@@ -231,6 +233,9 @@ public final class RadioActivity extends Activity {
         root.addView(advancedPanel);
         updateAdvancedToggle();
         advancedPanel.addView(label("고급 설정 · 기존 기능은 모두 여기 있습니다.", 15, VIOLET, true));
+        advancedPanel.addView(compactButton("🧪 BIGO 청취자 실제 음량·아환 검증", () ->
+                startActivity(new Intent(this, RadioBigoNoKeyTestActivity.class))));
+
         advancedPanel.addView(compactButton("기존 곡 안전하게 가져오는 방법", () ->
                 new AlertDialog.Builder(this)
                         .setTitle("기존 원곡 보관 · MARU 음악 가져오기")
