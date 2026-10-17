@@ -44,6 +44,14 @@ jobs:
       - name: Check clean original-audio app contract
         run: python3 scripts/test_radio_contract.py
 
+      - name: Simulate no-key BIGO audio/comment evidence (32 safe offline states)
+        run: |
+          mkdir -p /tmp/bigo-no-key-tests
+          javac -d /tmp/bigo-no-key-tests \
+            radio/src/main/java/com/maru/radio/BigoNoKeyEvidence.java \
+            scripts/BigoNoKeyEvidenceSelfTest.java
+          java -cp /tmp/bigo-no-key-tests com.maru.radio.BigoNoKeyEvidenceSelfTest
+
       - name: Test next-day and overnight clock calculations (plain Java)
         run: |
           mkdir -p /tmp/radio-clock-tests
