@@ -552,7 +552,7 @@ checks.update({
         and 'manualTools.addView(button("✨ 대화 답변하고 읽어주기"' in dj_activity
         and '방송 중 자동 댓글답변에는 이 화면의 입력/버튼이 필요 없습니다.' in dj_activity,
     "Automatic replies process only explicitly tagged host LIVE rows":
-        'BigoAutomationPolicy.isHostLive(allLabels(root))' in assist
+        'BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt,' in assist
         and 'boolean taggedChat = BigoChatRule.isChatWidget(' in assist
         and 'Math.min(8, n.getChildCount())' in assist
         and 'BigoChatRule.match(n.getViewIdResourceName()' in assist,
@@ -653,7 +653,7 @@ checks.update({
         'e.getSource()' in assist
         and 'pendingPublicChatEvent' in assist
         and 'BigoChatRule.match(resource,' in assist
-        and 'BigoAutomationPolicy.isHostLive(allLabels(root))' in assist
+        and 'BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt,' in assist
         and 'source.getClassName().toString().contains("EditText")' in assist
         and 'pendingPublicChatEvent = null' in assist,
     "BIGO public comment checker ignores composer and private fields":
