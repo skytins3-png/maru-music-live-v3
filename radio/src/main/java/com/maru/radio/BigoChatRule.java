@@ -26,6 +26,11 @@ public final class BigoChatRule {
     public static boolean isChatWidget(String resource, String description) {
         String id = resource == null ? "" : resource.toLowerCase(Locale.ROOT);
         String desc = description == null ? "" : description.toLowerCase(Locale.ROOT);
+        // Never mistake the host's own chat compose/edit field for a public
+        // viewer message. May run on events from BIGO's foreground window.
+        if (id.contains("input") || id.contains("edittext")
+                || id.contains("search") || id.contains("send_btn")
+                || id.contains("private") || id.contains("direct_message")) return false;
         return id.contains("chat") || id.contains("comment")
                 || id.contains("danmu") || id.contains("barrage")
                 || desc.startsWith("chat:") || desc.startsWith("comment:")
