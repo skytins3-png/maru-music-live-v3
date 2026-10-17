@@ -553,12 +553,15 @@ checks.update({
         and 'boolean taggedChat = BigoChatRule.isChatWidget(' in assist
         and 'Math.min(8, n.getChildCount())' in assist
         and 'BigoChatRule.match(n.getViewIdResourceName()' in assist,
-    "Automatic replies require consent and voice, not user manual text":
+    "Automatic replies require consent and voice and run without new background FGS":
         'commentReplies(this)' in assist
         and 'RadioDjSettings.isVoiceEnabled(this)' in assist
         and 'handler.postDelayed(chatWork, 550L)' in assist
         and 'RadioDirectRtmpService.ACTION_SAY' in assist
-        and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' in assist,
+        and 'sayLocalComment(match.reply, match.language)' in assist
+        and 'new RadioDjVoice(this)' in assist
+        and 'releaseCommentVoice()' in assist
+        and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' not in assist,
 })
 
 # Simulated evidence is NOT a live listener. The user must explicitly check
@@ -623,6 +626,23 @@ checks.update({
         and 'playStored(' in dj_voice,
     "Ahwan microphone recordings are never claimed as arbitrary AI voice clones":
         'voice clone' in mic or '목소리로 만들어' in mic,
+})
+
+# Short-circuit the actual Android 12+ service-launch failure while BIGO is
+# foreground: use the already bound public chat service only with explicit
+# opt-in; never misstate local TTS as remote BIGO mic ingestion.
+checks.update({
+    "Scoped Ahwan avoids Android background start failure for BIGO auto-comments":
+        'private void sayLocalComment(String reply, int language)' in assist
+        and 'new RadioDjVoice(this)' in assist
+        and 'scopedCommentVoice.say(reply, language' in assist
+        and 'startService(spoken)' not in assist
+        and 'RadioPlaybackService.ACTION_DJ_AUTO_COMMENT' not in assist,
+    "BIGO auto-comment voice resets on revoke/unbind and reports LOCAL-only":
+        'running.releaseCommentVoice()' in assist
+        and 'service.releaseCommentVoice()' in assist
+        and 'BIGO 청취자 전달은' in assist
+        and 'Android 접근성에서 MARU BIGO 연결 확인' in dj_activity,
 })
 
 for name, okay in checks.items():
