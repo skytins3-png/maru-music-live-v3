@@ -740,6 +740,20 @@ checks.update({
         and 'android.permission.READ_MEDIA_AUDIO' not in manifest,
 })
 
+# Actual 2026-10-18 user screenshots show no local BGM picker in the
+# pre-LIVE mixer; prevent treating Original effect as source-media ingest.
+official_mixer_guide = (root / "radio/src/main/java/com/maru/radio/BigoBroadcastGuide.java").read_text(encoding="utf-8")
+checks.update({
+    "Actual BIGO prep mixer distinguishes effect Original from local Suno originals":
+        "Original은 '효과 없음'" in official_mixer_guide
+        and "MARU의 Suno 원곡을 불러오는 기능이 아닙니다." in official_mixer_guide
+        and "커스텀 이퀄라이저도 파일 가져오기가 아닙니다." in official_mixer_guide,
+    "Keyless BIGO guide asks for on-air BGM only and never falsely claims PCM injection":
+        "'내 음악·BGM·파일 가져오기' 버튼이 " in official_mixer_guide
+        and "방송을 시작한 후 도구/메뉴(☰)" in official_mixer_guide
+        and "직접 주입하지 못합니다" in official_mixer_guide,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
