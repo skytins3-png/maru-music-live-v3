@@ -132,6 +132,8 @@ public final class RadioFeatureMenuActivity extends Activity {
                 () -> mainAction("program"));
 
         heading(moreMenu, "🎙 3. AI 아나운서 아환 (기존 기능 전체)");
+        item(moreMenu, "📻 아환 + AI 진행자 8명 · 라디오 대화 + 원곡 자동 편성",
+                () -> go(RadioEnsembleActivity.class));
         item(moreMenu, "🎤 형의 목소리 + DJ · 대화/노래 샘플 제작실",
                 () -> go(RadioVoiceProfileActivity.class));
         item(moreMenu, "🎤 휴대폰 마이크로 인사 직접 녹음 · 방송 멘트 등록",
