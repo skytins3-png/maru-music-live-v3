@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.20 owner speaking/singing voice profile without false cloning claims": "versionCode 34" in gradle
-        and "versionName '1.9.20-ahwan-voice-profile-studio'" in gradle
-        and "MARU RADIO V1.9.20 음성 제작 준비실" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.21 Ahwan plus eight scripted radio presenters alternating with originals": "versionCode 35" in gradle
+        and "versionName '1.9.21-nine-host-radio-show'" in gradle
+        and "MARU RADIO V1.9.21 9인 라디오 진행" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -890,6 +890,42 @@ checks.update({
         and 'RadioVoiceProfileState.blendDescription(' in voice_studio
         and 'AI 음성 복제 모델은 아직 연결되지 않았습니다.' in voice_studio
         and 'readyForConsentBasedTraining' in voice_state,
+})
+
+ensemble = (root / "radio/src/main/java/com/maru/radio/RadioEnsembleScript.java").read_text(encoding="utf-8")
+ensemble_screen = (root / "radio/src/main/java/com/maru/radio/RadioEnsembleActivity.java").read_text(encoding="utf-8")
+ensemble_settings = (root / "radio/src/main/java/com/maru/radio/RadioEnsembleSettings.java").read_text(encoding="utf-8")
+voice = (root / "radio/src/main/java/com/maru/radio/RadioDjVoice.java").read_text(encoding="utf-8")
+playback = (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8")
+checks.update({
+    "Nine-role radio dialogue is explicitly opt-in and visible in main, DJ, and full menu":
+        '.RadioEnsembleActivity' in manifest
+        and 'RadioEnsembleActivity.class' in activity
+        and 'RadioEnsembleActivity.class' in dj_activity
+        and 'RadioEnsembleActivity.class' in menu
+        and 'getBoolean("enabled", false)' in ensemble_settings
+        and 'RadioEnsembleSettings.setEnabled' in ensemble_screen,
+    "Full original song remains untouched, only serial spoken dialogue before song start":
+        'RadioEnsembleSettings.enabled(this)' in playback
+        and 'RadioEnsembleScript.shouldRun(ensembleSongOrdinal' in playback
+        and 'speakEnsemble(RadioEnsembleScript.scene(sceneNumber' in playback
+        and 'voice().sayStyled' in playback
+        and 'RadioDjLanguagePolicy.KOREAN' in playback
+        and 'p.start()' in playback
+        and 'if (ticket != generation) return;' in playback
+        and 'if (deadlineReached()) { stopPlayback(); return; }' in playback,
+    "Distinct cast personalities use installed Android TTS rates, never fake cloned people":
+        'new Role("아환"' in ensemble
+        and 'new Role("레온"' in ensemble
+        and 'tts.setPitch(pendingPitch)' in voice
+        and 'tts.setSpeechRate(pendingRate)' in voice
+        and 'AI 음성' in ensemble_screen
+        and 'BIGO Audio LIVE' in ensemble_screen,
+    "Radio schedule sets optional 2-4 dialogue turns every 1-4 whole songs":
+        'RadioEnsembleScript.clampLines' in ensemble_settings
+        and 'RadioEnsembleScript.clampEvery' in ensemble_settings
+        and 'if (keep == 2)' in ensemble
+        and 'if (keep == 3)' in ensemble,
 })
 
 for name, okay in checks.items():
