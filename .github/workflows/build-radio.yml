@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.19 independent phone audio-to-RTMP build
+name: MARU RADIO V1.9.20 Ahwan speaking and singing reference capture build
 
 on:
   workflow_dispatch:
@@ -43,6 +43,14 @@ jobs:
 
       - name: Check clean original-audio app contract
         run: python3 scripts/test_radio_contract.py
+
+      - name: Test owner consented speaking/singing voice-reference slots and blend bounds (offline JVM)
+        run: |
+          mkdir -p /tmp/maru-voice-profile
+          javac -d /tmp/maru-voice-profile \
+            radio/src/main/java/com/maru/radio/RadioVoiceProfileState.java \
+            scripts/RadioVoiceProfileStateSelfTest.java
+          java -cp /tmp/maru-voice-profile com.maru.radio.RadioVoiceProfileStateSelfTest
 
       - name: Test BIGO consent x Android accessibility combinations (offline only)
         run: |
@@ -172,11 +180,11 @@ jobs:
             grep -q "RECORD_AUDIO" /tmp/radio-badging.txt
             ! grep -Eq "READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.19-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.19-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.20-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.20-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.19-BIGO-ONE-TAP-CI-ONLY
-          path: MARU-RADIO-V1.9.19-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.20-BIGO-ONE-TAP-CI-ONLY
+          path: MARU-RADIO-V1.9.20-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
           if-no-files-found: error
