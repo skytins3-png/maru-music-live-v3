@@ -230,6 +230,8 @@ public final class RadioDjActivity extends Activity {
         updateBigoChatStatus();
         gap(body);
 
+        body.addView(button("🎙 형의 목소리 + 전문 DJ · 노래 샘플 준비실", () ->
+                startActivity(new Intent(this, RadioVoiceProfileActivity.class))));
         body.addView(button("🎤 아환 인사·감사 목소리 녹음", () ->
                 startActivity(new Intent(this, RadioAhwanRecorderActivity.class))));
         body.addView(button("▶ BIGO 방송 화면 열기", () ->
