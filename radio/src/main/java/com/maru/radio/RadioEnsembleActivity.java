@@ -63,7 +63,7 @@ public final class RadioEnsembleActivity extends Activity {
                 + "Suno 원곡이 처음부터 끝까지 흐릅니다. "
                 + "곡이 끝나면 다음 대화와 노래로 이어집니다.", 14, secondary));
         root.addView(label("⚠ 현재 대화는 오프라인에서 만들어지는 짧은 대본이고 "
-                + "9명의 독립 AI 모델이나 9종 복제 음성이 아닙니다. "
+                + "9명의 독립 AI 음성 모델이나 9종 복제 음성이 아닙니다. "
                 + "Android TTS 음정·속도를 달리해 구분합니다. "
                 + "BIGO Audio LIVE 청취자에게 송출되는 기능은 별도 검증이 필요합니다.",
                 13, 0xFFFFD09B));
