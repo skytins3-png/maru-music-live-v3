@@ -928,6 +928,38 @@ checks.update({
         and 'if (keep == 3)' in ensemble,
 })
 
+# User confirmed: the 61s single-male-voice audio "테스트용.mp3"
+# is their own voice. The PRIVATE audio itself must never be checked into the repo.
+# Phone file picker imports a local copy after affirmative owner consent.
+checks.update({
+    "User-selected MP3 voice reference import without any audio or permission sweep":
+        'REQUEST_IMPORT_MP3' in voice_studio
+        and 'Intent.ACTION_OPEN_DOCUMENT' in voice_studio
+        and '.setType("audio/mpeg")' in voice_studio
+        and 'Manifest.permission.RECORD_AUDIO' in voice_studio
+        and 'KEY_CONSENT' in voice_studio
+        and 'if (!consent())' in voice_studio
+        and 'MAX_IMPORT_BYTES = 30 * 1024 * 1024' in voice_studio
+        and 'looksLikeMp3(temp)' in voice_studio
+        and 'getContentResolver().openInputStream(selected)' in voice_studio
+        and 'FileOutputStream(temp)' in voice_studio,
+    "Original user MP3 metadata/bytes not embedded or sent to GitHub or other services":
+        'File source = path(slot)' in voice_studio
+        and 'mp3 ? "audio/mpeg" : "audio/mp4"' in voice_studio
+        and '"owner_speech.mp3"' in voice_studio
+        and 'safelyReplace(temp, importedMp3Path(slot))' in voice_studio
+        and 'getFilesDir()' in voice_studio
+        and 'android.permission.READ_MEDIA_AUDIO' not in manifest
+        and 'https://' not in voice_studio
+        and 'java.net' not in voice_studio,
+    "Rerecording and failed MP3 imports preserve valid previous voice reference":
+        'safelyReplace(temp, recordedPath(slot))' in voice_studio
+        and 'if (okay) {' in voice_studio
+        and 'if (imported.exists()) imported.delete();' in voice_studio
+        and 'if (temp != null && temp.exists()) temp.delete();' in voice_studio
+        and '기존 녹음은 유지됩니다.' in voice_studio,
+})
+
 for name, okay in checks.items():
     print(("PASS" if okay else "FAIL") + ": " + name)
 if not all(checks.values()):
