@@ -230,6 +230,8 @@ public final class RadioDjActivity extends Activity {
         updateBigoChatStatus();
         gap(body);
 
+        body.addView(button("📻 아환과 AI 진행자 8명 · 노래 사이 자동 대화", () ->
+                startActivity(new Intent(this, RadioEnsembleActivity.class))));
         body.addView(button("🎙 형의 목소리 + 전문 DJ · 노래 샘플 준비실", () ->
                 startActivity(new Intent(this, RadioVoiceProfileActivity.class))));
         body.addView(button("🎤 아환 인사·감사 목소리 녹음", () ->
