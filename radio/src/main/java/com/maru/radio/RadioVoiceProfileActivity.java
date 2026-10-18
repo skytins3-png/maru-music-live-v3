@@ -25,6 +25,8 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 
 /**
@@ -42,6 +44,8 @@ public final class RadioVoiceProfileActivity extends Activity {
     private static final String KEY_OWNER_PERCENT = "owner_percent";
     private static final int REQUEST_MIC = 970;
     private static final int REQUEST_EXPORT = 971;
+    private static final int REQUEST_IMPORT_MP3 = 972;
+    private static final int MAX_IMPORT_BYTES = 30 * 1024 * 1024;
     private static final int WHITE = 0xFFF7F0FF;
     private static final int MUTED = 0xFFC2B6D9;
     private static final int BG = 0xFF140F24;
@@ -55,6 +59,7 @@ public final class RadioVoiceProfileActivity extends Activity {
     private String activeSlot;
     private String pendingSlot;
     private String exportSlot;
+    private String importSlot;
     private long started;
     private boolean rendering;
 
@@ -80,8 +85,16 @@ public final class RadioVoiceProfileActivity extends Activity {
     private SharedPreferences preferences() { return getSharedPreferences(PREF, MODE_PRIVATE); }
     private boolean consent() { return preferences().getBoolean(KEY_CONSENT, false); }
     private File folder() { return new File(getFilesDir(), "ahwan_voice_identity"); }
-    private File path(String slot) {
+    private File recordedPath(String slot) {
         return new File(folder(), RadioVoiceProfileState.filename(slot));
+    }
+    private File importedMp3Path(String slot) {
+        return new File(folder(), slot.equals(RadioVoiceProfileState.TALK)
+                ? "owner_speech.mp3" : "owner_singing.mp3");
+    }
+    private File path(String slot) {
+        File imported = importedMp3Path(slot);
+        return imported.isFile() ? imported : recordedPath(slot);
     }
     private boolean present(String slot) {
         File file = path(slot);
@@ -197,6 +210,7 @@ public final class RadioVoiceProfileActivity extends Activity {
                 14, WHITE));
         button(slot.equals(activeSlot) ? "■ 녹음 끝내고 저장" : "🎙 내 목소리 녹음",
                 () -> toggle(slot));
+        button("📥 기존 MP3에서 내 목소리 가져오기", () -> chooseImport(slot));
         button("▶ 이 목소리만 미리듣기", () -> preview(slot));
         button("💾 내 녹음 외부 폴더에 백업", () -> exportSample(slot));
         if (present(slot)) button("🗑 이 음성 샘플만 삭제", () -> askDelete(slot));
@@ -231,6 +245,73 @@ public final class RadioVoiceProfileActivity extends Activity {
                 && consent() && RadioVoiceProfileState.valid(slot)) startRecording(slot);
         else if (status != null) status.setText("마이크 사용 동의가 없어 녹음하지 않았어요.");
     }
+    /**
+     * User-picked MP3 reference: no audio permission sweep, no background
+     * recording, no network, no embedding personal audio in GitHub builds.
+     * The original recording and any previously imported reference remain
+     * untouched if streaming into the staging file fails.
+     */
+    private void chooseImport(String slot) {
+        if (!consent()) { status.setText("본인 목소리 보관 동의를 먼저 해 주세요."); return; }
+        if (activeSlot != null) { status.setText("녹음을 먼저 끝내 주세요."); return; }
+        if (!RadioVoiceProfileState.valid(slot)) return;
+        importSlot = slot;
+        Intent select = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("audio/mpeg");
+        select.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivityForResult(select, REQUEST_IMPORT_MP3); }
+        catch (RuntimeException e) {
+            importSlot = null;
+            status.setText("MP3 파일 선택 화면을 열 수 없어요.");
+        }
+    }
+    private void importMp3(String slot, Uri selected) {
+        if (!consent() || !RadioVoiceProfileState.valid(slot) || activeSlot != null) return;
+        File temp = null;
+        try {
+            File dir = folder();
+            if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Storage unavailable");
+            temp = File.createTempFile("mp3_import_", ".tmp", dir);
+            int bytes = 0;
+            byte[] buffer = new byte[16 * 1024];
+            try (InputStream input = getContentResolver().openInputStream(selected);
+                 FileOutputStream out = new FileOutputStream(temp)) {
+                if (input == null) throw new IOException("Cannot open selected file");
+                int n;
+                while ((n = input.read(buffer)) != -1) {
+                    bytes += n;
+                    if (bytes > MAX_IMPORT_BYTES) throw new IOException("Too large");
+                    out.write(buffer, 0, n);
+                }
+                out.flush();
+            }
+            if (bytes < 1500 || !looksLikeMp3(temp))
+                throw new IOException("Not a supported MP3 recording");
+            if (!safelyReplace(temp, importedMp3Path(slot)))
+                throw new IOException("Could not preserve previous sample");
+            File priorRecording = recordedPath(slot);
+            if (priorRecording.exists()) priorRecording.delete();
+            draw();
+            status.setText("✅ MP3 음성 원본을 형의 " + RadioVoiceProfileState.title(slot)
+                    + " 샘플로 가져왔어요. AI 복제나 인터넷 업로드는 하지 않았습니다.");
+        } catch (IOException | SecurityException e) {
+            status.setText("MP3 가져오기 실패. 30MB 이하 MP3 파일과 접근 권한을 확인하세요. "
+                    + "기존 녹음은 유지됩니다.");
+        } finally {
+            if (temp != null && temp.exists()) temp.delete();
+        }
+    }
+    private boolean looksLikeMp3(File source) throws IOException {
+        try (FileInputStream input = new FileInputStream(source)) {
+            byte[] first = new byte[3];
+            if (input.read(first) != 3) return false;
+            return (first[0] == 'I' && first[1] == 'D' && first[2] == '3')
+                    || ((first[0] & 0xFF) == 0xFF
+                            && ((first[1] & 0xE0) == 0xE0));
+        }
+    }
+
     private void startRecording(String slot) {
         stopPlayer();
         if (!consent()) return;
@@ -269,8 +350,12 @@ public final class RadioVoiceProfileActivity extends Activity {
         activeSlot = null;
         capture = null;
         if (okay && temp != null && temp.length() >= 1500L)
-            okay = safelyReplace(temp, path(slot));
+            okay = safelyReplace(temp, recordedPath(slot));
         else okay = false;
+        if (okay) {
+            File imported = importedMp3Path(slot);
+            if (imported.exists()) imported.delete();
+        }
         if (temp != null && temp.exists()) temp.delete();
         draw();
         status.setText(okay ? "✅ 목소리 샘플 저장됨. AI 복제는 아직 시작되지 않았습니다."
@@ -329,10 +414,12 @@ public final class RadioVoiceProfileActivity extends Activity {
         if (activeSlot != null) { status.setText("녹음을 먼저 종료해 주세요."); return; }
         if (!present(slot)) { status.setText("백업할 음성이 없습니다."); return; }
         exportSlot = slot;
+        File source = path(slot);
+        boolean mp3 = source.getName().endsWith(".mp3");
         Intent action = new Intent(Intent.ACTION_CREATE_DOCUMENT)
                 .addCategory(Intent.CATEGORY_OPENABLE)
-                .setType("audio/mp4")
-                .putExtra(Intent.EXTRA_TITLE, RadioVoiceProfileState.filename(slot));
+                .setType(mp3 ? "audio/mpeg" : "audio/mp4")
+                .putExtra(Intent.EXTRA_TITLE, source.getName());
         try { startActivityForResult(action, REQUEST_EXPORT); }
         catch (RuntimeException e) {
             exportSlot = null;
@@ -341,6 +428,14 @@ public final class RadioVoiceProfileActivity extends Activity {
     }
     @Override protected void onActivityResult(int req, int result, Intent data) {
         super.onActivityResult(req, result, data);
+        if (req == REQUEST_IMPORT_MP3) {
+            String slot = importSlot;
+            importSlot = null;
+            if (result == RESULT_OK && data != null && data.getData() != null
+                    && RadioVoiceProfileState.valid(slot))
+                importMp3(slot, data.getData());
+            return;
+        }
         if (req != REQUEST_EXPORT) return;
         String slot = exportSlot;
         exportSlot = null;
@@ -371,7 +466,10 @@ public final class RadioVoiceProfileActivity extends Activity {
                         + "앱 내부 파일은 복구하기 어려우니 먼저 백업하세요.")
                 .setPositiveButton("이 샘플 삭제", (d, w) -> {
                     stopPlayer();
-                    boolean removed = !path(slot).exists() || path(slot).delete();
+                    File mp3 = importedMp3Path(slot);
+                    File m4a = recordedPath(slot);
+                    boolean removed = (!mp3.exists() || mp3.delete())
+                            && (!m4a.exists() || m4a.delete());
                     draw();
                     status.setText(removed ? "이 음성 샘플을 삭제했습니다."
                             : "삭제하지 못했습니다. 파일은 보존됩니다.");
