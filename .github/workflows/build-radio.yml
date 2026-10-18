@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.7 BIGO chat capture prototype build
+name: MARU RADIO V1.9.22 Ahwan plus eight-person radio ensemble build
 
 on:
   workflow_dispatch:
@@ -13,6 +13,7 @@ on:
       - fix/ahwan-v195-owner-recorded-opening-20261016
       - fix/ahwan-v196-constant-volume-20261016
       - feat/ahwan-v197-bigo-live-comment-and-audio-validation-20261016
+      - feat/maru-v198-independent-rtmp-audio-20261017
   pull_request:
     branches: [main]
 
@@ -43,6 +44,55 @@ jobs:
       - name: Check clean original-audio app contract
         run: python3 scripts/test_radio_contract.py
 
+      - name: Test nine radio hosts, scripted discussions and original-song transitions (offline JVM)
+        run: |
+          mkdir -p /tmp/maru-nine-hosts
+          javac -d /tmp/maru-nine-hosts \
+            radio/src/main/java/com/maru/radio/RadioEnsembleScript.java \
+            scripts/RadioEnsembleScriptSelfTest.java
+          java -cp /tmp/maru-nine-hosts com.maru.radio.RadioEnsembleScriptSelfTest
+
+      - name: Test owner consented speaking/singing voice-reference slots and blend bounds (offline JVM)
+        run: |
+          mkdir -p /tmp/maru-voice-profile
+          javac -d /tmp/maru-voice-profile \
+            radio/src/main/java/com/maru/radio/RadioVoiceProfileState.java \
+            scripts/RadioVoiceProfileStateSelfTest.java
+          java -cp /tmp/maru-voice-profile com.maru.radio.RadioVoiceProfileStateSelfTest
+
+      - name: Test BIGO consent x Android accessibility combinations (offline only)
+        run: |
+          mkdir -p /tmp/maru-access
+          javac -d /tmp/maru-access \
+            radio/src/main/java/com/maru/radio/RadioAccessState.java \
+            scripts/RadioAccessStateSelfTest.java
+          java -cp /tmp/maru-access com.maru.radio.RadioAccessStateSelfTest
+
+      - name: Simulate no-key BIGO audio/comment evidence (32 safe offline states)
+        run: |
+          mkdir -p /tmp/bigo-no-key-tests
+          javac -d /tmp/bigo-no-key-tests \
+            radio/src/main/java/com/maru/radio/BigoNoKeyEvidence.java \
+            scripts/BigoNoKeyEvidenceSelfTest.java
+          java -cp /tmp/bigo-no-key-tests com.maru.radio.BigoNoKeyEvidenceSelfTest
+
+      - name: Test four Ahwan microphone clip slots, file safety, and preset mappings (offline JVM)
+        run: |
+          mkdir -p /tmp/maru-ahwan-recording-tests
+          javac -d /tmp/maru-ahwan-recording-tests \
+            radio/src/main/java/com/maru/radio/RadioAhwanClipSlot.java \
+            scripts/RadioAhwanClipSlotSelfTest.java
+          java -cp /tmp/maru-ahwan-recording-tests com.maru.radio.RadioAhwanClipSlotSelfTest
+
+      - name: Virtual copy test - 152 Suno originals, dedup, sha256, cancellation, naming
+        run: |
+          mkdir -p /tmp/maru-bigo-music-test
+          javac -d /tmp/maru-bigo-music-test \
+            radio/src/main/java/com/maru/radio/RadioBigoExportNaming.java \
+            radio/src/main/java/com/maru/radio/RadioBigoCopyEngine.java \
+            scripts/RadioBigoMusicPrepSelfTest.java
+          java -cp /tmp/maru-bigo-music-test com.maru.radio.RadioBigoMusicPrepSelfTest
+
       - name: Test next-day and overnight clock calculations (plain Java)
         run: |
           mkdir -p /tmp/radio-clock-tests
@@ -50,6 +100,15 @@ jobs:
             radio/src/main/java/com/maru/radio/RadioClock.java \
             scripts/RadioClockSelfTest.java
           java -cp /tmp/radio-clock-tests com.maru.radio.RadioClockSelfTest
+
+      - name: Simulate real BIGO live host chat proof and 128 denied unverified screens (offline)
+        run: |
+          mkdir -p /tmp/maru-bigo-host-chat-gate
+          javac -d /tmp/maru-bigo-host-chat-gate \
+            radio/src/main/java/com/maru/radio/BigoAutomationPolicy.java \
+            radio/src/main/java/com/maru/radio/BigoHostChatGate.java \
+            scripts/BigoHostChatGateSelfTest.java
+          java -cp /tmp/maru-bigo-host-chat-gate com.maru.radio.BigoHostChatGateSelfTest
 
       - name: Test BIGO mock screenshot labels (never starts an actual LIVE)
         run: |
@@ -93,6 +152,22 @@ jobs:
             scripts/BigoChatRuleSelfTest.java
           java -cp /tmp/maru-chat-tests com.maru.radio.BigoChatRuleSelfTest
 
+      - name: Test direct RTMP PCM music plus Ahwan TTS ducking and digital peak bounds
+        run: |
+          mkdir -p /tmp/maru-rtmp-mix-tests
+          javac -d /tmp/maru-rtmp-mix-tests \
+            radio/src/main/java/com/maru/radio/RadioRtmpPcmVoiceMixer.java \
+            scripts/RadioRtmpPcmVoiceMixerSelfTest.java
+          java -cp /tmp/maru-rtmp-mix-tests com.maru.radio.RadioRtmpPcmVoiceMixerSelfTest
+
+      - name: Test RTMP network loudness leveling and stereo peak bound (pure JVM)
+        run: |
+          mkdir -p /tmp/maru-rtmp-leveler-tests
+          javac -d /tmp/maru-rtmp-leveler-tests \
+            radio/src/main/java/com/maru/radio/RadioRtmpPcmLeveler.java \
+            scripts/RadioRtmpPcmLevelerSelfTest.java
+          java -cp /tmp/maru-rtmp-leveler-tests com.maru.radio.RadioRtmpPcmLevelerSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -109,14 +184,15 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.7 아환 채팅 실험'" /tmp/radio-badging.txt
-            ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.22 음성 파일 가져오기'" /tmp/radio-badging.txt
+            grep -q "RECORD_AUDIO" /tmp/radio-badging.txt
+            ! grep -Eq "READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY
-          path: MARU-RADIO-V1.9.7-CHAT-AUDIO-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY
+          path: MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
           if-no-files-found: error

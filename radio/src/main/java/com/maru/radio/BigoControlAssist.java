@@ -58,7 +58,17 @@ public final class BigoControlAssist extends AccessibilityService {
     private final Runnable chatWork = this::checkChat;
     private final LinkedHashSet<Integer> chatSeen = new LinkedHashSet<>();
     private boolean chatPrimed;
+    // Only an observed owner-exclusive live tools sheet can prime the weak
+    // seat-layout fallback. This is transient, never persisted as viewer data.
+    private long hostToolsObservedAt;
+
+    // One ephemeral public BIGO chat message event, never written to disk.
+    private BigoChatRule.Match pendingPublicChatEvent;
     private long chatLastHandledAt;
+    // A bound AccessibilityService can talk locally without trying to launch
+    // a new media foreground service from BIGO's background-app context.
+    // This never injects audio into the BIGO microphone / remote stream.
+    private RadioDjVoice scopedCommentVoice;
 
     private SharedPreferences pref() { return getSharedPreferences(STORE, MODE_PRIVATE); }
 
@@ -89,8 +99,12 @@ public final class BigoControlAssist extends AccessibilityService {
         BigoControlAssist running = connectedService.get();
         if (running != null) {
             running.handler.removeCallbacks(running.chatWork);
+            running.pendingPublicChatEvent = null;
             running.chatSeen.clear();
             running.chatPrimed = false;
+            running.hostToolsObservedAt = 0L;
+            if (!enabled) running.releaseCommentVoice();
+            else running.setChatState("댓글 감시 ON · BIGO에서 진행 중인 호스트 LIVE 화면이 보여야 합니다.");
         }
         return true;
     }
@@ -142,6 +156,7 @@ public final class BigoControlAssist extends AccessibilityService {
                 service.handler.removeCallbacks(service.chatWork);
                 service.chatSeen.clear();
                 service.chatPrimed = false;
+                service.releaseCommentVoice();
             }
         }
     }
@@ -190,6 +205,16 @@ public final class BigoControlAssist extends AccessibilityService {
         if (!operation.isEmpty() && approved(this)) notifyResult(operation, message);
     }
 
+    private void complete(String message) {
+        String operation = pref().getString("op", "");
+        pref().edit().remove("op").remove("expires").remove("phase")
+                .putString("status", message).apply();
+        handler.removeCallbacks(work);
+        handler.removeCallbacks(expiryWatchdog);
+        waitingGesture = false;
+        if (!operation.isEmpty() && approved(this)) notifyResult(operation, message);
+    }
+
     private void notifyResult(String operation, String message) {
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -229,8 +254,11 @@ public final class BigoControlAssist extends AccessibilityService {
         handler.removeCallbacks(work);
         handler.removeCallbacks(expiryWatchdog);
         handler.removeCallbacks(chatWork);
+        pendingPublicChatEvent = null;
         chatSeen.clear();
         chatPrimed = false;
+        hostToolsObservedAt = 0L;
+        releaseCommentVoice();
         connectedService = new WeakReference<>(null);
         pref().edit().putBoolean("connected", false)
                 .remove("op").remove("expires").remove("phase")
@@ -240,8 +268,10 @@ public final class BigoControlAssist extends AccessibilityService {
 
     @Override public void onInterrupt() {
         handler.removeCallbacks(chatWork);
+        pendingPublicChatEvent = null;
         chatSeen.clear();
         chatPrimed = false;
+        releaseCommentVoice();
         abort("자동 조작 중단: BIGO 상태 확인 필요");
     }
 
@@ -249,8 +279,29 @@ public final class BigoControlAssist extends AccessibilityService {
         if (e == null || e.getPackageName() == null
                 || !BIGO.contentEquals(e.getPackageName()) || !approved(this)) return;
         if (commentReplies(this) && RadioDjSettings.isVoiceEnabled(this)) {
-            // This merely schedules a read-only check of the named LIVE chat
-            // surface; it NEVER clicks, posts, or saves viewer messages.
+            // Some BIGO builds expose an accessibility event on a visible
+            // public comment row but omit its text from later tree scans.
+            // Accept only labeled, non-editable chat widgets in the BIGO
+            // package; defer host-LIVE verification to checkChat().
+            AccessibilityNodeInfo source = e.getSource();
+            if (source != null && source.isVisibleToUser()
+                    && source.getPackageName() != null
+                    && BIGO.contentEquals(source.getPackageName())
+                    && source.getClassName() != null
+                    && !source.getClassName().toString().contains("EditText")) {
+                String resource = source.getViewIdResourceName();
+                CharSequence description = source.getContentDescription();
+                String labeled = description == null ? null : description.toString();
+                if (BigoChatRule.isChatWidget(resource, labeled)
+                        && e.getText() != null) {
+                    for (CharSequence candidateText : e.getText()) {
+                        if (candidateText == null) continue;
+                        BigoChatRule.Match parsed = BigoChatRule.match(resource,
+                                labeled, candidateText.toString());
+                        if (parsed != null) pendingPublicChatEvent = parsed;
+                    }
+                }
+            }
             if (Build.VERSION.SDK_INT < 29 || !handler.hasCallbacks(chatWork))
                 handler.postDelayed(chatWork, 550L);
         }
@@ -262,15 +313,46 @@ public final class BigoControlAssist extends AccessibilityService {
         handler.postDelayed(work, 250L);
     }
 
+    private void releaseCommentVoice() {
+        if (scopedCommentVoice != null) {
+            scopedCommentVoice.close();
+            scopedCommentVoice = null;
+        }
+    }
+
+    private void sayLocalComment(String reply, int language) {
+        // A media foreground service launched from background can be refused
+        // on Android 12+/One UI while BIGO is foreground. Speak directly from
+        // this already-bound opt-in service instead. Local TTS != BIGO ingest.
+        if (scopedCommentVoice == null) scopedCommentVoice = new RadioDjVoice(this);
+        scopedCommentVoice.say(reply, language, () -> {
+            // This is a LOCAL engine callback, not an acknowledgement from BIGO.
+            if (!commentReplies(this)) return;
+            String engine = scopedCommentVoice == null ? "음성 재생 상태 확인 불가"
+                    : scopedCommentVoice.status();
+            setChatState("아환 로컬 음성 처리 종료 · " + engine
+                    + " · BIGO 청취자 음성은 별도 확인 필요");
+        });
+    }
+
     private void setChatState(String message) {
         // Keep only fixed status strings; never store a viewer's comment.
         pref().edit().putString("chat_state", message).apply();
     }
 
     private void checkChat() {
-        if (!approved(this) || !commentReplies(this)
-                || !RadioDjSettings.isVoiceEnabled(this)) return;
-        if (pref().contains("op") || pref().contains("preflight_expires")) return;
+        if (!approved(this) || !commentReplies(this)) {
+            setChatState("댓글 감시 OFF · BIGO 댓글 읽기 동의가 필요합니다.");
+            return;
+        }
+        if (!RadioDjSettings.isVoiceEnabled(this)) {
+            setChatState("아환 음성 OFF · 아나운서 음성 사용을 켜야 합니다.");
+            return;
+        }
+        if (pref().contains("op") || pref().contains("preflight_expires")) {
+            setChatState("BIGO 시작·종료 화면 조작 또는 점검 중 · 댓글 응답 잠시 보류");
+            return;
+        }
         KeyguardManager km = getSystemService(KeyguardManager.class);
         if (km != null && km.isKeyguardLocked()) {
             chatPrimed = false;
@@ -282,18 +364,46 @@ public final class BigoControlAssist extends AccessibilityService {
         if (root == null || root.getPackageName() == null
                 || !BIGO.contentEquals(root.getPackageName())) {
             chatPrimed = false;
+            pendingPublicChatEvent = null;
             chatSeen.clear();
+            setChatState("BIGO 화면의 공개 댓글 접근 불가 · BIGO 방송 화면이 전면에 표시되어야 합니다.");
             return;
         }
-        if (!BigoAutomationPolicy.isHostLive(allLabels(root))) {
+        java.util.Set<String> labels = allLabels(root);
+        if (BigoAutomationPolicy.isHostToolsSheet(labels)) {
+            hostToolsObservedAt = android.os.SystemClock.elapsedRealtime();
             chatPrimed = false;
+            pendingPublicChatEvent = null;
             chatSeen.clear();
-            setChatState("BIGO 호스트 LIVE 화면 확인 대기");
+            setChatState("BIGO 실제 호스트 라이브 툴 확인 · 창을 닫으면 "
+                    + "실방송 자리 화면의 공개 댓글을 감지합니다. 청취자 TTS 출력은 미연결");
+            return;
+        }
+        if (BigoAutomationPolicy.isSetup(labels)
+                || BigoAutomationPolicy.isEndConfirmation(labels)) {
+            hostToolsObservedAt = 0L;
+        }
+        // Do NOT lower the test used to automate BIGO's broadcast start/end.
+        // The weak layout is a chat-read hint only after a recent host-exclusive
+        // controls sheet; no UI click, DM access or raw chat logging added.
+        if (!BigoHostChatGate.mayReadPublicChat(labels, hostToolsObservedAt,
+                android.os.SystemClock.elapsedRealtime())) {
+            chatPrimed = false;
+            pendingPublicChatEvent = null;
+            chatSeen.clear();
+            setChatState("BIGO 호스트 LIVE 확인 필요 · 먼저 방송 중 '라이브 툴'을 "
+                    + "한 번 열었다 닫아 주세요. 댓글·사적인 대화는 저장하지 않습니다.");
             return;
         }
         // The first observed screen may contain old comments. Prime only and
         // reply to NEW matching rows on later accessibility content changes.
         java.util.ArrayList<BigoChatRule.Match> candidates = new java.util.ArrayList<>();
+        // A public chat event is only trusted after verifying the current
+        // host LIVE root; only the bounded reply + fingerprint survives here.
+        BigoChatRule.Match eventMatch = pendingPublicChatEvent;
+        pendingPublicChatEvent = null;
+        if (eventMatch != null && !chatSeen.contains(eventMatch.transientFingerprint))
+            candidates.add(eventMatch);
         ArrayDeque<AccessibilityNodeInfo> queue = new ArrayDeque<>();
         queue.add(root);
         int scanned = 0;
@@ -305,15 +415,53 @@ public final class BigoControlAssist extends AccessibilityService {
                     && BIGO.contentEquals(n.getPackageName())) {
                 CharSequence desc = n.getContentDescription();
                 CharSequence row = n.getText();
-                if (BigoChatRule.isChatWidget(n.getViewIdResourceName(),
-                        desc == null ? null : desc.toString()))
-                    taggedWidgets++;
-                BigoChatRule.Match reply = BigoChatRule.match(
+                boolean taggedChat = BigoChatRule.isChatWidget(
                         n.getViewIdResourceName(),
-                        desc == null ? null : desc.toString(),
-                        row == null ? null : row.toString());
-                if (reply != null && !chatSeen.contains(reply.transientFingerprint))
-                    candidates.add(reply);
+                        desc == null ? null : desc.toString());
+                if (taggedChat) {
+                    taggedWidgets++;
+                    // Some BIGO versions label the row CONTAINER, while its
+                    // text is on an immediate child with no view resource ID.
+                    // Read only a directly labeled chat row and its immediate
+                    // children. Never look into profiles, DMs or untagged trees.
+                    BigoChatRule.Match reply = BigoChatRule.match(
+                            n.getViewIdResourceName(),
+                            desc == null ? null : desc.toString(),
+                            row == null ? null : row.toString());
+                    if (reply != null && !chatSeen.contains(reply.transientFingerprint))
+                        candidates.add(reply);
+                    if (reply == null) {
+                        java.util.ArrayList<String> childTexts = new java.util.ArrayList<>();
+                        for (int ci = 0; ci < Math.min(8, n.getChildCount()); ci++) {
+                            AccessibilityNodeInfo child = n.getChild(ci);
+                            if (child == null) continue;
+                            if (!child.isVisibleToUser() || child.getPackageName() == null
+                                    || !BIGO.contentEquals(child.getPackageName()))
+                                continue;
+                            CharSequence text = child.getText();
+                            CharSequence childDesc = child.getContentDescription();
+                            String part = text != null ? text.toString()
+                                    : childDesc == null ? "" : childDesc.toString();
+                            if (!part.trim().isEmpty()) childTexts.add(part.trim());
+                            reply = BigoChatRule.match(n.getViewIdResourceName(),
+                                    desc == null ? null : desc.toString(),
+                                    text != null ? text.toString()
+                                            : childDesc == null ? null : childDesc.toString());
+                            if (reply != null && !chatSeen.contains(reply.transientFingerprint))
+                                candidates.add(reply);
+                        }
+                        // A recognized chat container can have [nickname, message]
+                        // as separate direct children. Never merge unrelated nodes.
+                        if (childTexts.size() == 2) {
+                            BigoChatRule.Match split = BigoChatRule.matchSplitChat(
+                                    n.getViewIdResourceName(),
+                                    desc == null ? null : desc.toString(),
+                                    childTexts.get(0), childTexts.get(1));
+                            if (split != null && !chatSeen.contains(split.transientFingerprint))
+                                candidates.add(split);
+                        }
+                    }
+                }
             }
             for (int i = 0; i < n.getChildCount(); i++) {
                 AccessibilityNodeInfo child = n.getChild(i);
@@ -332,25 +480,43 @@ public final class BigoControlAssist extends AccessibilityService {
             setChatState(taggedWidgets == 0
                     ? "호스트 LIVE 확인 · 댓글 위젯 미노출 (실기기 확인 필요)"
                     : "BIGO 댓글 위젯 " + taggedWidgets
-                        + "개 인식 · 새 인사/감사 댓글 대기");
+                        + "개 인식 · 새 댓글 자동 음성답변 대기");
             return;
         }
         // Max one short fixed-script reply per 15 seconds; drop extras
         // so music and listeners aren't overwhelmed by voice announcements.
         long now = System.currentTimeMillis();
-        if (candidates.isEmpty() || now - chatLastHandledAt < 15000L) return;
+        if (candidates.isEmpty()) {
+            if (taggedWidgets == 0)
+                setChatState("BIGO 호스트 화면은 확인됐지만 공개 댓글 UI 식별자 0개 · BIGO 버전/화면 접근성 제한 가능");
+            return;
+        }
+        if (now - chatLastHandledAt < 15000L) {
+            setChatState("댓글 형태 인식됨 · 답변 간격 15초 제한 중");
+            return;
+        }
         BigoChatRule.Match match = candidates.get(candidates.size() - 1);
-        Intent spoken = new Intent(this, RadioPlaybackService.class)
-                .setAction(RadioPlaybackService.ACTION_DJ_AUTO_COMMENT)
-                .putExtra(RadioPlaybackService.EXTRA_DJ_TEXT, match.reply)
-                .putExtra(RadioPlaybackService.EXTRA_DJ_LANGUAGE, match.language);
+        boolean directRtmp = RadioDirectRtmpService.isActive();
         try {
-            startService(spoken);
+            if (directRtmp) {
+                // Optional authorized RTMP can mix TTS PCM into the stream;
+                // the owner's normal BIGO Audio LIVE has no provided RTMP key.
+                startService(new Intent(this, RadioDirectRtmpService.class)
+                        .setAction(RadioDirectRtmpService.ACTION_SAY)
+                        .putExtra(RadioDirectRtmpService.EXTRA_SAY, match.reply)
+                        .putExtra(RadioDirectRtmpService.EXTRA_LANGUAGE, match.language));
+            } else {
+                // Crucial repair: do not start RadioPlaybackService as an
+                // Android 12+ background foreground service just for a reply.
+                sayLocalComment(match.reply, match.language);
+            }
             chatLastHandledAt = now;
-            setChatState("방송 댓글 새 인사/감사 감지 → 로컬 TTS 답변 요청"
-                    + " · BIGO 청취 전달은 별도 검증 필요");
+            setChatState("새 댓글 인식 · 1개 응답 처리 / "
+                    + (directRtmp ? "RTMP PCM 요청" : "휴대폰 로컬 TTS 요청")
+                    + " · BIGO 실제 청취 음성 미검증");
         } catch (RuntimeException denied) {
-            setChatState("댓글은 감지했지만 Android가 답변 음성 서비스를 제한");
+            setChatState("댓글은 감지했지만 안드로이드가 음성 실행을 차단함 · "
+                    + "녹음·앱 권한이 아니라 출력 실행 경로 오류");
         }
     }
 
@@ -615,8 +781,22 @@ public final class BigoControlAssist extends AccessibilityService {
                 } else abort("방송하기 버튼을 안전하게 찾지 못했어요.");
                 return;
             case VERIFY_STREAM:
-                if (BigoAutomationPolicy.isHostLive(labels))
-                    abort("BIGO 라이브 화면 확인됨(참고: 서버 송출·청취자 음질은 별도 검증 필요)");
+                if (BigoAutomationPolicy.isHostRoomAfterPress(labels)) {
+                    // The user explicitly approved an automatic start, and we
+                    // saw the broadcaster composer, pressed Broadcast, then
+                    // observed its own mic/guest-seat room. This is stronger
+                    // scoped host proof than an unrelated public viewer room.
+                    hostToolsObservedAt = android.os.SystemClock.elapsedRealtime();
+                    chatPrimed = false;
+                    pendingPublicChatEvent = null;
+                    chatSeen.clear();
+                    complete("BIGO 방송하기 누른 뒤 호스트 LIVE 화면 전환 확인 · "
+                            + "청취자 음악·아환 음성 송출은 미검증");
+                    if (commentReplies(this) && RadioDjSettings.isVoiceEnabled(this)) {
+                        handler.removeCallbacks(chatWork);
+                        handler.postDelayed(chatWork, 800L);
+                    }
+                }
                 return;
             default:
                 abort("알 수 없는 방송 시작 상태"); return;
@@ -751,7 +931,10 @@ public final class BigoControlAssist extends AccessibilityService {
             "1", "Original", "원본", "닫기", "Close", "종료",
             "라이브 종료하기", "추천", "인기", "발견", "홈", "라이브",
             "자리", "시청자", "명 시청", "방송 시간",
-            "BGM", "배경 음악", "내 음악", "음악 추가"
+            "BGM", "배경 음악", "내 음악", "음악 추가",
+            "라이브 툴", "프로그램 목록", "실시간 지원", "관리", "녹화",
+            "마이크", "2", "3", "4", "5", "6", "7",
+            "8", "9", "10", "11", "12"
     };
 
     private static void addControlLabel(HashSet<String> recognized, CharSequence text) {
@@ -764,7 +947,10 @@ public final class BigoControlAssist extends AccessibilityService {
                 return;
             }
         }
-        if (normalized.equals("오디오live") || normalized.equals("audiolive")) {
+        if (normalized.equals("마이크") || normalized.equals("mic")
+                || normalized.equals("마이크...") || normalized.equals("마이크…")) {
+            recognized.add("마이크");
+        } else if (normalized.equals("오디오live") || normalized.equals("audiolive")) {
             recognized.add("오디오 라이브");
         } else if (normalized.startsWith("시청자")
                 && normalized.length() < 16

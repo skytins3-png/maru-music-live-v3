@@ -38,6 +38,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_DJ_CLOSING = "com.maru.radio.DJ_CLOSING";
     public static final String ACTION_DJ_TEST_RECORDED = "com.maru.radio.DJ_TEST_RECORDED";
     public static final String ACTION_DJ_GIFT = "com.maru.radio.DJ_GIFT";
+    public static final String ACTION_DJ_FOLLOW = "com.maru.radio.DJ_FOLLOW";
     public static final String ACTION_DJ_AUTO_COMMENT = "com.maru.radio.DJ_AUTO_COMMENT";
     public static final String EXTRA_DJ_LANGUAGE = "dj_language";
     public static final String EXTRA_DJ_HINT = "dj_language_hint";
@@ -64,6 +65,7 @@ public final class RadioPlaybackService extends Service {
     private RadioDjVoice djVoice;
     private String requestedDjSpeech = "";
     private int announcementCount;
+    private int ensembleSongOrdinal;
     private boolean openingSpoken;
     private boolean djHoldingTrack;
     private AudioManager audio;
@@ -170,7 +172,8 @@ public final class RadioPlaybackService extends Service {
         }
         if (ACTION_DJ_SAY.equals(action) || ACTION_DJ_AUTO_COMMENT.equals(action)
                 || ACTION_DJ_GREETING.equals(action) || ACTION_DJ_ANNOUNCE_NEXT.equals(action)
-                || ACTION_DJ_CLOSING.equals(action) || ACTION_DJ_GIFT.equals(action)) {
+                || ACTION_DJ_CLOSING.equals(action) || ACTION_DJ_GIFT.equals(action)
+                || ACTION_DJ_FOLLOW.equals(action)) {
             java.util.List<RadioDjLanguagePolicy.Line> lines;
             if (ACTION_DJ_GREETING.equals(action)) {
                 lines = RadioDjLanguagePolicy.opening(); // English only
@@ -179,6 +182,10 @@ public final class RadioPlaybackService extends Service {
             } else if (ACTION_DJ_GIFT.equals(action)) {
                 lines = RadioDjLanguagePolicy.gift(intent.getStringExtra(EXTRA_DJ_TEXT),
                         intent.getIntExtra(EXTRA_DJ_HINT, RadioDjLanguagePolicy.AUTO));
+            } else if (ACTION_DJ_FOLLOW.equals(action)) {
+                lines = java.util.Collections.singletonList(
+                        new RadioDjLanguagePolicy.Line(RadioDjLanguagePolicy.ENGLISH,
+                                RadioReplies.message(RadioDjLanguagePolicy.ENGLISH, 3)));
             } else if (ACTION_DJ_ANNOUNCE_NEXT.equals(action)) {
                 if (queue.isEmpty()) {
                     error = "소개할 다음 음악이 없어요.";
@@ -212,6 +219,15 @@ public final class RadioPlaybackService extends Service {
             };
             if (ACTION_DJ_GREETING.equals(action)) {
                 playBroadcastOpening(afterSpeech);
+            } else if (ACTION_DJ_CLOSING.equals(action)) {
+                voice().playClip(RadioAhwanClipSlot.CLOSING,
+                        lines.get(0).text, lines.get(0).language, afterSpeech);
+            } else if (ACTION_DJ_GIFT.equals(action)) {
+                voice().playClip(RadioAhwanClipSlot.GIFT,
+                        lines.get(0).text, lines.get(0).language, afterSpeech);
+            } else if (ACTION_DJ_FOLLOW.equals(action)) {
+                voice().playClip(RadioAhwanClipSlot.FOLLOW,
+                        lines.get(0).text, lines.get(0).language, afterSpeech);
             } else {
                 voice().sayLines(lines, afterSpeech);
             }
@@ -448,8 +464,15 @@ public final class RadioPlaybackService extends Service {
                 boolean doOpening = RadioDjSettings.opening(this) && !openingSpoken;
                 if (doOpening) openingSpoken = true;
                 boolean doNext = RadioDjSettings.interSong(this);
+                // One self-contained conversation before the selected original.
+                // Default OFF. Never edits/mixes into the original file or pauses
+                // an already playing song just to insert fictional commentary.
+                boolean ensemble = RadioEnsembleSettings.enabled(this)
+                        && RadioEnsembleScript.shouldRun(ensembleSongOrdinal,
+                                RadioEnsembleSettings.every(this));
+                int sceneNumber = ensembleSongOrdinal++;
                 if ((explicitSpeech != null && !explicitSpeech.isEmpty())
-                        || doOpening || doNext) {
+                        || doOpening || doNext || ensemble) {
                     djHoldingTrack = true;
                     final Runnable play = () -> {
                         if (ticket != generation || player != p) return;
@@ -460,7 +483,13 @@ public final class RadioPlaybackService extends Service {
                     };
                     final Runnable next = () -> {
                         if (ticket != generation || player != p) return;
-                        if (doNext || (explicitSpeech != null && !explicitSpeech.isEmpty())) {
+                        if (ensemble) {
+                            // Ensemble replaces the old one-voice "next song"
+                            // introduction to avoid duplicating radio chatter.
+                            speakEnsemble(RadioEnsembleScript.scene(sceneNumber,
+                                    t.title, RadioEnsembleSettings.lines(this)),
+                                    0, ticket, play);
+                        } else if (doNext || (explicitSpeech != null && !explicitSpeech.isEmpty())) {
                             voice().sayLines(RadioDjLanguagePolicy.songIntro(t.title,
                                     RadioProgram.category(this, t)), play);
                         } else play.run();
@@ -495,6 +524,25 @@ public final class RadioPlaybackService extends Service {
             releasePlayer();
             updateNotification();
         }
+    }
+
+    /**
+     * Strict serial voice sequencing: 2-4 voiced turns then play the unaltered
+     * original track. A song skip, stop or timer increments generation, making
+     * stale callbacks incapable of resuming music or starting a second scene.
+     */
+    private void speakEnsemble(java.util.List<RadioEnsembleScript.Line> lines,
+            int index, int ticket, Runnable resumeSong) {
+        if (ticket != generation) return;
+        if (deadlineReached()) { stopPlayback(); return; }
+        if (index >= lines.size()) {
+            resumeSong.run();
+            return;
+        }
+        RadioEnsembleScript.Line line = lines.get(index);
+        voice().sayStyled(line.text, RadioDjLanguagePolicy.KOREAN,
+                line.role().pitch, line.role().rate, () ->
+                    speakEnsemble(lines, index + 1, ticket, resumeSong));
     }
 
     private void advanceOnCompletion() {

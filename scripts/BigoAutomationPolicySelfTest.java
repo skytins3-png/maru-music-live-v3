@@ -65,6 +65,22 @@ public final class BigoAutomationPolicySelfTest {
         ok(!BigoMicLayoutPolicy.isNearMic(709, 1536, 42, 437, 290, 477,
                         700, 508, 729, 546),
                 "out-of-screen numeral fails safely");
+        Set<String> realOnAir = Set.of("마이크", "1", "2", "3", "4", "5", "6",
+                "7", "8", "9", "10", "11", "12");
+        Set<String> preLive = Set.of("마이크", "1", "2", "3", "오디오 라이브",
+                "방송하기");
+        Set<String> mixerWithSeats = Set.of("믹서", "마이크 볼륨", "마이크",
+                "Original", "1", "2", "3", "4", "5", "6");
+        ok(BigoAutomationPolicy.isHostRoomAfterPress(realOnAir),
+                "owner's real on-air mic + guest seats confirms visible host UI after broadcast press");
+        ok(!BigoAutomationPolicy.isHostRoomAfterPress(preLive),
+                "pre-live controls must not be mistaken for actual LIVE");
+        ok(!BigoAutomationPolicy.isHostRoomAfterPress(mixerWithSeats),
+                "mixer with 6 digits must not be mistaken for live stream");
+        ok(BigoAutomationPolicy.isHostRoomAfterPress(host),
+                "legacy host viewer-text anchors still work");
+        ok(!BigoAutomationPolicy.isHostRoomAfterPress(screenshot),
+                "setup with 방송하기 does not confirm LIVE");
         System.out.println("BIGO screenshot-state unit checks PASS; NOT a live-device test.");
     }
 }
