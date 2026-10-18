@@ -132,6 +132,8 @@ public final class RadioFeatureMenuActivity extends Activity {
                 () -> mainAction("program"));
 
         heading(moreMenu, "🎙 3. AI 아나운서 아환 (기존 기능 전체)");
+        item(moreMenu, "🎤 형의 목소리 + DJ · 대화/노래 샘플 제작실",
+                () -> go(RadioVoiceProfileActivity.class));
         item(moreMenu, "🎤 휴대폰 마이크로 인사 직접 녹음 · 방송 멘트 등록",
                 () -> go(RadioAhwanRecorderActivity.class));
         item(moreMenu, "🎙 아환 전체 설정 · TTS·오프닝·곡 소개·언어",
