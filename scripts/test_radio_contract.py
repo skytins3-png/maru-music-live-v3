@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.19 BIGO user-access diagnostic without OS restricted-settings bypass": "versionCode 33" in gradle
-        and "versionName '1.9.19-accessibility-diagnostics'" in gradle
-        and "MARU RADIO V1.9.19 접근성 진단" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.20 owner speaking/singing voice profile without false cloning claims": "versionCode 34" in gradle
+        and "versionName '1.9.20-ahwan-voice-profile-studio'" in gradle
+        and "MARU RADIO V1.9.20 음성 제작 준비실" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
@@ -854,6 +854,42 @@ checks.update({
         '마이크·알림 권한' in guide
         and '앱 권한의' in guide
         and '접근성 허용은 음악·아환 음성의 BIGO 청취자 송출' in access_doctor,
+})
+
+# Owner-only two-mode future voice cloning: consented recording, backup, and
+# a blend-intent knob, never an actual cloned singer before model inference.
+voice_studio = (root / "radio/src/main/java/com/maru/radio/RadioVoiceProfileActivity.java").read_text(encoding="utf-8")
+voice_state = (root / "radio/src/main/java/com/maru/radio/RadioVoiceProfileState.java").read_text(encoding="utf-8")
+dj_activity = (root / "radio/src/main/java/com/maru/radio/RadioDjActivity.java").read_text(encoding="utf-8")
+checks.update({
+    "Owner and DJ voice identity studio reachable from main, DJ and full menus":
+        '.RadioVoiceProfileActivity' in manifest
+        and 'RadioVoiceProfileActivity.class' in activity
+        and 'RadioVoiceProfileActivity.class' in dj_activity
+        and 'RadioVoiceProfileActivity.class' in menu,
+    "Owner voice speech + singing samples are explicitly consented private mic-only":
+        '"talk"' in voice_state
+        and '"sing"' in voice_state
+        and 'KEY_CONSENT' in voice_studio
+        and 'new AlertDialog.Builder(this)' in voice_studio
+        and 'Manifest.permission.RECORD_AUDIO' in voice_studio
+        and 'MediaRecorder.AudioSource.MIC' in voice_studio
+        and 'File.createTempFile(' in voice_studio
+        and 'new File(getFilesDir(), "ahwan_voice_identity")' in voice_studio
+        and 'ACTION_CREATE_DOCUMENT' in voice_studio,
+    "Recording can be undone without touching original music or other DJ clips":
+        'new File(getFilesDir(), "ahwan_voice_identity")' in voice_studio
+        and 'askDelete(' in voice_studio
+        and 'getFilesDir()' in voice_studio
+        and 'Originals.removeMany' not in voice_studio
+        and 'new Intent(Intent.ACTION_SEND)' not in voice_studio
+        and 'java.net' not in voice_studio,
+    "Blend percentage is a requested target, no false cloned singing claim":
+        'KEY_OWNER_PERCENT' in voice_studio
+        and 'setMax(100)' in voice_studio
+        and 'RadioVoiceProfileState.blendDescription(' in voice_studio
+        and 'AI 음성 복제 모델은 아직 연결되지 않았습니다.' in voice_studio
+        and 'readyForConsentBasedTraining' in voice_state,
 })
 
 for name, okay in checks.items():
