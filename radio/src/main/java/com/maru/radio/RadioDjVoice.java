@@ -27,6 +27,9 @@ public final class RadioDjVoice {
     private int generation;
     private String pendingText;
     private int pendingLanguage = RadioDjLanguagePolicy.ENGLISH;
+    // Simple Android TTS variation, not nine distinct cloned voice models.
+    private float pendingPitch = 0.96f;
+    private float pendingRate = 0.93f;
     private Runnable pendingDone;
     private Runnable timeout;
     private String status = "시스템 음성 엔진 대기";
@@ -44,6 +47,14 @@ public final class RadioDjVoice {
 
     /** Speak one segment in an explicitly specified installed Android voice. */
     public void say(String text, int language, Runnable after) {
+        sayStyled(text, language, 0.96f, 0.93f, after);
+    }
+
+    /**
+     * Applies modest rate and pitch per character without voice cloning.
+     * All nine roles still depend on the system's installed TTS voices.
+     */
+    public void sayStyled(String text, int language, float pitch, float rate, Runnable after) {
         if (closed) { if (after != null) after.run(); return; }
         cancel();
         final int ticket = generation;
@@ -54,6 +65,8 @@ public final class RadioDjVoice {
         String safe = text.trim().substring(0, Math.min(text.trim().length(), 230));
         pendingText = safe;
         pendingLanguage = Math.max(0,Math.min(4,language));
+        pendingPitch = Math.max(0.8f, Math.min(1.3f, pitch));
+        pendingRate = Math.max(0.82f, Math.min(1.12f, rate));
         pendingDone = after;
         timeout = () -> complete(ticket);
         main.postDelayed(timeout, 15000L);
@@ -191,6 +204,10 @@ public final class RadioDjVoice {
             complete(ticket);
             return;
         }
+        // Re-apply after setLanguage: Android TTS engines can reset audio
+        // parameters when the speaking language changes.
+        tts.setPitch(pendingPitch);
+        tts.setSpeechRate(pendingRate);
         String utterance = "MARU-DJ-" + ticket;
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) {}
