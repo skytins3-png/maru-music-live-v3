@@ -65,6 +65,7 @@ public final class RadioPlaybackService extends Service {
     private RadioDjVoice djVoice;
     private String requestedDjSpeech = "";
     private int announcementCount;
+    private int ensembleSongOrdinal;
     private boolean openingSpoken;
     private boolean djHoldingTrack;
     private AudioManager audio;
@@ -463,8 +464,15 @@ public final class RadioPlaybackService extends Service {
                 boolean doOpening = RadioDjSettings.opening(this) && !openingSpoken;
                 if (doOpening) openingSpoken = true;
                 boolean doNext = RadioDjSettings.interSong(this);
+                // One self-contained conversation before the selected original.
+                // Default OFF. Never edits/mixes into the original file or pauses
+                // an already playing song just to insert fictional commentary.
+                boolean ensemble = RadioEnsembleSettings.enabled(this)
+                        && RadioEnsembleScript.shouldRun(ensembleSongOrdinal,
+                                RadioEnsembleSettings.every(this));
+                int sceneNumber = ensembleSongOrdinal++;
                 if ((explicitSpeech != null && !explicitSpeech.isEmpty())
-                        || doOpening || doNext) {
+                        || doOpening || doNext || ensemble) {
                     djHoldingTrack = true;
                     final Runnable play = () -> {
                         if (ticket != generation || player != p) return;
@@ -475,7 +483,13 @@ public final class RadioPlaybackService extends Service {
                     };
                     final Runnable next = () -> {
                         if (ticket != generation || player != p) return;
-                        if (doNext || (explicitSpeech != null && !explicitSpeech.isEmpty())) {
+                        if (ensemble) {
+                            // Ensemble replaces the old one-voice "next song"
+                            // introduction to avoid duplicating radio chatter.
+                            speakEnsemble(RadioEnsembleScript.scene(sceneNumber,
+                                    t.title, RadioEnsembleSettings.lines(this)),
+                                    0, ticket, play);
+                        } else if (doNext || (explicitSpeech != null && !explicitSpeech.isEmpty())) {
                             voice().sayLines(RadioDjLanguagePolicy.songIntro(t.title,
                                     RadioProgram.category(this, t)), play);
                         } else play.run();
@@ -510,6 +524,25 @@ public final class RadioPlaybackService extends Service {
             releasePlayer();
             updateNotification();
         }
+    }
+
+    /**
+     * Strict serial voice sequencing: 2-4 voiced turns then play the unaltered
+     * original track. A song skip, stop or timer increments generation, making
+     * stale callbacks incapable of resuming music or starting a second scene.
+     */
+    private void speakEnsemble(java.util.List<RadioEnsembleScript.Line> lines,
+            int index, int ticket, Runnable resumeSong) {
+        if (ticket != generation) return;
+        if (deadlineReached()) { stopPlayback(); return; }
+        if (index >= lines.size()) {
+            resumeSong.run();
+            return;
+        }
+        RadioEnsembleScript.Line line = lines.get(index);
+        voice().sayStyled(line.text, RadioDjLanguagePolicy.KOREAN,
+                line.role().pitch, line.role().rate, () ->
+                    speakEnsemble(lines, index + 1, ticket, resumeSong));
     }
 
     private void advanceOnCompletion() {
