@@ -28,6 +28,7 @@
         <activity android:name=".RadioFeatureMenuActivity" android:exported="false" />
         <activity android:name=".RadioAllSongsActivity" android:exported="false" />
         <activity android:name=".RadioDirectRtmpActivity" android:exported="false" />
+        <activity android:name=".RadioEnsembleActivity" android:exported="false" />
         <activity android:name=".RadioVoiceProfileActivity" android:exported="false" />
         <activity android:name=".RadioAhwanRecorderActivity" android:exported="false" />
         <activity android:name=".RadioDjActivity" android:exported="false" />
