@@ -69,9 +69,9 @@ checks.update({
         and "applicationId 'com.maru.radio.safev17'" not in gradle
         and "applicationId 'com.maru.radio.safev171'" not in gradle
         and "applicationId 'com.maru.radio.safev173'" not in gradle,
-    "V1.9.21 Ahwan plus eight scripted radio presenters alternating with originals": "versionCode 35" in gradle
-        and "versionName '1.9.21-nine-host-radio-show'" in gradle
-        and "MARU RADIO V1.9.21 9인 라디오 진행" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
+    "V1.9.22 private owner MP3 voice reference import and nine radio presenters": "versionCode 36" in gradle
+        and "versionName '1.9.22-owner-mp3-voice-reference-import'" in gradle
+        and "MARU RADIO V1.9.22 음성 파일 가져오기" in (root / "radio/src/main/res/values/strings.xml").read_text(encoding="utf-8"),
     "V1.7.2 exact alarm is explicit user-controlled": "SCHEDULE_EXACT_ALARM" in manifest
         and "canScheduleExactAlarms()" in
         (root / "radio/src/main/java/com/maru/radio/RadioSchedule.java").read_text(encoding="utf-8")
