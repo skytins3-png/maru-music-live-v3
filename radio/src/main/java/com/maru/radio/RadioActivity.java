@@ -165,6 +165,8 @@ public final class RadioActivity extends Activity {
         quickRow(root, "📅 방송 시간 예약", () ->
                         startActivity(new Intent(this, RadioAutomationActivity.class)),
                 "🎼 4장르 자동 편성", this::selectProgramCategory);
+        root.addView(compactButton("🎙 내 목소리 + DJ · AI 노래 샘플 준비", () ->
+                startActivity(new Intent(this, RadioVoiceProfileActivity.class))));
         quickRow(root, "🎤 아환 인사 녹음", () ->
                         startActivity(new Intent(this, RadioAhwanRecorderActivity.class)),
                 "■ BIGO 종료 화면", this::requestBigoEnd);
