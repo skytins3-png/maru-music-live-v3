@@ -2,7 +2,22 @@ plugins {
     id 'com.android.application'
 }
 
+// An Android app can update an installed copy only when the package ID and
+// signing certificate match. The user's existing private key must be provided
+// via GitHub Actions secrets; it is NEVER committed to this public repository.
+def matchingKeystore = System.getenv('MARU_RADIO_KEYSTORE_PATH')
+
 android {
+    signingConfigs {
+        if (matchingKeystore) {
+            installedAppUpdate {
+                storeFile file(matchingKeystore)
+                storePassword System.getenv('MARU_RADIO_STORE_PASSWORD')
+                keyAlias System.getenv('MARU_RADIO_KEY_ALIAS')
+                keyPassword System.getenv('MARU_RADIO_KEY_PASSWORD')
+            }
+        }
+    }
     namespace 'com.maru.radio'
     compileSdk 36
 
@@ -16,7 +31,10 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            // CI preview still uses a disposable debug cert and CANNOT be
+            // represented as a compatible in-place update.
+            // Manual, protected update workflow supplies original keystore.
+            signingConfig matchingKeystore ? signingConfigs.installedAppUpdate : signingConfigs.debug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
