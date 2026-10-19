@@ -146,3 +146,11 @@ Suno 앱 직접 소리를 BIGO에 볼륨 독립적으로 넣는 기능과 방송
 - BIGO 앱 열기는 기존 안전 정책대로 직접 실행만 합니다. 라이브 시작·종료는 사용자 조작이 필요하고, 원격제어·오디오 캡처·BIGO 채팅 자동 수집·타 앱 음향 강제 삽입 권한을 추가하지 않았습니다.
 - 독립 `BigoReceptionChecklist` 순수 자바 정책 테스트 및 기존 Android lintDebug/Debug·Release 빌드로 검증. 실제 갤럭시에서 BIGO 청취자까지 도달하는 것은 사용자가 별도 휴대폰으로 확인해야 하므로 빌드 성공만으로 인증하지 않습니다.
 - 버전 1.6.2(versionCode 9), Actions 아티팩트 `MARU-RADIO-V1.6.2-NEW-INSTALL`. GitHub 임시 debug 서명으로 인해 기존 설치본을 **확실히 덮어쓸 수 있다고 보증하지 않으며**, Google Play Protect 경고 우회 설치를 권하지 않습니다.
+
+## V1.6.1 → V1.6.2 기존 앱 덮어쓰기 업데이트 문제 (2026-10-19 검증)
+- 두 빌드를 실제로 내려받아 APK Signing Block 내 v2 X.509 인증서를 검사했습니다. `V1.6.1` APK 서명 인증서 SHA-256: `6923360265d4eca0c70ede117fde4817fb98fca4ea2da923f3f2927f4649eaa2`, `V1.6.2` APK: `2d377003074a7ddf893e7e73bd857d0f67cf0206eb8554b011b8aea259efb5d3`. 서로 **다르므로**, V1.6.1 GitHub APK를 설치한 휴대폰에 V1.6.2 GitHub APK를 그대로 덮어쓸 수 없습니다.
+- Android 업데이트는 **동일한 applicationId, 호환되는 서명 인증서, 더 높은 versionCode**가 필요합니다. `V1.6.2`의 `versionCode 9`는 `V1.6.1`의 `versionCode 8`보다 높지만 **서명이 다르면 업데이트 실패**입니다. 특정 휴대폰의 실제 설치본 인증서는 이 저장소에서 자동으로 알 수 없습니다.
+- **기존 앱을 삭제하거나 Play Protect 경고를 우회하지 마세요.** 앱 내 재생목록, 설정, 사용자가 앱에 복사해 둔 음원 데이터가 삭제될 수 있습니다. `Download` 폴더의 원본은 별개지만 삭제 전 확인 없이 데이터 보존을 약속할 수 없습니다.
+- 안전한 향후 릴리스용 GitHub Actions `radio-matching-signer-update.yml`을 추가했습니다. 현재 설치 앱의 **원래 서명 개인키(keystore)를 소유자가 보유하고 있는 경우에만** GitHub Actions Secrets에 주입합니다. 이를 통해 **현재 설치본의 인증서 SHA-256**과 새 서명을 확인하여 완전히 일치할 때만 `SAME-SIGNER-UPDATE` 아티팩트를 만듭니다. 키가 없거나 지문이 다르면 파일 생성 전에 실패하며 어떤 앱도 자동 제거하지 않습니다.
+- GitHub Actions Secrets: `MARU_RADIO_ORIGINAL_KEYSTORE_BASE64`(개인 키 저장소의 base64), `MARU_RADIO_ORIGINAL_STORE_PASSWORD`, `MARU_RADIO_ORIGINAL_KEY_ALIAS`, `MARU_RADIO_ORIGINAL_KEY_PASSWORD`. **채팅, 공개 이슈/PR, 커밋에 키나 비밀번호를 보내지 마세요.**
+- 이 방법은 원본 키 없이 기존 패키지를 강제로 덮어쓰는 우회가 아닙니다. 원래 키를 확보할 수 없다면 현재 설치본의 보존 및 추후 새 설치 시 데이터 이전 계획을 별도로 세워야 합니다. GitHub Actions 임시 debug 서명키를 릴리스 업데이트용으로 사용해서는 안 됩니다.
