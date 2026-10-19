@@ -1,4 +1,4 @@
-name: MARU RADIO V1.6 safe permissions APK
+name: MARU RADIO V1.6.1 safe permissions APK
 
 on:
   workflow_dispatch:
@@ -57,11 +57,11 @@ jobs:
             grep "application-label:'MARU RADIO 안전형'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.6-INSTALL.apk
-          ls -lh MARU-RADIO-V1.6-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.6.1-INSTALL.apk
+          ls -lh MARU-RADIO-V1.6.1-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.6-NEW-INSTALL
-          path: MARU-RADIO-V1.6-INSTALL.apk
+          name: MARU-RADIO-V1.6.1-NEW-INSTALL
+          path: MARU-RADIO-V1.6.1-INSTALL.apk
           if-no-files-found: error
