@@ -494,7 +494,7 @@ public final class RadioActivity extends Activity {
         boolean next = !RadioProgram.showEnabled(this);
         RadioProgram.setShowEnabled(this, next);
         updatePresenterToggle();
-        message(next
+        say(next
                 ? "가상 진행자 대화 켜짐. 다음 노래부터 TTS로 소개합니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
                 : "가상 진행자 대화 꺼짐. 다음 노래부터 원곡만 재생합니다.");
     }
