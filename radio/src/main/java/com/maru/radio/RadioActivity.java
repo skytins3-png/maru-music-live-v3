@@ -72,6 +72,7 @@ public final class RadioActivity extends Activity {
     private TextView playerTime;
     private TextView programSummary;
     private Button programCategoryButton;
+    private Button presenterToggleButton;
     private Button playerToggleButton;
     private SeekBar playerSeek;
     private boolean playerSeeking;
@@ -208,6 +209,11 @@ public final class RadioActivity extends Activity {
         programCategoryButton = compactButton("노래 분류 선택", this::selectProgramCategory);
         programCategoryButton.setTextSize(15);
         programCard.addView(programCategoryButton);
+        presenterToggleButton = compactButton("", this::togglePresenters);
+        programCard.addView(presenterToggleButton);
+        updatePresenterToggle();
+        programCard.addView(label("선택한 가상 진행자들이 기기 TTS로 인사하고 원본을 소개한 뒤 노래를 재생합니다. BIGO 마이크 송출은 별도 확인이 필요합니다.",
+                12, 0xFFCCC0DA, false));
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
@@ -482,6 +488,21 @@ public final class RadioActivity extends Activity {
                 + "주의: Suno 앱에서 바로 재생한 소리를 MARU가 BIGO 마이크로 보내거나 "
                 + "휴대폰 볼륨을 0으로 해도 송출을 고정하는 기능은 구현되어 있지 않습니다.")
             .setPositiveButton("확인", null).show();
+    }
+
+    private void togglePresenters() {
+        boolean next = !RadioProgram.showEnabled(this);
+        RadioProgram.setShowEnabled(this, next);
+        updatePresenterToggle();
+        message(next
+                ? "가상 진행자 대화 켜짐. 다음 노래부터 TTS로 소개합니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
+                : "가상 진행자 대화 꺼짐. 다음 노래부터 원곡만 재생합니다.");
+    }
+    private void updatePresenterToggle() {
+        if (presenterToggleButton != null) presenterToggleButton.setText(
+                RadioProgram.showEnabled(this)
+                        ? "🎙 진행자 대화 켜짐 (누르면 끄기)"
+                        : "🎙 진행자 대화 꺼짐 (누르면 켜기)");
     }
 
     private void selectProgramCategory() {
