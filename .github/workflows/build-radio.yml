@@ -35,6 +35,11 @@ jobs:
 
       - name: Check clean original-audio app contract
         run: python3 scripts/test_radio_contract.py
+      - name: Test fictional radio host scripts
+        run: |
+          mkdir -p build/radio-script-tests
+          javac -d build/radio-script-tests radio/src/main/java/com/maru/radio/RadioShowLines.java scripts/RadioShowLinesTest.java
+          java -cp build/radio-script-tests RadioShowLinesTest
 
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
