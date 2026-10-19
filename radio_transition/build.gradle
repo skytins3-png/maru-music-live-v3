@@ -1,0 +1,43 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Side-by-side safe migration preview. Separate Android applicationId means
+// it cannot replace or erase com.maru.radio.safev16's private files/settings.
+android {
+    namespace 'com.maru.radio'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.maru.radio.transition.v17'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.7.0'
+    }
+
+    // Reuse the tested radio player code and UI; only the package identity and
+    // entry screen label differ. No old-app private directories are read.
+    sourceSets {
+        main {
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+            java.srcDirs = ['../radio/src/main/java']
+            res.srcDirs = ['../radio/src/main/res']
+        }
+    }
+
+    buildTypes {
+        release {
+            // Preview/test signing only; do not advertise as an in-place update.
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
