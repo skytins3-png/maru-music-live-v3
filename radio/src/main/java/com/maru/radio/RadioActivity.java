@@ -141,6 +141,20 @@ public final class RadioActivity extends Activity {
         root.setPadding(dp(18), dp(12), dp(18), dp(26));
         scroll.addView(root);
 
+        // Preserve the currently installed MARU RADIO and its private files.
+        // This separate package has independent app storage; never imply that
+        // old app-local songs/preferences have already been copied.
+        if ("com.maru.radio.transition.v17".equals(getPackageName())) {
+            root.addView(label("🛡 MARU RADIO 1.7 안전전환", 26, VIOLET, true));
+            root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
+                    14, WHITE, false));
+            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 진행자 대화 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
+                    13, 0xFFFFD8AE, false));
+            root.addView(compactButton("⬇ Download에서 자작곡 다시 연결", this::pickDownloads));
+            root.addView(label("⚠ BIGO 청취자 실제 소리 전달은 별도 기기로 확인해야 합니다. 서명 문제 해결 없이 기존 앱을 덮어쓰지 않습니다.",
+                    12, 0xFFDDD4F5, false));
+            gap(root, 12);
+        }
         root.addView(label("MARU RADIO", 31, VIOLET, true));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
