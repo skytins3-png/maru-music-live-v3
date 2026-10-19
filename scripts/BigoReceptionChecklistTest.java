@@ -24,7 +24,7 @@ public final class BigoReceptionChecklistTest {
       require(!BigoReceptionChecklist.diagnostic(flags).isEmpty(),"missing diagnostics "+i);
     }
     boolean[] noAudio={true,true,false,false,false};
-    require(BigoReceptionChecklist.diagnostic(noAudio).contains("외부 앱 음성"),"silent output explanation");
+    require(BigoReceptionChecklist.diagnostic(noAudio).contains("마이크 입력"),"silent output explanation");
     boolean[] musicOnly={true,true,false,true,false};
     require(BigoReceptionChecklist.diagnostic(musicOnly).contains("TTS"),"host missing explanation");
     boolean[] talkOnly={true,true,true,false,false};
