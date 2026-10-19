@@ -35,6 +35,10 @@ public final class RadioProgram {
             pref(context).edit().putString("map", map.toString()).apply();
         } catch (Exception ignored) {}
     }
+    /** Explicitly opt-in: foreground device TTS intros before local originals. */
+    public static boolean showEnabled(Context context) {return pref(context).getBoolean("show_hosts", false);}
+    public static void setShowEnabled(Context context, boolean enabled) {pref(context).edit().putBoolean("show_hosts", enabled).apply();}
+
     public static int durationMinutes(Context context) {
         return Math.max(5, Math.min(720, pref(context).getInt("duration", 60)));
     }
