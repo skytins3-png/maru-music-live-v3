@@ -1,0 +1,77 @@
+name: MARU RADIO V1.7 safe parallel install APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'radio/**'
+      - 'radio_transition/**'
+      - 'scripts/RadioShowLinesTest.java'
+      - 'scripts/BigoReceptionChecklistTest.java'
+      - 'scripts/test_radio_transition_contract.py'
+      - '.github/workflows/build-radio-transition.yml'
+      - 'settings.gradle'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'radio/**'
+      - 'radio_transition/**'
+      - 'scripts/test_radio_transition_contract.py'
+      - '.github/workflows/build-radio-transition.yml'
+      - 'settings.gradle'
+
+permissions:
+  contents: read
+
+jobs:
+  build-transition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assert separate package and existing-app preservation
+        run: python3 scripts/test_radio_transition_contract.py
+
+      - name: Test safe scripted hosts and BIGO reception disclaimers
+        run: |
+          mkdir -p build/transition-tests
+          javac -d build/transition-tests radio/src/main/java/com/maru/radio/RadioShowLines.java scripts/RadioShowLinesTest.java radio/src/main/java/com/maru/radio/BigoReceptionChecklist.java scripts/BigoReceptionChecklistTest.java
+          java -cp build/transition-tests RadioShowLinesTest
+          java -cp build/transition-tests BigoReceptionChecklistTest
+
+      - name: Build new module only
+        run: gradle --no-daemon :radio_transition:lintDebug :radio_transition:assembleDebug
+
+      - name: Check distinct application ID, icon and minimal permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="radio_transition/build/outputs/apk/debug/radio_transition-debug.apk"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$SIGNER" verify --verbose "$APK"
+          "$AAPT" dump badging "$APK" > /tmp/maru-side-by-side-badging.txt
+          grep "package: name='com.maru.radio.transition.v17'" /tmp/maru-side-by-side-badging.txt
+          grep "application-label:'MARU RADIO 1.7 안전전환'" /tmp/maru-side-by-side-badging.txt
+          ! grep -Eq "RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_MEDIA_AUDIO|MANAGE_EXTERNAL_STORAGE" /tmp/maru-side-by-side-badging.txt
+          cp "$APK" MARU-RADIO-V1.7-SAFE-PARALLEL-TEST.apk
+          ls -lh MARU-RADIO-V1.7-SAFE-PARALLEL-TEST.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-RADIO-V1.7-SAFE-PARALLEL-TEST
+          path: MARU-RADIO-V1.7-SAFE-PARALLEL-TEST.apk
+          if-no-files-found: error
