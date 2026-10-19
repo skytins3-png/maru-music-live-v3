@@ -249,6 +249,8 @@ public final class RadioActivity extends Activity {
         startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
         startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
         bigoStartEnd.addView(startEndButtons);
+        bigoStartEnd.addView(button("🎧 BIGO 청취자 수신 테스트", () ->
+                startActivity(new Intent(this, BigoAudioCheckActivity.class))));
         bigoStartEnd.addView(label("접근성 권한 없이 BIGO 실행만 지원합니다. "
                 + "라이브 시작·종료는 BIGO 화면에서 직접 누르세요.", 12, 0xFFDDD4F5, false));
 

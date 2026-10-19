@@ -1,4 +1,4 @@
-name: MARU RADIO V1.6.1 safe permissions APK
+name: MARU RADIO V1.6.2 safe permissions APK
 
 on:
   workflow_dispatch:
@@ -41,6 +41,12 @@ jobs:
           javac -d build/radio-script-tests radio/src/main/java/com/maru/radio/RadioShowLines.java scripts/RadioShowLinesTest.java
           java -cp build/radio-script-tests RadioShowLinesTest
 
+      - name: Check second-device BIGO listener confirmation policy
+        run: |
+          mkdir -p build/bigo-listener-tests
+          javac -d build/bigo-listener-tests radio/src/main/java/com/maru/radio/BigoReceptionChecklist.java scripts/BigoReceptionChecklistTest.java
+          java -cp build/bigo-listener-tests BigoReceptionChecklistTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -57,11 +63,11 @@ jobs:
             grep "application-label:'MARU RADIO 안전형'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.6.1-INSTALL.apk
-          ls -lh MARU-RADIO-V1.6.1-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.6.2-INSTALL.apk
+          ls -lh MARU-RADIO-V1.6.2-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.6.1-NEW-INSTALL
-          path: MARU-RADIO-V1.6.1-INSTALL.apk
+          name: MARU-RADIO-V1.6.2-NEW-INSTALL
+          path: MARU-RADIO-V1.6.2-INSTALL.apk
           if-no-files-found: error
