@@ -44,6 +44,7 @@ public final class RadioPlaybackService extends Service {
     private final List<Originals.Track> queue = new ArrayList<>();
 
     private MediaPlayer player;
+    private RadioShowNarrator presenter;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
     private int currentIndex = -1;
@@ -76,6 +77,7 @@ public final class RadioPlaybackService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         audio = (AudioManager) getSystemService(AUDIO_SERVICE);
+        presenter = new RadioShowNarrator(this);
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (nm != null) nm.createNotificationChannel(new NotificationChannel(
                 CHANNEL, "MARU RADIO 원곡 재생", NotificationManager.IMPORTANCE_LOW));
@@ -208,6 +210,7 @@ public final class RadioPlaybackService extends Service {
         if (index < 0 || index >= queue.size()) return;
         ++generation;
         final int ticket = generation;
+        if (presenter != null) presenter.cancel();
         releasePlayer();
         currentIndex = index;
         error = "";
@@ -220,6 +223,14 @@ public final class RadioPlaybackService extends Service {
             return;
         }
         Originals.Track t = queue.get(index);
+        if (RadioProgram.showEnabled(this) && presenter != null) {
+            presenter.say(RadioShowLines.intro(RadioProgram.category(this, t), t.title, index + 1), () -> {
+                if (ticket == generation && currentIndex == index && loading) prepareTrack(t, ticket);
+            });
+        } else prepareTrack(t, ticket);
+    }
+
+    private void prepareTrack(Originals.Track t, int ticket) {
         try {
             MediaPlayer m = new MediaPlayer();
             m.setAudioAttributes(new AudioAttributes.Builder()
@@ -278,6 +289,7 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void stopPlayback() {
+        if (presenter != null) presenter.cancel();
         clearTimer();
         ++generation;
         releasePlayer();
@@ -385,6 +397,7 @@ public final class RadioPlaybackService extends Service {
     }
 
     @Override public void onDestroy() {
+        if (presenter != null) {presenter.destroy();presenter = null;}
         clearTimer();
         ++generation;
         releasePlayer();
