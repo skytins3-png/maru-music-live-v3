@@ -1,10 +1,11 @@
-name: MARU RADIO V1.9.22 Ahwan plus eight-person radio ensemble build
+name: MARU RADIO V1.9.23 listener check integration
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+      - fix/radio-v1923-listener-integration
       - feat/maru-radio-clean-20261015
       - fix/radio-no-fixed-hour-start-end-v17-20261015
       - experiment/mobile-audio-live-e2e-v18-20261016
@@ -168,6 +169,12 @@ jobs:
             scripts/RadioRtmpPcmLevelerSelfTest.java
           java -cp /tmp/maru-rtmp-leveler-tests com.maru.radio.RadioRtmpPcmLevelerSelfTest
 
+      - name: Test separate-device listener evidence
+        run: |
+          mkdir -p /tmp/maru-listener-tests
+          javac -d /tmp/maru-listener-tests radio/src/main/java/com/maru/radio/BigoReceptionChecklist.java scripts/BigoReceptionChecklistTest.java
+          java -cp /tmp/maru-listener-tests BigoReceptionChecklistTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -184,15 +191,16 @@ jobs:
             "$SIGNER" verify --verbose "$apk"
             "$AAPT" dump badging "$apk" > /tmp/radio-badging.txt
             grep "package: name='com.maru.radio.ahwan'" /tmp/radio-badging.txt
-            grep "application-label:'MARU RADIO V1.9.22 음성 파일 가져오기'" /tmp/radio-badging.txt
+            grep "application-label:'MARU RADIO V1.9.23 청취자 점검'" /tmp/radio-badging.txt
             grep -q "RECORD_AUDIO" /tmp/radio-badging.txt
             ! grep -Eq "READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
-          ls -lh MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.23-LISTENER-CHECK-CI-ONLY-INSTALL.apk
+          ls -lh MARU-RADIO-V1.9.23-LISTENER-CHECK-CI-ONLY-INSTALL.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY
-          path: MARU-RADIO-V1.9.22-BIGO-ONE-TAP-CI-ONLY-INSTALL.apk
+          name: MARU-RADIO-V1.9.23-LISTENER-CHECK-CI-ONLY
+          path: MARU-RADIO-V1.9.23-LISTENER-CHECK-CI-ONLY-INSTALL.apk
           if-no-files-found: error
+

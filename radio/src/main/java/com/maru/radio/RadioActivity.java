@@ -152,6 +152,7 @@ public final class RadioActivity extends Activity {
         scroll.addView(root);
 
         root.addView(label("📻 MARU RADIO", 28, VIOLET, true));
+        root.addView(label(RadioBuildInfo.describe(this), 12, WHITE, false));
         root.addView(label("노래 · 아환 · 방송 · 예약", 15, WHITE, false));
         quickCount = label("등록된 원곡 확인 중...", 14, 0xFFB0E4C5, true);
         root.addView(quickCount);
@@ -1135,3 +1136,4 @@ public final class RadioActivity extends Activity {
         super.onDestroy();
     }
 }
+

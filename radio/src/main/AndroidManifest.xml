@@ -22,6 +22,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <activity android:name=".BigoAudioCheckActivity" android:exported="false" />
         <activity android:name=".RadioBigoMusicPrepActivity" android:exported="false" />
         <activity android:name=".RadioAccessDoctorActivity" android:exported="false" />
         <activity android:name=".RadioBigoNoKeyTestActivity" android:exported="false" />
@@ -68,3 +69,4 @@
         </service>
     </application>
 </manifest>
+

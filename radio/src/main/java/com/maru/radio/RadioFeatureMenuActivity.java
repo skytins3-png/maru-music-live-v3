@@ -80,7 +80,10 @@ public final class RadioFeatureMenuActivity extends Activity {
         root.addView(label("여섯 가지 기본 메뉴만 먼저 보여줍니다. "
                 + "기존 기능은 아래 세부 메뉴에서 모두 찾을 수 있어요.", 14, WHITE));
 
+        root.addView(label(RadioBuildInfo.describe(this), 12, WHITE));
         heading(root, "바로 사용");
+        item(root, "🎧 진행자·첫 곡·다음 곡 청취자 수신 점검", () ->
+                go(BigoAudioCheckActivity.class));
         item(root, "📋 전체 노래 · 재생", () -> go(RadioAllSongsActivity.class));
         item(root, "📥 노래 가져오기", () -> mainAction("download"));
         item(root, "🤖 아환 · 댓글 자동답변", () -> go(RadioDjActivity.class));
@@ -175,3 +178,4 @@ public final class RadioFeatureMenuActivity extends Activity {
         setContentView(scroll);
     }
 }
+
