@@ -12,8 +12,8 @@ android {
         minSdk 26
         // Google Play requires API 36+ for new phone app releases after Aug 31 2026.
         targetSdk 36
-        versionCode 36
-        versionName '1.9.22-owner-mp3-voice-reference-import'
+        versionCode 37
+        versionName '1.9.23-listener-check'
     }
 
     // Store upload credentials must be supplied by the repository owner through
@@ -58,3 +58,4 @@ android {
 dependencies {
     implementation 'com.github.pedroSG94.RootEncoder:library:2.8.1'
 }
+
