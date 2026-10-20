@@ -155,7 +155,13 @@ public final class RadioActivity extends Activity {
                     12, 0xFFDDD4F5, false));
             gap(root, 12);
         }
-        root.addView(label("MARU RADIO", 31, VIOLET, true));
+        root.addView(label("MARU RADIO · 예약·STUDIO 통합", 25, VIOLET, true));
+        try {
+            android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            root.addView(label("설치 버전 " + info.versionName + " · " + getPackageName(), 12, WHITE, false));
+        } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {}
+        root.addView(compactButton("🎤 가수 30명 후보 · 실제 음원 연결", () ->
+                startActivity(new Intent(this, RadioArtistsActivity.class))));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
         gap(root, 8);
@@ -232,14 +238,14 @@ public final class RadioActivity extends Activity {
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
-        timerButtons.addView(compactButton("⏱ 시간 설정 · 시작", this::configureProgramTimer),
+        timerButtons.addView(compactButton("⏱ 선택한 분 뒤 음악 종료", this::configureProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 1.2f));
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 0.85f));
         programCard.addView(timerButtons);
-        programCard.addView(compactButton("📅 시작 시각 예약 · 다국어 댓글 답변", () ->
+        programCard.addView(compactButton("📅 시작·종료 시각 함께 예약", () ->
                 startActivity(new Intent(this, RadioAutomationActivity.class))));
-        programCard.addView(label("미래 시작은 알림 후 직접 확인 · 자동 댓글 수집은 미지원",
+        programCard.addView(label("예약 시 MARU 음악 자동 시작·종료 · BIGO 방송 제어와 댓글 수집은 미연결",
                 12, 0xFFCCC0DA, false));
         gap(root, 8);
 
@@ -557,7 +563,9 @@ public final class RadioActivity extends Activity {
         if (programSummary != null) {
             int minutes = RadioProgram.durationMinutes(this);
             long remaining = radioService == null ? 0 : radioService.timerRemainingMs();
-            programSummary.setText("설정 " + minutes + "분 · "
+            programSummary.setText("시작: " + RadioSchedule.formatted(this)
+                    + "\n종료: " + RadioSchedule.endFormatted(this)
+                    + "\n" + (minutes == 0 ? "분 타이머 사용 안 함" : "선택한 분 타이머 " + minutes + "분") + " · "
                     + (remaining <= 0 ? "타이머 중지" :
                     "자동 재생 종료까지 " + (remaining / 60000) + "분 "
                             + ((remaining / 1000) % 60) + "초")
@@ -576,7 +584,7 @@ public final class RadioActivity extends Activity {
         NumberPicker picker = new NumberPicker(this);
         picker.setMinValue(5);
         picker.setMaxValue(720);
-        picker.setValue(currentMinutes);
+        picker.setValue(Math.max(5, currentMinutes));
         picker.setWrapSelectorWheel(false);
         content.addView(picker);
         new AlertDialog.Builder(this)
@@ -601,6 +609,7 @@ public final class RadioActivity extends Activity {
     }
 
     private void cancelProgramTimer() {
+        RadioProgram.setDurationMinutes(this, 0);
         startService(new Intent(this, RadioPlaybackService.class)
                 .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
         say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");

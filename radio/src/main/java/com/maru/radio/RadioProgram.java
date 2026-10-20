@@ -40,10 +40,11 @@ public final class RadioProgram {
     public static void setShowEnabled(Context context, boolean enabled) {pref(context).edit().putBoolean("show_hosts", enabled).apply();}
 
     public static int durationMinutes(Context context) {
-        return Math.max(5, Math.min(720, pref(context).getInt("duration", 60)));
+        int value = pref(context).getInt("duration", 0);
+        return value <= 0 ? 0 : Math.max(5, Math.min(720, value));
     }
     public static void setDurationMinutes(Context context, int minutes) {
-        pref(context).edit().putInt("duration", Math.max(5, Math.min(720, minutes))).apply();
+        pref(context).edit().putInt("duration", minutes <= 0 ? 0 : Math.max(5, Math.min(720, minutes))).apply();
     }
     public static int inferred(String title) {
         if (title == null) return 3;

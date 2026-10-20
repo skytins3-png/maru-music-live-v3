@@ -1,10 +1,11 @@
-name: MARU RADIO V1.6.2 safe permissions APK
+name: MARU RADIO V1.9.24 safe schedule and studio CI
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+      - fix/radio-safe-schedule-studio
       - feat/maru-radio-clean-20261015
   pull_request:
     branches: [main]
@@ -47,6 +48,12 @@ jobs:
           javac -d build/bigo-listener-tests radio/src/main/java/com/maru/radio/BigoReceptionChecklist.java scripts/BigoReceptionChecklistTest.java
           java -cp build/bigo-listener-tests BigoReceptionChecklistTest
 
+      - name: Test clock scheduling
+        run: |
+          mkdir -p build/clock-tests
+          javac -d build/clock-tests radio/src/main/java/com/maru/radio/RadioClock.java scripts/RadioClockSelfTest.java
+          java -cp build/clock-tests com.maru.radio.RadioClockSelfTest
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -63,11 +70,11 @@ jobs:
             grep "application-label:'MARU RADIO 안전형'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.6.2-INSTALL.apk
-          ls -lh MARU-RADIO-V1.6.2-INSTALL.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.24-SAFE-STUDIO-CI.apk
+          ls -lh MARU-RADIO-V1.9.24-SAFE-STUDIO-CI.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.6.2-NEW-INSTALL
-          path: MARU-RADIO-V1.6.2-INSTALL.apk
+          name: MARU-RADIO-V1.9.24-SAFE-STUDIO-CI
+          path: MARU-RADIO-V1.9.24-SAFE-STUDIO-CI.apk
           if-no-files-found: error
