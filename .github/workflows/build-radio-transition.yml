@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.24 safe parallel install APK
+name: MARU RADIO V1.9.25 safe parallel install APK
 
 on:
   workflow_dispatch:
@@ -65,13 +65,13 @@ jobs:
           "$SIGNER" verify --verbose "$APK"
           "$AAPT" dump badging "$APK" > /tmp/maru-side-by-side-badging.txt
           grep "package: name='com.maru.radio.transition.v17'" /tmp/maru-side-by-side-badging.txt
-          grep "application-label:'MARU RADIO 1.9.24 시험판'" /tmp/maru-side-by-side-badging.txt
+          grep "application-label:'MARU RADIO 1.9.25 시험판'" /tmp/maru-side-by-side-badging.txt
           ! grep -Eq "RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_MEDIA_AUDIO|MANAGE_EXTERNAL_STORAGE" /tmp/maru-side-by-side-badging.txt
-          cp "$APK" MARU-RADIO-V1.9.24-SAFE-PARALLEL-TEST.apk
-          ls -lh MARU-RADIO-V1.9.24-SAFE-PARALLEL-TEST.apk
+          cp "$APK" MARU-RADIO-V1.9.25-SAFE-PARALLEL-TEST.apk
+          ls -lh MARU-RADIO-V1.9.25-SAFE-PARALLEL-TEST.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.24-SAFE-PARALLEL-TEST
-          path: MARU-RADIO-V1.9.24-SAFE-PARALLEL-TEST.apk
+          name: MARU-RADIO-V1.9.25-SAFE-PARALLEL-TEST
+          path: MARU-RADIO-V1.9.25-SAFE-PARALLEL-TEST.apk
           if-no-files-found: error

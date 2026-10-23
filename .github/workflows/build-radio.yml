@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.24 safe schedule and studio CI
+name: MARU RADIO V1.9.25 safe schedule and studio CI
 
 on:
   workflow_dispatch:
@@ -70,11 +70,11 @@ jobs:
             grep "application-label:'MARU RADIO 안전형'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.24-SAFE-STUDIO-CI.apk
-          ls -lh MARU-RADIO-V1.9.24-SAFE-STUDIO-CI.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.25-SAFE-STUDIO-CI.apk
+          ls -lh MARU-RADIO-V1.9.25-SAFE-STUDIO-CI.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.24-SAFE-STUDIO-CI
-          path: MARU-RADIO-V1.9.24-SAFE-STUDIO-CI.apk
+          name: MARU-RADIO-V1.9.25-SAFE-STUDIO-CI
+          path: MARU-RADIO-V1.9.25-SAFE-STUDIO-CI.apk
           if-no-files-found: error

@@ -145,7 +145,7 @@ public final class RadioActivity extends Activity {
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
         if ("com.maru.radio.transition.v17".equals(getPackageName())) {
-            root.addView(label("🛡 MARU RADIO 1.9.24 시험판", 26, VIOLET, true));
+            root.addView(label("🛡 MARU RADIO 1.9.25 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));
             root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 진행자 대화 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
