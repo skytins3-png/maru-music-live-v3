@@ -9,7 +9,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.radio.transition.v17'
+        applicationId 'com.maru.radio.transition.v1925'
         minSdk 26
         targetSdk 35
         versionCode 39

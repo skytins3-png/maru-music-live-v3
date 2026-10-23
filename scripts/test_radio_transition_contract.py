@@ -15,7 +15,7 @@ namespace = "{http://schemas.android.com/apk/res/android}"
 
 checks = {
     "old package retained": "applicationId 'com.maru.radio.safev16'" in source,
-    "new standalone package": "applicationId 'com.maru.radio.transition.v17'" in transition,
+    "new standalone package": "applicationId 'com.maru.radio.transition.v1925'" in transition,
     "both app modules coexist": "include ':radio'" in settings and "include ':radio_transition'" in settings,
     "new app does not reuse old app-owned private storage": "getSharedPreferences(" not in transition
         and "java.srcDirs = ['../radio/src/main/java']" in transition,

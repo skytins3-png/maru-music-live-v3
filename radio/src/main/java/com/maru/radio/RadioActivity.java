@@ -144,7 +144,7 @@ public final class RadioActivity extends Activity {
         // Preserve the currently installed MARU RADIO and its private files.
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
-        if ("com.maru.radio.transition.v17".equals(getPackageName())) {
+        if ("com.maru.radio.transition.v1925".equals(getPackageName())) {
             root.addView(label("🛡 MARU RADIO 1.9.25 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));

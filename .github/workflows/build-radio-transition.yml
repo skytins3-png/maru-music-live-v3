@@ -64,7 +64,7 @@ jobs:
           SIGNER="$ANDROID_HOME/build-tools/36.0.0/apksigner"
           "$SIGNER" verify --verbose "$APK"
           "$AAPT" dump badging "$APK" > /tmp/maru-side-by-side-badging.txt
-          grep "package: name='com.maru.radio.transition.v17'" /tmp/maru-side-by-side-badging.txt
+          grep "package: name='com.maru.radio.transition.v1925'" /tmp/maru-side-by-side-badging.txt
           grep "application-label:'MARU RADIO 1.9.25 시험판'" /tmp/maru-side-by-side-badging.txt
           ! grep -Eq "RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_MEDIA_AUDIO|MANAGE_EXTERNAL_STORAGE" /tmp/maru-side-by-side-badging.txt
           cp "$APK" MARU-RADIO-V1.9.25-SAFE-PARALLEL-TEST.apk
