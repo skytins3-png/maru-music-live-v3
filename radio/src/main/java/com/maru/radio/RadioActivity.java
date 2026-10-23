@@ -106,6 +106,7 @@ public final class RadioActivity extends Activity {
     private final Set<String> selected = new HashSet<>();
     private boolean sameTitleOnly = false;
     private boolean importInProgress = false;
+    private String artistFilter = "", genreFilter = "";
     private int sortMode = 0; // 0 = newest imported first, 1 = title, 2 = oldest first
 
 
@@ -144,11 +145,11 @@ public final class RadioActivity extends Activity {
         // Preserve the currently installed MARU RADIO and its private files.
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
-        if ("com.maru.radio.transition.v1925".equals(getPackageName())) {
-            root.addView(label("🛡 MARU RADIO 1.9.25 시험판", 26, VIOLET, true));
+        if ("com.maru.radio.transition.v1926".equals(getPackageName())) {
+            root.addView(label("🛡 MARU RADIO 1.9.26 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));
-            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 진행자 대화 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
+            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 아환 곡 소개 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
                     13, 0xFFFFD8AE, false));
             root.addView(compactButton("⬇ Download에서 자작곡 다시 연결", this::pickDownloads));
             root.addView(label("⚠ BIGO 청취자 실제 소리 전달은 별도 기기로 확인해야 합니다. 서명 문제 해결 없이 기존 앱을 덮어쓰지 않습니다.",
@@ -160,8 +161,9 @@ public final class RadioActivity extends Activity {
             android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
             root.addView(label("설치 버전 " + info.versionName + " · " + getPackageName(), 12, WHITE, false));
         } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {}
-        root.addView(compactButton("🎤 가수 30명 후보 · 실제 음원 연결", () ->
-                startActivity(new Intent(this, RadioArtistsActivity.class))));
+        root.addView(compactButton("🎵 음악 보관함 · 검색 / 재생목록", () -> {
+            if (search != null) scroll.smoothScrollTo(0, search.getTop());
+        }));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
         gap(root, 8);
@@ -232,16 +234,16 @@ public final class RadioActivity extends Activity {
         presenterToggleButton = compactButton("", this::togglePresenters);
         programCard.addView(presenterToggleButton);
         updatePresenterToggle();
-        programCard.addView(label("선택한 가상 진행자들이 기기 TTS로 인사하고 원본을 소개한 뒤 노래를 재생합니다. BIGO 마이크 송출은 별도 확인이 필요합니다.",
+        programCard.addView(label("아환이 기기 TTS로 보관함의 가수·곡명을 소개한 뒤 원곡을 연속 재생합니다. BIGO 마이크 송출은 별도 확인이 필요합니다.",
                 12, 0xFFCCC0DA, false));
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
         timerButtons.addView(compactButton("⏱ 선택한 분 뒤 음악 종료", this::configureProgramTimer),
-                new LinearLayout.LayoutParams(0, dp(53), 1.2f));
+                new LinearLayout.LayoutParams(0, -2, 1.2f));
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
-                new LinearLayout.LayoutParams(0, dp(53), 0.85f));
+                new LinearLayout.LayoutParams(0, -2, 0.85f));
         programCard.addView(timerButtons);
         programCard.addView(compactButton("📅 시작·종료 시각 함께 예약", () ->
                 startActivity(new Intent(this, RadioAutomationActivity.class))));
@@ -266,8 +268,8 @@ public final class RadioActivity extends Activity {
         startBigo.setTextSize(15);
         Button endBigo = button("■ BIGO 종료 화면", this::requestBigoEnd);
         endBigo.setTextSize(15);
-        startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
-        startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
+        startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, -2, 1));
+        startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, -2, 1));
         bigoStartEnd.addView(startEndButtons);
         bigoStartEnd.addView(button("🎧 BIGO 청취자 수신 테스트", () ->
                 startActivity(new Intent(this, BigoAudioCheckActivity.class))));
@@ -279,7 +281,7 @@ public final class RadioActivity extends Activity {
                 "Download 바로가기", this::pickDownloads,
                 "다른 폴더에서 가져오기", this::pickFiles);
 
-        card(root, "2  원곡 목록 · 선택 삭제",
+        card(root, "2  음악 보관함",
                 "다운로드 원곡은 복사하지 않고 읽기 권한만 보관합니다. 검색·선택 삭제는 MARU 목록에만 적용됩니다.",
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
@@ -291,7 +293,7 @@ public final class RadioActivity extends Activity {
         search.setTextColor(WHITE);
         search.setHintTextColor(0xFFA79BB8);
         search.setTextSize(16);
-        search.setHint("곡 제목 검색");
+        search.setHint("제목 · 가수 · 장르 검색");
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -301,6 +303,13 @@ public final class RadioActivity extends Activity {
         });
         root.addView(search);
 
+        root.addView(label("곡별 메뉴를 추가하지 않습니다. 가수는 ‘제목 — 가수’ 파일명에서 추정하며, 언어는 제목에서 추정합니다. 잘못된 정보는 곡의 ⋮에서 수정하세요.", 13, WHITE, false));
+        root.addView(compactButton("가수 필터", () -> catalogFilter(true)));
+        root.addView(compactButton("장르 필터", () -> catalogFilter(false)));
+        root.addView(compactButton("언어 / 연주 분류", this::selectProgramCategory));
+        root.addView(compactButton("재생목록 선택 · 전체 보관함", this::choosePlaylist));
+        root.addView(compactButton("선택한 곡으로 재생목록 저장", this::savePlaylist));
+        root.addView(compactButton("▶ 현재 보이는 곡 연속 재생", this::playShown));
         LinearLayout bulkTools = new LinearLayout(this);
         bulkTools.setOrientation(LinearLayout.HORIZONTAL);
         bulkTools.addView(compactButton("보이는 곡 선택", this::selectShown), new LinearLayout.LayoutParams(0, -2, 1f));
@@ -332,7 +341,7 @@ public final class RadioActivity extends Activity {
                 choose.setTextSize(14);
                 choose.setMaxLines(2);
                 choose.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                choose.setText(t.title + "  · " + RadioProgram.NAMES[RadioProgram.category(RadioActivity.this, t)]);
+                choose.setText(t.title + "\n" + RadioCatalog.artist(RadioActivity.this, t) + " · " + RadioCatalog.genre(RadioActivity.this, t) + " · " + RadioProgram.NAMES[RadioProgram.category(RadioActivity.this, t)]);
                 choose.setChecked(selected.contains(t.hash));
                 choose.setOnCheckedChangeListener((button, checked) -> {
                     if (checked) selected.add(t.hash);
@@ -409,7 +418,8 @@ public final class RadioActivity extends Activity {
         button.setTextSize(12);
         button.setMinimumHeight(dp(45));
         button.setMinHeight(dp(45));
-        button.setPadding(dp(2), 0, dp(2), 0);
+        button.setPadding(dp(6), dp(10), dp(6), dp(10));
+        button.setSingleLine(false);
         return button;
     }
 
@@ -517,14 +527,14 @@ public final class RadioActivity extends Activity {
         RadioProgram.setShowEnabled(this, next);
         updatePresenterToggle();
         say(next
-                ? "가상 진행자 대화 켜짐. 다음 노래부터 TTS로 소개합니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
-                : "가상 진행자 대화 꺼짐. 다음 노래부터 원곡만 재생합니다.");
+                ? "가상 아환 곡 소개 켜짐. 다음 노래부터 TTS로 소개합니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
+                : "가상 아환 곡 소개 꺼짐. 다음 노래부터 원곡만 재생합니다.");
     }
     private void updatePresenterToggle() {
         if (presenterToggleButton != null) presenterToggleButton.setText(
                 RadioProgram.showEnabled(this)
-                        ? "🎙 진행자 대화 켜짐 (누르면 끄기)"
-                        : "🎙 진행자 대화 꺼짐 (누르면 켜기)");
+                        ? "🎙 아환 곡 소개 켜짐 (누르면 끄기)"
+                        : "🎙 아환 곡 소개 꺼짐 (누르면 켜기)");
     }
 
     private void selectProgramCategory() {
@@ -626,12 +636,12 @@ public final class RadioActivity extends Activity {
     private void updateCount() {
         if (songCount == null) return;
         songCount.setText("보관 " + allTracks.size() + "곡 · 표시 "
-                + shownTracks.size() + "곡 · 선택 " + selected.size() + "곡");
+                + shownTracks.size() + "곡 · 선택 " + selected.size() + "곡\n목록: " + (RadioCatalog.active(this).isEmpty() ? "전체" : RadioCatalog.active(this)) + " · 가수: " + (artistFilter.isEmpty() ? "전체" : artistFilter) + " · 장르: " + (genreFilter.isEmpty() ? "전체" : genreFilter));
     }
 
     private void updateVisibleTracks() {
         shownTracks.clear();
-        List<Originals.Track> sorted = new ArrayList<>(allTracks);
+        List<Originals.Track> sorted = new ArrayList<>(RadioCatalog.ordered(this, allTracks));
         if (sortMode == 0) Collections.reverse(sorted);
         else if (sortMode == 1) Collections.sort(sorted,
                 (a, b) -> a.title.compareToIgnoreCase(b.title));
@@ -647,7 +657,10 @@ public final class RadioActivity extends Activity {
         for (Originals.Track t : sorted) {
             if (activeCategory != 0 && activeCategory != 5
                     && RadioProgram.category(this, t) != activeCategory) continue;
-            if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
+            String artist = RadioCatalog.artist(this, t), genre = RadioCatalog.genre(this, t);
+            if (!artistFilter.isEmpty() && !artistFilter.equals(artist)) continue;
+            if (!genreFilter.isEmpty() && !genreFilter.equals(genre)) continue;
+            if (!(t.title + " " + artist + " " + genre).toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;
             shownTracks.add(t);
@@ -730,12 +743,59 @@ public final class RadioActivity extends Activity {
         });
     }
 
+    private void catalogFilter(boolean artist) {
+        java.util.TreeSet<String> values = new java.util.TreeSet<>();
+        for (Originals.Track t : allTracks) values.add(artist ? RadioCatalog.artist(this, t) : RadioCatalog.genre(this, t));
+        List<String> names = new ArrayList<>(); names.add("전체"); names.addAll(values);
+        new AlertDialog.Builder(this).setTitle(artist ? "가수" : "장르")
+            .setItems(names.toArray(new String[0]), (d, n) -> {
+                if (artist) artistFilter = n == 0 ? "" : names.get(n);
+                else genreFilter = n == 0 ? "" : names.get(n);
+                updateVisibleTracks();
+            }).setNegativeButton("닫기", null).show();
+    }
+    private void editMetadata(Originals.Track track) {
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        EditText artist = new EditText(this); artist.setHint("가수"); artist.setText(RadioCatalog.artist(this, track)); box.addView(artist);
+        EditText genre = new EditText(this); genre.setHint("장르"); genre.setText(RadioCatalog.genre(this, track)); box.addView(genre);
+        new AlertDialog.Builder(this).setTitle("곡 정보 수정").setView(box)
+            .setPositiveButton("저장", (d, w) -> { RadioCatalog.metadata(this, track, artist.getText().toString(), genre.getText().toString()); updateVisibleTracks(); })
+            .setNegativeButton("취소", null).show();
+    }
+    private void savePlaylist() {
+        List<Originals.Track> songs = new ArrayList<>();
+        for (Originals.Track t : shownTracks) if (selected.contains(t.hash)) songs.add(t);
+        if (songs.isEmpty()) { say("저장할 곡을 목록에서 선택해 주세요."); return; }
+        EditText name = new EditText(this); name.setHint("새 재생목록 이름");
+        new AlertDialog.Builder(this).setTitle("현재 표시 순서로 목록 저장").setView(name)
+            .setPositiveButton("저장", (d, w) -> {
+                String value = name.getText().toString().trim();
+                if (value.isEmpty() || value.startsWith("현재 보기") || RadioCatalog.names(this).contains(value)) { say("다른 새 목록 이름을 입력해 주세요."); return; }
+                RadioCatalog.save(this, value, songs); say(value + " · " + songs.size() + "곡 저장");
+            }).setNegativeButton("취소", null).show();
+    }
+    private void choosePlaylist() {
+        List<String> names = new ArrayList<>(); names.add("전체 보관함"); names.addAll(RadioCatalog.names(this));
+        new AlertDialog.Builder(this).setTitle("재생목록 선택").setItems(names.toArray(new String[0]), (d, n) -> {
+            RadioCatalog.select(this, n == 0 ? "" : names.get(n));
+            artistFilter = ""; genreFilter = ""; sameTitleOnly = false; sortMode = 2;
+            RadioProgram.select(this, 0); search.setText(""); updateVisibleTracks(); refreshProgramUI();
+        }).setNegativeButton("닫기", null).show();
+    }
+    private void playShown() {
+        if (shownTracks.isEmpty()) { say("재생할 원곡을 먼저 추가하거나 필터를 바꿔 주세요."); return; }
+        List<Originals.Track> songs = new ArrayList<>(shownTracks);
+        RadioCatalog.save(this, "현재 보기", songs); RadioCatalog.select(this, "현재 보기");
+        RadioProgram.select(this, 0); sortMode = 2;
+        refreshProgramUI(); updateVisibleTracks(); playTrack(songs.get(0));
+    }
     private void showTrackActions(Originals.Track track) {
         new AlertDialog.Builder(this).setTitle(track.title)
-                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "곡 분류 변경", "이 곡 삭제"}, (dialog, which) -> {
+                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "곡 분류 변경", "가수·장르 수정", "이 곡 삭제"}, (dialog, which) -> {
                     if (which == 0) playTrack(track);
                     else if (which == 1) export(track);
                     else if (which == 2) classifyTrack(track);
+                    else if (which == 3) editMetadata(track);
                     else confirmDelete(track);
                 })
                 .setNegativeButton("닫기", null).show();

@@ -222,7 +222,7 @@ public final class RadioPlaybackService extends Service {
     private void refreshQueue(String restoreHash) {
         queue.clear();
         int category = RadioProgram.active(this);
-        List<Originals.Track> tracks = Originals.list(this);
+        List<Originals.Track> tracks = RadioCatalog.ordered(this, Originals.list(this));
         if (category == 5) {
             // Interleave a song from each available group:
             // KR → CN → Western → Instrumental, then the next song of each.
@@ -283,7 +283,7 @@ public final class RadioPlaybackService extends Service {
         }
         Originals.Track t = queue.get(index);
         if (RadioProgram.showEnabled(this) && presenter != null) {
-            presenter.say(RadioShowLines.intro(RadioProgram.category(this, t), t.title, index + 1), () -> {
+            presenter.say(RadioShowLines.ahwanIntro(t.title, RadioCatalog.artist(this, t)), () -> {
                 if (ticket == generation && currentIndex == index && loading) prepareTrack(t, ticket);
             });
         } else prepareTrack(t, ticket);
