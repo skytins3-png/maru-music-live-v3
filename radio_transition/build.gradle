@@ -9,11 +9,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.radio.transition.v17'
+        applicationId 'com.maru.radio.transition.v1927'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.7.0'
+        versionCode 41
+        versionName '1.9.27-safe-studio-test'
     }
 
     // Reuse the tested radio player code and UI; only the package identity and
@@ -23,6 +23,7 @@ android {
             manifest.srcFile 'src/main/AndroidManifest.xml'
             java.srcDirs = ['../radio/src/main/java']
             res.srcDirs = ['../radio/src/main/res']
+            assets.srcDirs = ['../radio/src/main/assets']
         }
     }
 

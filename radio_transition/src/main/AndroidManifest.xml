@@ -3,18 +3,23 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <queries>
         <package android:name="sg.bigo.live" />
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
     </queries>
     <!-- No call, contacts, microphone, storage-wide, accessibility or capture permissions. -->
-    <application android:label="MARU RADIO 1.7 안전전환"
+    <application android:label="MARU RADIO 1.9.27 시험판"
         android:icon="@drawable/ic_radio"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:appCategory="audio"
         android:allowBackup="false"
         android:supportsRtl="true">
-        <receiver android:name=".RadioSchedule" android:exported="false" />
+        <receiver android:name=".RadioSchedule" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
+        <activity android:name=".RadioArtistsActivity" android:exported="false" />
         <activity android:name=".BigoAudioCheckActivity" android:exported="false" />
         <activity android:name=".RadioAutomationActivity" android:exported="false"
             android:launchMode="singleTop" />
