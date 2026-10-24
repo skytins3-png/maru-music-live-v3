@@ -145,8 +145,8 @@ public final class RadioActivity extends Activity {
         // Preserve the currently installed MARU RADIO and its private files.
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
-        if ("com.maru.radio.transition.v1926".equals(getPackageName())) {
-            root.addView(label("🛡 MARU RADIO 1.9.26 시험판", 26, VIOLET, true));
+        if ("com.maru.radio.transition.v1927".equals(getPackageName())) {
+            root.addView(label("🛡 MARU RADIO 1.9.27 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));
             root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 아환 곡 소개 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
@@ -365,6 +365,8 @@ public final class RadioActivity extends Activity {
                 "BIGO LIVE 열기", this::openBigo,
                 "송출 음량 확인 방법", this::broadcastGuide);
 
+        root.addView(compactButton("Suno 플레이리스트 · 등록 / 열기", this::sunoPlaylists));
+        root.addView(label("링크는 Suno 앱 또는 브라우저에서 엽니다. 곡 목록·음원 자동 가져오기는 지원하지 않습니다. 내려받은 원곡은 ‘다른 폴더에서 가져오기’로 여러 곡을 한 번에 등록하세요.", 13, WHITE, false));
         root.addView(compactButton("Suno 열기", this::openSuno));
         status = label("준비 완료 · 다운로드 원본 파일은 변경하지 않아요.", 13,
                 0xFF9BDEBC, false);
@@ -467,6 +469,41 @@ public final class RadioActivity extends Activity {
         }
     }
 
+    private void sunoPlaylists() {
+        android.content.SharedPreferences prefs = getSharedPreferences("suno_playlists", MODE_PRIVATE);
+        List<String> names = new ArrayList<>(prefs.getAll().keySet());
+        Collections.sort(names);
+        List<String> menu = new ArrayList<>(); menu.add("＋ 플레이리스트 링크 등록"); menu.addAll(names);
+        new AlertDialog.Builder(this).setTitle("Suno 플레이리스트")
+            .setItems(menu.toArray(new String[0]), (d, index) -> {
+                if (index == 0) { addSunoPlaylist(); return; }
+                String name = names.get(index - 1);
+                String url = SunoPlaylistLink.normalize(prefs.getString(name, ""));
+                new AlertDialog.Builder(this).setTitle(name).setMessage("Suno에서 재생합니다. MARU 음악 보관함으로 자동 다운로드되지 않습니다.")
+                    .setPositiveButton("Suno에서 열기", (dialog, w) -> {
+                        if (url == null) { say("유효한 Suno 플레이리스트 주소가 아닙니다."); return; }
+                        try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
+                        catch (RuntimeException ex) { say("Suno 앱 또는 브라우저를 열 수 없습니다."); }
+                    }).setNeutralButton("등록 해제", (dialog, w) -> { prefs.edit().remove(name).apply(); say("앱의 링크 등록만 해제했습니다. Suno 목록은 유지됩니다."); })
+                    .setNegativeButton("닫기", null).show();
+            }).setNegativeButton("닫기", null).show();
+    }
+    private void addSunoPlaylist() {
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        EditText name = new EditText(this); name.setHint("목록 이름 (예: 신나는 중국노래)"); box.addView(name);
+        EditText link = new EditText(this); link.setHint("Suno 공유 → 링크 복사 후 붙여넣기"); link.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI); box.addView(link);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Suno 플레이리스트 등록").setView(box)
+            .setPositiveButton("저장", null).setNegativeButton("취소", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            String title = name.getText().toString().trim(); String url = SunoPlaylistLink.normalize(link.getText().toString());
+            if (title.isEmpty()) { name.setError("이름을 입력해 주세요."); return; }
+            if (url == null) { link.setError("https://suno.com/playlist/ 로 시작하는 공유 주소를 넣어 주세요."); return; }
+            android.content.SharedPreferences prefs = getSharedPreferences("suno_playlists", MODE_PRIVATE);
+            if (prefs.contains(title)) { name.setError("이미 있는 이름입니다. 다른 이름을 입력해 주세요."); return; }
+            prefs.edit().putString(title, url).apply(); dialog.dismiss(); say("Suno 플레이리스트 링크를 저장했습니다.");
+        }));
+        dialog.show();
+    }
     private void openSuno() {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://suno.com/")));
