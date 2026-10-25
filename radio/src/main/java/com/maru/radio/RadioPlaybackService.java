@@ -48,6 +48,8 @@ public final class RadioPlaybackService extends Service {
 
     private MediaPlayer player;
     private RadioShowNarrator presenter;
+    private boolean showOpened;
+    private String completedTitle = "";
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
     private int currentIndex = -1;
@@ -199,7 +201,7 @@ public final class RadioPlaybackService extends Service {
             return START_NOT_STICKY;
         }
         if (ACTION_TOGGLE.equals(action)) {
-            if (loading) return START_NOT_STICKY;
+            if (loading) { pauseOnly(); return START_NOT_STICKY; }
             if (player != null && ready && player.isPlaying()) {
                 pauseOnly();
             } else if (player != null && ready) {
@@ -283,7 +285,10 @@ public final class RadioPlaybackService extends Service {
         }
         Originals.Track t = queue.get(index);
         if (RadioProgram.showEnabled(this) && presenter != null) {
-            presenter.say(RadioShowLines.ahwanIntro(t.title, RadioCatalog.artist(this, t)), () -> {
+            java.util.List<RadioShowLines.Line> script = RadioGuestShow.intro(t.title, RadioCatalog.artist(this, t), !showOpened, completedTitle);
+            showOpened = true;
+            completedTitle = "";
+            presenter.say(script, () -> {
                 if (ticket == generation && currentIndex == index && loading) prepareTrack(t, ticket);
             });
         } else prepareTrack(t, ticket);
@@ -338,6 +343,7 @@ public final class RadioPlaybackService extends Service {
             stopPlayback();
             return;
         }
+        completedTitle = currentIndex >= 0 && currentIndex < queue.size() ? queue.get(currentIndex).title : "";
         String hash = currentIndex >= 0 && currentIndex < queue.size()
                 ? queue.get(currentIndex).hash : null;
         refreshQueue(hash);
@@ -362,6 +368,8 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void stopPlayback() {
+        showOpened = false;
+        completedTitle = "";
         if (presenter != null) presenter.cancel();
         clearTimer();
         ++generation;
@@ -381,6 +389,12 @@ public final class RadioPlaybackService extends Service {
     }
 
     private void pauseOnly() {
+        if (loading) {
+            ++generation;
+            if (presenter != null) presenter.cancel();
+            loading = false;
+            releasePlayer();
+        }
         if (player != null && ready && player.isPlaying()) {
             try { player.pause(); } catch (IllegalStateException ignored) {}
         }

@@ -145,11 +145,11 @@ public final class RadioActivity extends Activity {
         // Preserve the currently installed MARU RADIO and its private files.
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
-        if ("com.maru.radio.transition.v1927".equals(getPackageName())) {
-            root.addView(label("🛡 MARU RADIO 1.9.27 시험판", 26, VIOLET, true));
+        if ("com.maru.radio.transition.v1928".equals(getPackageName())) {
+            root.addView(label("🛡 MARU RADIO 1.9.28 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));
-            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 아환 곡 소개 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
+            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 아환 음악 초대석 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
                     13, 0xFFFFD8AE, false));
             root.addView(compactButton("⬇ Download에서 자작곡 다시 연결", this::pickDownloads));
             root.addView(label("⚠ BIGO 청취자 실제 소리 전달은 별도 기기로 확인해야 합니다. 서명 문제 해결 없이 기존 앱을 덮어쓰지 않습니다.",
@@ -234,7 +234,8 @@ public final class RadioActivity extends Activity {
         presenterToggleButton = compactButton("", this::togglePresenters);
         programCard.addView(presenterToggleButton);
         updatePresenterToggle();
-        programCard.addView(label("아환이 기기 TTS로 보관함의 가수·곡명을 소개한 뒤 원곡을 연속 재생합니다. BIGO 마이크 송출은 별도 확인이 필요합니다.",
+        programCard.addView(compactButton("초대석 대본 · 30명", this::previewGuestShow));
+        programCard.addView(label("아환과 가상 가수가 곡 이야기를 나눈 뒤 원곡을 연속 재생합니다. 대화는 기기 음성으로 읽는 대본이며, Suno 가창 목소리와 다를 수 있습니다. BIGO 송출·실시간 댓글은 미연결입니다.",
                 12, 0xFFCCC0DA, false));
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
@@ -559,19 +560,32 @@ public final class RadioActivity extends Activity {
             .setPositiveButton("확인", null).show();
     }
 
+    private void previewGuestShow() {
+        String[] names = new String[RadioGuestShow.GUESTS.length];
+        for(int i=0;i<names.length;i++) names[i]=RadioGuestShow.GUESTS[i].name+" · "+RadioGuestShow.GUESTS[i].title;
+        new AlertDialog.Builder(this).setTitle("음악 초대석 · 가상 가수 대본")
+            .setItems(names, (dialog, which) -> {
+                RadioGuestShow.Guest g=RadioGuestShow.GUESTS[which];
+                StringBuilder text=new StringBuilder();
+                for(RadioShowLines.Line l:RadioGuestShow.intro(g.title,g.name,true,"")) text.append(l.speaker).append(": ").append(l.text).append("\n\n");
+                text.append("[원곡 재생]\n보관함에 같은 제목과 가수를 지정한 원곡이 있어야 재생됩니다.");
+                new AlertDialog.Builder(this).setTitle(g.name+" 초대석").setMessage(text.toString()).setPositiveButton("닫기",null).show();
+            }).setNegativeButton("닫기",null).show();
+    }
+
     private void togglePresenters() {
         boolean next = !RadioProgram.showEnabled(this);
         RadioProgram.setShowEnabled(this, next);
         updatePresenterToggle();
         say(next
-                ? "가상 아환 곡 소개 켜짐. 다음 노래부터 TTS로 소개합니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
-                : "가상 아환 곡 소개 꺼짐. 다음 노래부터 원곡만 재생합니다.");
+                ? "가상 아환 음악 초대석 켜짐. 다음 노래부터 아환과 가상 가수의 대본 대화를 읽습니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
+                : "가상 아환 음악 초대석 꺼짐. 다음 노래부터 원곡만 재생합니다.");
     }
     private void updatePresenterToggle() {
         if (presenterToggleButton != null) presenterToggleButton.setText(
                 RadioProgram.showEnabled(this)
-                        ? "🎙 아환 곡 소개 켜짐 (누르면 끄기)"
-                        : "🎙 아환 곡 소개 꺼짐 (누르면 켜기)");
+                        ? "🎙 아환 음악 초대석 켜짐 (누르면 끄기)"
+                        : "🎙 아환 음악 초대석 꺼짐 (누르면 켜기)");
     }
 
     private void selectProgramCategory() {
