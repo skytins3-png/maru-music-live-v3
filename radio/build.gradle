@@ -25,8 +25,8 @@ android {
         applicationId 'com.maru.radio.safev16'
         minSdk 26
         targetSdk 35
-        versionCode 42
-        versionName '1.9.28-safe-studio'
+        versionCode 43
+        versionName '1.9.29-safe-studio'
     }
 
     buildTypes {

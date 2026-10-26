@@ -54,9 +54,9 @@ public final class RadioGuestShow {
         Guest g=find(title,artist);
         if(g==null){out.addAll(RadioShowLines.ahwanIntro(title,artist));return Collections.unmodifiableList(out);}
         out.add(line("아환",g.name+" 씨, 어서 오세요. 오늘 어떤 이야기를 들려주실 건가요?",1f));
-        out.add(line(g.name,"안녕하세요. "+g.name+"입니다. 이번 노래에는 "+g.theme+"을 담았어요.",g.pitch));
+        out.add(line(g.name,"안녕하세요. "+g.name+"입니다. 이번 곡의 이야기는, "+g.theme+"입니다.",g.pitch));
         out.add(line("아환","듣는 분들이 어떤 장면을 떠올리면 좋을까요?",1f));
-        out.add(line(g.name,g.theme+"을 떠올리며 편하게 들어 주세요. 제목은 "+g.title+"입니다.",g.pitch));
+        out.add(line(g.name,"노래 속 장면을 자기 이야기처럼 떠올리며 편하게 들어 주세요. 제목은 "+g.title+"입니다.",g.pitch));
         out.add(line("아환","그 마음을 노래로 만나 볼게요. "+g.name+"의 "+g.title+", 함께 듣겠습니다.",1f));
         return Collections.unmodifiableList(out);
     }

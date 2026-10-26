@@ -1,4 +1,4 @@
-name: MARU RADIO V1.9.28 safe schedule and studio CI
+name: MARU RADIO V1.9.29 safe schedule and studio CI
 
 on:
   workflow_dispatch:
@@ -68,6 +68,9 @@ jobs:
           javac -d build/catalog-tests radio/src/main/java/com/maru/radio/SunoPlaylistLink.java scripts/SunoPlaylistLinkTest.java
           java -cp build/catalog-tests SunoPlaylistLinkTest
 
+      - name: Test narrator cancellation and speech fallback
+        run: python3 scripts/test_radio_narrator.py
+
       - name: Build only the new radio module
         run: gradle --no-daemon :radio:lintDebug :radio:assembleDebug :radio:assembleRelease
 
@@ -84,11 +87,11 @@ jobs:
             grep "application-label:'MARU RADIO 안전형'" /tmp/radio-badging.txt
             ! grep -Eq "RECORD_AUDIO|READ_MEDIA|MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE" /tmp/radio-badging.txt
           done
-          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.28-SAFE-STUDIO-CI.apk
-          ls -lh MARU-RADIO-V1.9.28-SAFE-STUDIO-CI.apk
+          cp radio/build/outputs/apk/debug/radio-debug.apk MARU-RADIO-V1.9.29-SAFE-STUDIO-CI.apk
+          ls -lh MARU-RADIO-V1.9.29-SAFE-STUDIO-CI.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-V1.9.28-SAFE-STUDIO-CI
-          path: MARU-RADIO-V1.9.28-SAFE-STUDIO-CI.apk
+          name: MARU-RADIO-V1.9.29-SAFE-STUDIO-CI
+          path: MARU-RADIO-V1.9.29-SAFE-STUDIO-CI.apk
           if-no-files-found: error

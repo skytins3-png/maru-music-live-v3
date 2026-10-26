@@ -9,11 +9,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.radio.transition.v1928'
+        applicationId 'com.maru.radio.transition.v1929'
         minSdk 26
         targetSdk 35
-        versionCode 42
-        versionName '1.9.28-safe-studio-test'
+        versionCode 43
+        versionName '1.9.29-safe-studio-test'
     }
 
     // Reuse the tested radio player code and UI; only the package identity and

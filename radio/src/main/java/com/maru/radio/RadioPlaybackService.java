@@ -32,6 +32,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_TOGGLE = "com.maru.radio.TOGGLE";
     public static final String ACTION_PREVIOUS = "com.maru.radio.PREVIOUS";
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
+    public static final String ACTION_SKIP_TALK = "com.maru.radio.SKIP_TALK";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
@@ -171,12 +172,22 @@ public final class RadioPlaybackService extends Service {
             return START_NOT_STICKY;
         }
         if (ACTION_PLAY.equals(action) || ACTION_NEXT.equals(action)
-                || ACTION_PREVIOUS.equals(action) || ACTION_TOGGLE.equals(action)) {
+                || ACTION_PREVIOUS.equals(action) || ACTION_TOGGLE.equals(action) || ACTION_SKIP_TALK.equals(action)) {
             syncWallEndFromSchedule();
             if (deadlineReached()) {
                 stopPlayback();
                 return START_NOT_STICKY;
             }
+        }
+        if (ACTION_SKIP_TALK.equals(action)) {
+            if (isPresenting() && currentIndex >= 0 && currentIndex < queue.size()) {
+                int ticket = ++generation;
+                presenter.cancel();
+                if (requestFocus()) prepareTrack(queue.get(currentIndex), ticket);
+                else loading = false;
+                updateNotification();
+            }
+            return START_NOT_STICKY;
         }
         if (ACTION_PLAY.equals(action)) {
             refreshQueue(null);
@@ -426,6 +437,8 @@ public final class RadioPlaybackService extends Service {
         catch (IllegalStateException e) { return false; }
     }
 
+    public boolean isPresenting() { return loading && presenter != null && presenter.isSpeaking(); }
+    public String currentDialogue() { return presenter == null ? "" : presenter.currentLine(); }
     public boolean isLoading() { return loading; }
     public int positionMs() {
         try { return player != null && ready ? player.getCurrentPosition() : 0; }
@@ -454,15 +467,15 @@ public final class RadioPlaybackService extends Service {
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_radio)
-                .setContentTitle("MARU RADIO · 원곡 재생")
+                .setContentTitle(isPresenting() ? "MARU RADIO · 음악 초대석" : "MARU RADIO · 원곡 재생")
                 .setContentText(currentTitle() + (timerRemainingMs() > 0 ? " · 자동 종료 예약" : ""))
                 .setContentIntent(open)
                 .setOnlyAlertOnce(true)
                 .setOngoing(isPlaying() || loading)
                 .addAction(android.R.drawable.ic_media_previous, "이전", control(ACTION_PREVIOUS, 1))
-                .addAction(isPlaying() ? android.R.drawable.ic_media_pause
+                .addAction((isPlaying() || loading) ? android.R.drawable.ic_media_pause
                         : android.R.drawable.ic_media_play,
-                        isPlaying() ? "일시정지" : "재생", control(ACTION_TOGGLE, 2))
+                        (isPlaying() || loading) ? "일시정지" : "재생", control(ACTION_TOGGLE, 2))
                 .addAction(android.R.drawable.ic_media_next, "다음", control(ACTION_NEXT, 3))
                 .addAction(android.R.drawable.ic_menu_close_clear_cancel, "종료", control(ACTION_STOP, 4))
                 .build();

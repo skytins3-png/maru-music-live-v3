@@ -74,6 +74,8 @@ public final class RadioActivity extends Activity {
     private Button programCategoryButton;
     private Button presenterToggleButton;
     private Button playerToggleButton;
+    private Button skipTalkButton;
+    private TextView dialogueLine;
     private SeekBar playerSeek;
     private boolean playerSeeking;
     private final Handler playerHandler = new Handler(Looper.getMainLooper());
@@ -145,8 +147,8 @@ public final class RadioActivity extends Activity {
         // Preserve the currently installed MARU RADIO and its private files.
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
-        if ("com.maru.radio.transition.v1928".equals(getPackageName())) {
-            root.addView(label("🛡 MARU RADIO 1.9.28 시험판", 26, VIOLET, true));
+        if ("com.maru.radio.transition.v1929".equals(getPackageName())) {
+            root.addView(label("🛡 MARU RADIO 1.9.29 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));
             root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 아환 음악 초대석 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
@@ -198,6 +200,11 @@ public final class RadioActivity extends Activity {
                 playerAction(RadioPlaybackService.ACTION_NEXT)),
                 new LinearLayout.LayoutParams(0, dp(55), 1));
         playerCard.addView(playbackButtons);
+        dialogueLine = label("", 15, 0xFFE4D8F3, false);
+        playerCard.addView(dialogueLine);
+        skipTalkButton = compactButton("대화 건너뛰고 이 곡 듣기", () -> playerAction(RadioPlaybackService.ACTION_SKIP_TALK));
+        skipTalkButton.setVisibility(View.GONE);
+        playerCard.addView(skipTalkButton);
         playerSeek = new SeekBar(this);
         playerSeek.setMax(1000);
         playerSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -905,15 +912,20 @@ public final class RadioActivity extends Activity {
         if (playerTitle == null || playerToggleButton == null) return;
         if (radioService == null) {
             playerToggleButton.setText("▶ 재생");
+            if (dialogueLine != null) dialogueLine.setText("");
+            if (skipTalkButton != null) skipTalkButton.setVisibility(View.GONE);
             if (playerTitle.getText().length() == 0)
                 playerTitle.setText("목록에서 음악을 선택하세요.");
             return;
         }
         String title = radioService.currentTitle();
         boolean playing = radioService.isPlaying();
-        playerTitle.setText((radioService.isLoading() ? "불러오는 중 · "
+        boolean talking = radioService.isPresenting();
+        dialogueLine.setText(radioService.currentDialogue());
+        skipTalkButton.setVisibility(talking ? View.VISIBLE : View.GONE);
+        playerTitle.setText((talking ? "초대석 대화 중 · " : radioService.isLoading() ? "불러오는 중 · "
                 : playing ? "재생 중 · " : "일시정지 · ") + title);
-        playerToggleButton.setText(playing ? "⏸ 일시정지" : "▶ 재생");
+        playerToggleButton.setText((playing || radioService.isLoading()) ? "⏸ 일시정지" : "▶ 재생");
         int duration = radioService.durationMs();
         if (!playerSeeking && playerSeek != null) {
             playerSeek.setMax(Math.max(duration, 1000));

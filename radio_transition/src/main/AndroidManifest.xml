@@ -10,7 +10,7 @@
         <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
     </queries>
     <!-- No call, contacts, microphone, storage-wide, accessibility or capture permissions. -->
-    <application android:label="MARU RADIO 1.9.28 시험판"
+    <application android:label="MARU RADIO 1.9.29 시험판"
         android:icon="@drawable/ic_radio"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:appCategory="audio"
