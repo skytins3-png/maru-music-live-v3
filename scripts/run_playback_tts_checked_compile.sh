@@ -131,10 +131,14 @@ JAVA
 cat > "$SRC/android/speech/tts/UtteranceProgressListener.java" <<'JAVA'
 package android.speech.tts; public abstract class UtteranceProgressListener { public abstract void onStart(String id); public abstract void onDone(String id); public abstract void onError(String id); public void onError(String id,int code){} }
 JAVA
+cat > "$SRC/android/speech/tts/Voice.java" <<'JAVA'
+package android.speech.tts; import java.util.Locale;
+public class Voice { public Locale getLocale(){return Locale.KOREAN;} public boolean isNetworkConnectionRequired(){return false;} public String getName(){return "ko-offline";} }
+JAVA
 cat > "$SRC/android/speech/tts/TextToSpeech.java" <<'JAVA'
 package android.speech.tts; import android.content.Context; import android.media.AudioAttributes; import android.os.Bundle; import java.util.Locale;
 public class TextToSpeech { public interface OnInitListener{void onInit(int s);} public static final int SUCCESS=0,LANG_MISSING_DATA=-1,LANG_NOT_SUPPORTED=-2,QUEUE_FLUSH=0,ERROR=-1; public static class Engine{public static final String KEY_PARAM_VOLUME="volume";}
- public TextToSpeech(Context c,OnInitListener l){} public void setSpeechRate(float v){} public void setPitch(float v){} public void setAudioAttributes(AudioAttributes a){} public void setOnUtteranceProgressListener(UtteranceProgressListener l){} public int isLanguageAvailable(Locale l){return 0;} public int setLanguage(Locale l){return 0;} public int speak(String s,int q,Bundle b,String id){return 0;} public int stop(){return 0;} public void shutdown(){} }
+ public TextToSpeech(Context c,OnInitListener l){} public void setSpeechRate(float v){} public void setPitch(float v){} public void setAudioAttributes(AudioAttributes a){} public void setOnUtteranceProgressListener(UtteranceProgressListener l){} public int isLanguageAvailable(Locale l){return 0;} public int setLanguage(Locale l){return 0;} public int speak(String s,int q,Bundle b,String id){return 0;} public java.util.Set<Voice> getVoices(){return new java.util.HashSet<>();} public int setVoice(Voice v){return 0;} public int stop(){return 0;} public void shutdown(){} }
 JAVA
 cat > "$SRC/androidx/core/app/NotificationCompat.java" <<'JAVA'
 package androidx.core.app; import android.app.*; import android.content.Context;
@@ -182,8 +186,10 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/IntermissionStore.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/VolumeDucking.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/VirtualArtistCatalog.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RadioConversationScript.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/DailyRadioProgram.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/MultiArtistRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/AutoGreetingService.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackService.java"
 
