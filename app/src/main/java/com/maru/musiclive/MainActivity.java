@@ -609,8 +609,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             refreshAutoGreetingStatus();
         });
         column.addView(radioConversation);
+        CheckBox dailyRadio = checkBox(
+                "매일 새로운 대화 주제 자동 변경 (재설치 필요 없음)",
+                AppStorage.dailyRadioEnabled(this));
+        dailyRadio.setOnCheckedChangeListener((buttonView, checked) -> {
+            AppStorage.setDailyRadioEnabled(this, checked);
+            refreshAutoGreetingStatus();
+        });
+        column.addView(dailyRadio);
         column.addView(text(
-                "대화형 라디오를 켜면 곡 사이 5개 언어 안내 대신 아환·윤솔이 한국어로 대화합니다.",
+                "매일 날짜에 따라 준비된 오리지널 주제와 멘트가 자동 바뀝니다. "
+                        + "인터넷·API 키·매일 APK 설치 없이 동작하며 음악은 백그라운드 재생합니다. "
+                        + "완전한 생성형 AI 자유 대화나 BIGO 자동 송출은 아닙니다.",
                 13, false));
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
@@ -941,7 +951,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "곡 사이 음성: "
                         + (!AppStorage.songTitleTts(this) ? "꺼짐"
                             : AppStorage.radioConversationEnabled(this)
-                                ? "아환·윤솔 대화형 라디오"
+                                ? (AppStorage.dailyRadioEnabled(this)
+                                   ? "오늘의 대화 주제 자동 갱신 (" 
+                                           + java.time.LocalDate.now().toString() + ")"
+                                   : "아환·윤솔 대화형 라디오")
                                 : "한국어 → 영어 → 중국어 → 일본어 → 러시아어 안내")
                         + "\n"
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
