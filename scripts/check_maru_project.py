@@ -91,8 +91,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3034')
-check('version name', version_name == '3.2.15')
+check('version code', version_code == '3035')
+check('version name', version_name == '3.2.16')
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
