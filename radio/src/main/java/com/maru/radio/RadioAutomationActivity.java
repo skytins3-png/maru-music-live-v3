@@ -116,8 +116,8 @@ public final class RadioAutomationActivity extends Activity {
 
         LinearLayout time = card(content);
         time.addView(label("② 방송 종료 시간", 21, WHITE));
-        time.addView(label("MARU RADIO 화면의 '⏱ 시간 설정 · 시작'에서 5~720분 뒤 "
-                + "음악을 종료할 수 있어요. BIGO 실제 종료는 화면에서 확인해야 해요.",
+        time.addView(label("기본은 시간 제한 없이 재생합니다. MARU RADIO 화면의 '⏱ 종료시간 직접 설정'에서 "
+                + "원할 때만 5~720분 뒤 음악을 종료하도록 선택하세요. BIGO는 직접 종료해야 해요.",
                 14, 0xFFDDD2E8));
         time.addView(button("음악 종료 시간 설정 화면으로", () -> {
             startActivity(new Intent(this, RadioActivity.class));
@@ -134,8 +134,8 @@ public final class RadioAutomationActivity extends Activity {
 
         LinearLayout notes = card(content);
         notes.addView(label("방송 자동 운영 관련 안내", 18, PURPLE));
-        notes.addView(label("BIGO 방송 시작 버튼은 사용자가 확인한 경우에만 "
-                + "기존 접근성 보조 기능을 통해 누르도록 시도합니다. "
+        notes.addView(label("BIGO 화면을 여는 것까지만 지원합니다. 접근성으로 방송 버튼을 "
+                + "자동으로 누르지 않으며, 실제 오디오 LIVE 시작·종료는 직접 확인해야 합니다. "
                 + "휴대폰이 잠겨 있을 때 무인으로 라이브를 시작하지 않습니다. "
                 + "휴대폰 절전 설정에 따라 시작 알림이 늦을 수 있어요.",
                 13, 0xFFDDD2E8));
@@ -240,11 +240,15 @@ public final class RadioAutomationActivity extends Activity {
                 // Both service intents are issued while the user-confirmation Activity
                 // is foreground; do not start a new service after BIGO backgrounds us.
                 startForegroundService(play);
-                Intent timer = new Intent(this, RadioPlaybackService.class)
-                        .setAction(RadioPlaybackService.ACTION_SET_TIMER)
-                        .putExtra(RadioPlaybackService.EXTRA_MINUTES,
-                                RadioProgram.durationMinutes(this));
-                startService(timer);
+                if (RadioProgram.autoStopEnabled(this)) {
+                    Intent timer = new Intent(this, RadioPlaybackService.class)
+                            .setAction(RadioPlaybackService.ACTION_SET_TIMER)
+                            .putExtra(RadioPlaybackService.EXTRA_MINUTES,
+                                    RadioProgram.durationMinutes(this));
+                    startService(timer);
+                }
+                startService(new Intent(this, RadioPlaybackService.class)
+                        .setAction(RadioPlaybackService.ACTION_BIGO_COEXIST));
             } catch (RuntimeException ignored) {
                 message("음악 서비스를 시작하지 못했어요. MARU 플레이어를 확인해 주세요.");
             }
