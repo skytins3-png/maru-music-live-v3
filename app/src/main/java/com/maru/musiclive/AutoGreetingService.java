@@ -14,12 +14,14 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.speech.tts.UtteranceProgressListener;
 
 import androidx.core.app.NotificationCompat;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -72,6 +74,7 @@ public final class AutoGreetingService extends Service {
     private int activeLanguageIndex = -1;
     private int activeDialogueIndex = -1;
     private RadioConversationScript.Line[] activeDialogue;
+    private final List<Voice> availableKoreanVoices = new ArrayList<>();
 
     private final Runnable speakTimeout = () -> {
         if (!speaking) return;
@@ -230,6 +233,7 @@ public final class AutoGreetingService extends Service {
 
             ttsReady = true;
             ttsFailed = false;
+            loadSupportedKoreanVoices();
             tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
             tts.setPitch(BroadcastVoicePolicy.PITCH);
 
@@ -341,14 +345,11 @@ public final class AutoGreetingService extends Service {
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
         activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
-                ? (AppStorage.dailyRadioEnabled(this)
-                    ? DailyRadioProgram.beforeSong(
-                            request.value, request.resumeIndex,
-                            java.time.LocalDate.now(),
-                            request.giftNames, request.followNames)
-                    : RadioConversationScript.beforeSong(
-                            request.value, request.resumeIndex,
-                            request.giftNames, request.followNames))
+                ? MultiArtistRadioProgram.beforeSong(
+                        request.value, request.resumeIndex,
+                        java.time.LocalDate.now(),
+                        AppStorage.dailyRadioEnabled(this),
+                        request.giftNames, request.followNames)
                 : null;
 
         if (isRadioRequest()) {
@@ -383,12 +384,10 @@ public final class AutoGreetingService extends Service {
         }
 
         RadioConversationScript.Line line = activeDialogue[activeDialogueIndex];
-        tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
-        // Modest character differentiation, not a real person's cloned voice.
-        tts.setPitch(line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.90f : 1.08f);
-        String speakerName = line.speaker == RadioConversationScript.Speaker.AHWAN
-                ? "아환" : "윤솔";
-        String status = speakerName + " DJ · "
+        applyFictionalVoice(line);
+        String speakerName = line.artist != null ? line.artist.name
+                : line.speaker == RadioConversationScript.Speaker.AHWAN ? "아환" : "윤솔";
+        String status = speakerName + " · "
                 + (activeDialogueIndex + 1) + "/" + activeDialogue.length + " 대화 중";
         AutoGreetingStore.setStatus(this, status);
         startForeground(NOTIFICATION_ID, notification(status));
@@ -403,6 +402,41 @@ public final class AutoGreetingService extends Service {
         }
         main.removeCallbacks(speakTimeout);
         main.postDelayed(speakTimeout, SPEAK_TIMEOUT_MS);
+    }
+
+    /** Use local Korean voices where installed, without cloning anyone. */
+    private void loadSupportedKoreanVoices() {
+        availableKoreanVoices.clear();
+        try {
+            Set<Voice> installed = tts.getVoices();
+            if (installed == null) return;
+            for (Voice voice : installed) {
+                if (voice == null || voice.getLocale() == null
+                        || !"ko".equals(voice.getLocale().getLanguage())
+                        || voice.isNetworkConnectionRequired()) continue;
+                availableKoreanVoices.add(voice);
+            }
+            availableKoreanVoices.sort(Comparator.comparing(Voice::getName));
+        } catch (RuntimeException ignored) {
+            // Some device TTS providers do not enumerate installed voices.
+        }
+    }
+
+    private void applyFictionalVoice(RadioConversationScript.Line line) {
+        VirtualArtistCatalog.Artist artist = line.artist;
+        int voiceSlot = artist == null ? 0 : artist.voiceSlot;
+        if (!availableKoreanVoices.isEmpty()) {
+            try {
+                Voice chosen = availableKoreanVoices.get(
+                        Math.floorMod(voiceSlot, availableKoreanVoices.size()));
+                tts.setVoice(chosen);
+            } catch (RuntimeException ignored) {
+                // Fall back to phone's existing Korean voice.
+            }
+        }
+        tts.setPitch(artist != null ? artist.pitch :
+                line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.92f : 1.09f);
+        tts.setSpeechRate(artist != null ? artist.pace : BroadcastVoicePolicy.SPEECH_RATE);
     }
 
     private void speakCurrentLanguage() {
