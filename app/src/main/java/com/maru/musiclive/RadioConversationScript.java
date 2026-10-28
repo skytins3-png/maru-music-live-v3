@@ -7,15 +7,22 @@ package com.maru.musiclive;
  * viewer events. They never claim a guest, listener or song backstory exists.
  */
 public final class RadioConversationScript {
-    public enum Speaker { AHWAN, YUNSOL }
+    public enum Speaker { AHWAN, YUNSOL, GUEST }
 
     public static final class Line {
         public final Speaker speaker;
         public final String text;
+        /** Null for a station DJ, non-null for a fictional guest performer. */
+        public final VirtualArtistCatalog.Artist artist;
 
         public Line(Speaker speaker, String text) {
+            this(speaker, text, null);
+        }
+
+        public Line(Speaker speaker, String text, VirtualArtistCatalog.Artist artist) {
             this.speaker = speaker;
             this.text = text;
+            this.artist = artist;
         }
     }
 
