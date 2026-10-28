@@ -55,6 +55,7 @@ public final class AutoGreetingService extends Service {
     private static final String EXTRA_GIFT_NAMES = "gift_names";
     private static final String EXTRA_FOLLOW_NAMES = "follow_names";
     private static final String EXTRA_RESUME_INDEX = "resume_index";
+    private static final String EXTRA_ARTIST_ID = "artist_id";
     private static final long SPEAK_TIMEOUT_MS = 35_000L;
     private static final String[] INTERMISSION_LANGUAGES =
             BroadcastVoicePolicy.orderedLanguages();
@@ -152,7 +153,8 @@ public final class AutoGreetingService extends Service {
     /** Queue an original two-presenter exchange, then resume the selected track. */
     public static boolean announceRadioIntermission(
             Context context, String nextTitle,
-            List<String> giftNames, List<String> followNames, int resumeIndex) {
+            List<String> giftNames, List<String> followNames,
+            int resumeIndex, int artistId) {
         if (context == null || resumeIndex < 0) return false;
         return safeStart(context, new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_RADIO_INTERMISSION)
@@ -164,7 +166,8 @@ public final class AutoGreetingService extends Service {
                 .putStringArrayListExtra(EXTRA_FOLLOW_NAMES,
                         new ArrayList<>(followNames == null
                                 ? java.util.Collections.<String>emptyList() : followNames))
-                .putExtra(EXTRA_RESUME_INDEX, resumeIndex));
+                .putExtra(EXTRA_RESUME_INDEX, resumeIndex)
+                .putExtra(EXTRA_ARTIST_ID, artistId));
     }
 
     /** Keyboard-free preset closing announcement. Music is paused before this is called. */
@@ -349,7 +352,8 @@ public final class AutoGreetingService extends Service {
                         request.value, request.resumeIndex,
                         java.time.LocalDate.now(),
                         AppStorage.dailyRadioEnabled(this),
-                        request.giftNames, request.followNames)
+                        request.giftNames, request.followNames,
+                        request.artistId)
                 : null;
 
         if (isRadioRequest()) {
@@ -733,6 +737,7 @@ public final class AutoGreetingService extends Service {
         final List<String> giftNames;
         final List<String> followNames;
         final int resumeIndex;
+        int artistId;
 
         AnnouncementRequest(
                 int kind,
@@ -756,7 +761,7 @@ public final class AutoGreetingService extends Service {
                             : kind == KIND_RADIO ? "radio" : language)
                     + "|" + giftNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + followNames.toString().toLowerCase(Locale.ROOT)
-                    + "|" + resumeIndex;
+                    + "|" + resumeIndex + "|" + artistId;
         }
 
         static AnnouncementRequest fromIntent(Intent intent) {
@@ -776,11 +781,13 @@ public final class AutoGreetingService extends Service {
                         resumeIndex);
             }
             if (ACTION_RADIO_INTERMISSION.equals(action)) {
-                return new AnnouncementRequest(
+                AnnouncementRequest radio = new AnnouncementRequest(
                         KIND_RADIO, value, GreetingLanguage.KOREAN,
                         intent.getStringArrayListExtra(EXTRA_GIFT_NAMES),
                         intent.getStringArrayListExtra(EXTRA_FOLLOW_NAMES),
                         resumeIndex);
+                radio.artistId = intent.getIntExtra(EXTRA_ARTIST_ID, 0);
+                return radio;
             }
             if (ACTION_CLOSING.equals(action)) {
                 return new AnnouncementRequest(
