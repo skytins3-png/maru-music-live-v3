@@ -44,6 +44,18 @@ public final class MultiArtistRadioProgramTest {
         }
     }
 
+    @Test public void explicitSingerAssignmentIsHonoredWithoutDuplicateGuests() {
+        LocalDate d=LocalDate.of(2026,10,28);
+        for(int singer=1;singer<=32;singer++) {
+            RadioConversationScript.Line[] spoken =
+                    MultiArtistRadioProgram.beforeSong(
+                            "초원",4,d,true,Collections.emptyList(),
+                            Collections.emptyList(),singer);
+            assertEquals(singer,spoken[1].artist.id);
+            assertNotEquals(spoken[1].artist.id,spoken[5].artist.id);
+        }
+    }
+
     @Test public void dailyConversationAndGuestOrderRotate() {
         LocalDate date=LocalDate.of(2026,10,28);
         RadioConversationScript.Line[] a=MultiArtistRadioProgram.beforeSong(
