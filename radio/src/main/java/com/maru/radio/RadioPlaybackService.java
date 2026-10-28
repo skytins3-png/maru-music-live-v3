@@ -34,6 +34,7 @@ public final class RadioPlaybackService extends Service {
     public static final String ACTION_NEXT = "com.maru.radio.NEXT";
     public static final String ACTION_STOP = "com.maru.radio.STOP";
     public static final String ACTION_SET_TIMER = "com.maru.radio.SET_TIMER";
+    public static final String ACTION_BIGO_COEXIST = "com.maru.radio.BIGO_COEXIST";
     public static final String ACTION_CANCEL_TIMER = "com.maru.radio.CANCEL_TIMER";
     public static final String EXTRA_MINUTES = "minutes";
     public static final String EXTRA_HASH = "hash";
@@ -47,6 +48,8 @@ public final class RadioPlaybackService extends Service {
     private RadioShowNarrator presenter;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
+    private boolean bigoCoexistence;
+    private boolean pausedForTransientFocus;
     private int currentIndex = -1;
     private boolean ready;
     private boolean loading;
@@ -87,8 +90,18 @@ public final class RadioPlaybackService extends Service {
         focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attributes)
                 .setOnAudioFocusChangeListener(change -> {
-                    if (change == AudioManager.AUDIOFOCUS_LOSS
-                            || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                    if (bigoCoexistence) return;
+                    if (change == AudioManager.AUDIOFOCUS_GAIN) {
+                        if (pausedForTransientFocus && player != null && ready) {
+                            pausedForTransientFocus = false;
+                            try { player.start(); } catch (IllegalStateException ignored) {}
+                            updateNotification();
+                        }
+                    } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        pausedForTransientFocus = isPlaying();
+                        pauseOnly();
+                    } else if (change == AudioManager.AUDIOFOCUS_LOSS) {
+                        pausedForTransientFocus = false;
                         pauseOnly();
                     }
                 }).build();
@@ -98,6 +111,17 @@ public final class RadioPlaybackService extends Service {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_STOP.equals(action)) {
             stopPlayback();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_BIGO_COEXIST.equals(action)) {
+            // The broadcaster manages its own audio focus; avoiding a competing
+            // permanent focus claim improves coexistence but cannot force BIGO
+            // to capture another app's output.
+            bigoCoexistence = true;
+            pausedForTransientFocus = false;
+            if (audio != null && focusRequest != null)
+                audio.abandonAudioFocusRequest(focusRequest);
+            updateNotification();
             return START_NOT_STICKY;
         }
         if (ACTION_CANCEL_TIMER.equals(action)) {
@@ -196,6 +220,10 @@ public final class RadioPlaybackService extends Service {
     }
 
     private boolean requestFocus() {
+        if (bigoCoexistence) {
+            error = "";
+            return true;
+        }
         if (audio == null || focusRequest == null) return false;
         int granted = audio.requestAudioFocus(focusRequest);
         if (granted != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
@@ -297,6 +325,8 @@ public final class RadioPlaybackService extends Service {
         currentIndex = -1;
         loading = false;
         error = "";
+        bigoCoexistence = false;
+        pausedForTransientFocus = false;
         if (audio != null && focusRequest != null)
             audio.abandonAudioFocusRequest(focusRequest);
         if (foreground) {
