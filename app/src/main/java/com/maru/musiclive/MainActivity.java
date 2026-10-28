@@ -592,7 +592,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(random);
 
         CheckBox songTitleTts = checkBox(
-                "곡 사이 음성 안내 켜기",
+                "곡 사이 5개 언어 통합 안내 (아환·윤솔 모드에서는 대화 방송)",
                 AppStorage.songTitleTts(this));
         songTitleTts.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setSongTitleTts(this, checked));
