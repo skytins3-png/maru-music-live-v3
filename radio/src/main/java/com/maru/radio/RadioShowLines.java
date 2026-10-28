@@ -102,8 +102,8 @@ public final class RadioShowLines {
 
     public static String tidy(String raw) {
         if (raw == null) return "제목 없는 자작곡";
-        String result = raw.replaceAll("(?i)\\\\.(mp3|m4a|wav|aac|ogg|flac)$", "")
-                .replaceAll("[\\\\p{Cntrl}<>]", " ").trim();
+        String result = raw.replaceAll("(?i)\\.(mp3|m4a|wav|aac|ogg|flac)$", "")
+                .replaceAll("[\\p{Cntrl}<>]", " ").trim();
         return result.isEmpty() ? "제목 없는 자작곡"
                 : result.substring(0, Math.min(48, result.length()));
     }
