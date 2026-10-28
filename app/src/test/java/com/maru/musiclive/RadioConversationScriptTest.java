@@ -31,6 +31,24 @@ public final class RadioConversationScriptTest {
         }
     }
 
+    @Test public void onlyActualEventsProduceThanksWithoutExposingNames() {
+        RadioConversationScript.Line[] quiet =
+                RadioConversationScript.beforeSong("밤하늘", 1,
+                        java.util.Collections.emptyList(), java.util.Collections.emptyList());
+        assertEquals(5, quiet.length);
+        RadioConversationScript.Line[] thanks =
+                RadioConversationScript.beforeSong("밤하늘", 1,
+                        java.util.Collections.singletonList("private-user-name"),
+                        java.util.Collections.singletonList("private-follower-name"));
+        assertEquals(6, thanks.length);
+        assertEquals(RadioConversationScript.Speaker.AHWAN, thanks[1].speaker);
+        assertTrue(thanks[1].text.contains("선물과 팔로우"));
+        for (RadioConversationScript.Line line : thanks) {
+            assertFalse(line.text.contains("private-user-name"));
+            assertFalse(line.text.contains("private-follower-name"));
+        }
+    }
+
     @Test public void unexpectedTitlesAreSanitizedAndLimited() {
         assertEquals("다음 음악", RadioConversationScript.cleanTitle(null));
         assertEquals("다음 음악", RadioConversationScript.cleanTitle("  "));
