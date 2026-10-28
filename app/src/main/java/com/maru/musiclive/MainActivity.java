@@ -2245,6 +2245,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                             })
                             .setNegativeButton("나중에", null)
                             .show();
+                } else if (result.needsSigningFix()) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("업데이트 설치 보호")
+                            .setMessage(result.message)
+                            .setPositiveButton("확인", null)
+                            .show();
                 } else if (manual) {
                     new AlertDialog.Builder(this)
                             .setTitle("MARU RADIO 업데이트 확인")
