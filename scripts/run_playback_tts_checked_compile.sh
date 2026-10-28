@@ -149,6 +149,7 @@ package com.maru.musiclive; import android.content.Context; import java.util.*; 
  public static boolean songTitleTts(Context c){return true;}
   public static boolean radioConversationEnabled(Context c){return true;}
   public static boolean dailyRadioEnabled(Context c){return true;}
+  public static int artistForSong(Context c,String uri){return 0;}
  public static java.util.List<String> loadSongs(Context c){return new java.util.ArrayList<>();}
  public static boolean repeatAll(Context c){return true;}
  public static boolean random(Context c){return false;}
