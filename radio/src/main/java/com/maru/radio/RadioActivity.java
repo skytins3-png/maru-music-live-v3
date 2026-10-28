@@ -228,11 +228,11 @@ public final class RadioActivity extends Activity {
         updatePresenterToggle();
         programCard.addView(label("선택한 가상 진행자들이 기기 TTS로 인사하고 원본을 소개한 뒤 노래를 재생합니다. BIGO 마이크 송출은 별도 확인이 필요합니다.",
                 12, 0xFFCCC0DA, false));
-        programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
+        programSummary = label("방송 분류 · 자동 종료 기본 꺼짐", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
-        timerButtons.addView(compactButton("⏱ 시간 설정 · 시작", this::configureProgramTimer),
+        timerButtons.addView(compactButton("⏱ 종료시간 직접 설정", this::configureProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 1.2f));
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
                 new LinearLayout.LayoutParams(0, dp(53), 0.85f));
@@ -469,6 +469,11 @@ public final class RadioActivity extends Activity {
             return;
         }
         try {
+            if (radioService != null && (radioService.isPlaying() || radioService.isLoading())) {
+                // BIGO owns its own audio session. Do not keep competing for audio focus.
+                startService(new Intent(this, RadioPlaybackService.class)
+                        .setAction(RadioPlaybackService.ACTION_BIGO_COEXIST));
+            }
             startActivity(open);
         } catch (Exception e) {
             say("BIGO를 열 수 없어요.");
@@ -557,11 +562,12 @@ public final class RadioActivity extends Activity {
         if (programSummary != null) {
             int minutes = RadioProgram.durationMinutes(this);
             long remaining = radioService == null ? 0 : radioService.timerRemainingMs();
-            programSummary.setText("설정 " + minutes + "분 · "
-                    + (remaining <= 0 ? "타이머 중지" :
-                    "자동 재생 종료까지 " + (remaining / 60000) + "분 "
+            programSummary.setText(
+                    (RadioProgram.autoStopEnabled(this) ? "종료 설정 " + minutes + "분" : "자동 종료 사용 안 함")
+                    + " · " + (remaining <= 0 ? "현재 타이머 없음" :
+                    "음악 종료까지 " + (remaining / 60000) + "분 "
                             + ((remaining / 1000) % 60) + "초")
-                    + " · BIGO 라이브 종료는 직접 조작");
+                    + " · BIGO 방송 종료는 직접 조작");
         }
     }
 
@@ -585,6 +591,7 @@ public final class RadioActivity extends Activity {
                 .setPositiveButton("타이머 시작", (dialog, which) -> {
                     int chosen = picker.getValue();
                     RadioProgram.setDurationMinutes(this, chosen);
+                    RadioProgram.setAutoStopEnabled(this, true);
                     if (radioService == null || !radioService.isPlaying()) {
                         say("시간은 저장했어. 먼저 ▶ 재생을 누르고 시간 설정을 다시 눌러줘.");
                         refreshProgramUI();
@@ -601,9 +608,12 @@ public final class RadioActivity extends Activity {
     }
 
     private void cancelProgramTimer() {
-        startService(new Intent(this, RadioPlaybackService.class)
-                .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
-        say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");
+        RadioProgram.setAutoStopEnabled(this, false);
+        if (radioService != null) {
+            startService(new Intent(this, RadioPlaybackService.class)
+                    .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
+        }
+        say("음악 종료 타이머 해제 · 다음 방송도 시간 제한 없이 재생합니다.");
         refreshProgramUI();
     }
 
