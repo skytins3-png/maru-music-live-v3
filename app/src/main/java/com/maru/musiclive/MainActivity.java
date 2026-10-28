@@ -551,7 +551,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
         column.addView(button(
-                "아환·윤솔 라디오 미리듣기 (BIGO 미송출)",
+                "아환 + AI 가수 32명 미리듣기 (BIGO 미송출)",
                 v -> startLocalRadioPreview()));
         column.addView(button(
                 "BIGO 앱 직접 열기",
@@ -602,17 +602,29 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(songTitleTts);
 
         CheckBox radioConversation = checkBox(
-                "아환·윤솔 대화형 라디오 (곡 사이, 한국어)",
+                "아환 + 가상 AI 가수 32명 교대 방송 (곡 사이, 한국어)",
                 AppStorage.radioConversationEnabled(this));
         radioConversation.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setRadioConversationEnabled(this, checked);
             refreshAutoGreetingStatus();
         });
         column.addView(radioConversation);
+        CheckBox dailyRadio = checkBox(
+                "매일 새로운 대화 주제 자동 변경 (재설치 필요 없음)",
+                AppStorage.dailyRadioEnabled(this));
+        dailyRadio.setOnCheckedChangeListener((buttonView, checked) -> {
+            AppStorage.setDailyRadioEnabled(this, checked);
+            refreshAutoGreetingStatus();
+        });
+        column.addView(dailyRadio);
         column.addView(text(
-                "대화형 라디오를 켜면 곡 사이 5개 언어 안내 대신 아환·윤솔이 한국어로 대화합니다.",
+                "32명의 가상 AI 가수가 순환 출연합니다. 날짜별 오리지널 대화가 자동 변경됩니다. "
+                        + "대본은 매일 APK 재설치 없이 바뀌며 원곡은 백그라운드 재생합니다. "
+                        + "실제 가수별 노래 음원과 개별 보컬 모델은 별도로 제작·검증해야 하며 BIGO 자동 송출은 아닙니다.",
                 13, false));
 
+        column.addView(button("AI 가수 32명 · 고유 음색·창법 제작표", v ->
+                showSunoArtistRoster()));
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
                 requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
@@ -621,7 +633,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(button("완전 종료", v -> stopAllBroadcastNow()));
 
         TextView songGuide = text(
-                "노래 터치: 재생 · 길게: 삭제",
+                "노래 터치: 재생 · 길게: AI 가수 배정/삭제",
                 14,
                 false);
         songGuide.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -633,7 +645,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             if (playback != null) playback.play(position);
         });
         songList.setOnItemLongClickListener((parent, view, position, id) -> {
-            confirmDeleteSong(position);
+            showSongManageActions(position);
             return true;
         });
         column.addView(songList, new LinearLayout.LayoutParams(
@@ -666,17 +678,71 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     /** Preview the DJ conversation and original music entirely on this device. */
+    /** Production profiles are plans, not completed artist voice models. */
+    private void showSunoArtistRoster() {
+        SunoArtistProductionCatalog.Profile[] profiles =
+                SunoArtistProductionCatalog.all();
+        String[] labels = new String[profiles.length];
+        for (int i = 0; i < profiles.length; i++) {
+            SunoArtistProductionCatalog.Profile item = profiles[i];
+            labels[i] = item.artistId + ". " + item.singerName()
+                    + " · " + item.genre + " · " + item.language
+                    + " · 제작 대기";
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("32명 보컬 제작표 · 실제 가창 생성 전")
+                .setItems(labels, (dialog, which) -> showSunoArtistProfile(profiles[which]))
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
+    private void showSunoArtistProfile(SunoArtistProductionCatalog.Profile singer) {
+        String info = "가수: " + singer.singerName()
+                + "\n장르: " + singer.genre
+                + "\n언어: " + singer.language
+                + "\n신곡 작업명: " + singer.originalTitle
+                + "\n곡 주제: " + singer.lyricalTheme
+                + "\n음역: " + singer.range
+                + "\n보컬 톤: " + singer.timbre
+                + "\n개별 창법: " + singer.technique
+                + "\n제작 상태: 음색·곡 검증 전"
+                + "\n\nSuno Style Prompt:\n" + singer.stylePrompt();
+        new AlertDialog.Builder(this)
+                .setTitle(singer.singerName() + " · 보컬 제작 명세")
+                .setMessage(info)
+                .setPositiveButton("Suno 스타일 복사", (dialog, which) -> {
+                    ClipboardManager clipboard =
+                            (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText(
+                                singer.singerName() + " Suno 스타일",
+                                singer.stylePrompt()));
+                        toast("가수별 Suno 스타일을 복사했습니다.");
+                    }
+                })
+                .setNeutralButton("Suno 제작 화면", (dialog, which) -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://suno.com/create")));
+                    } catch (RuntimeException error) {
+                        toast("Suno 페이지를 열 수 없습니다.");
+                    }
+                })
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
     private void startLocalRadioPreview() {
         if (songs.isEmpty()) {
             toast("미리듣기용 음악을 먼저 추가하세요.");
             return;
         }
         if (!AppStorage.songTitleTts(this) || !AppStorage.radioConversationEnabled(this)) {
-            toast("설정에서 곡 사이 TTS와 아환·윤솔 대화형 라디오를 켜 주세요.");
+            toast("설정에서 곡 사이 TTS와 AI 가수 교대 방송을 켜 주세요.");
             return;
         }
         AutoGreetingStore.setRunningMode(this, "local_radio_preview");
-        AutoGreetingStore.setStatus(this, "로컬 대화형 라디오 미리듣기 · BIGO 송출 없음");
+        AutoGreetingStore.setStatus(this, "로컬 32명 가수 인터뷰 미리듣기 · BIGO 송출 없음");
         if (playback != null) playback.setBigoCoexistenceMode(false);
         startMusicForBroadcast();
         refreshAutoGreetingStatus();
@@ -941,7 +1007,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "곡 사이 음성: "
                         + (!AppStorage.songTitleTts(this) ? "꺼짐"
                             : AppStorage.radioConversationEnabled(this)
-                                ? "아환·윤솔 대화형 라디오"
+                                ? (AppStorage.dailyRadioEnabled(this)
+                                   ? "오늘의 대화 주제 자동 갱신 (" 
+                                           + java.time.LocalDate.now().toString() + ")"
+                                   : "아환과 32명 가상 AI 가수 대화")
                                 : "한국어 → 영어 → 중국어 → 일본어 → 러시아어 안내")
                         + "\n"
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
@@ -1650,6 +1719,47 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
+    /** Attribution is opt-in; importing a file never fabricates a singer. */
+    private void showSongManageActions(int position) {
+        if (position < 0 || position >= songs.size()) return;
+        new AlertDialog.Builder(this)
+                .setTitle(displayName(Uri.parse(songs.get(position))))
+                .setItems(new String[]{
+                        "이 노래의 AI 가수 배정",
+                        "가수 배정 해제",
+                        "노래 삭제"
+                }, (dialog, selected) -> {
+                    if (selected == 0) showSongSingerPicker(position);
+                    else if (selected == 1) {
+                        AppStorage.setArtistForSong(this, songs.get(position), 0);
+                        refreshSongList();
+                        toast("이 곡의 가수 배정을 지웠습니다.");
+                    } else confirmDeleteSong(position);
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
+    private void showSongSingerPicker(int position) {
+        if (position < 0 || position >= songs.size()) return;
+        SunoArtistProductionCatalog.Profile[] profiles =
+                SunoArtistProductionCatalog.all();
+        String[] names = new String[profiles.length];
+        for (int i = 0; i < profiles.length; i++) {
+            names[i] = profiles[i].singerName() + " · " + profiles[i].genre
+                    + " · " + profiles[i].language;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("가수 배정 · 실제 가창 음원을 확인한 후 선택")
+                .setItems(names, (dialog, which) -> {
+                    AppStorage.setArtistForSong(this, songs.get(position),
+                            profiles[which].artistId);
+                    refreshSongList();
+                    toast(profiles[which].singerName()
+                            + " 가수 배정 완료 · 실제 음색 검증은 별도");
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
     private void deleteSong(int position) {
         if (position < 0 || position >= songs.size()) return;
 
@@ -1657,6 +1767,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             playback.stopPlayback();
         }
 
+        AppStorage.setArtistForSong(this, songs.get(position), 0);
         songs.remove(position);
         if (lyricDocs.size() > position
                 && lyricDocs.size() == songs.size() + 1) {
@@ -1684,6 +1795,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         (dialog, which) -> {
                             if (playback != null) {
                                 playback.stopPlayback();
+                            }
+                            for (String song : songs) {
+                                AppStorage.setArtistForSong(this, song, 0);
                             }
                             songs.clear();
                             lyricDocs.clear();
@@ -1956,7 +2070,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private void refreshSongList() {
         if (songList == null) return;
         List<String> names = new ArrayList<>();
-        for (String song : songs) names.add(displayName(Uri.parse(song)));
+        for (String song : songs) {
+            int singerId = AppStorage.artistForSong(this, song);
+            String title = displayName(Uri.parse(song));
+            if (singerId > 0) {
+                title += " · " + VirtualArtistCatalog.at(singerId - 1).name;
+            }
+            names.add(title);
+        }
         songList.setAdapter(new ArrayAdapter<>(
                 this, android.R.layout.simple_list_item_1, names));
     }

@@ -22,6 +22,8 @@ public final class AppStorage {
     private static final String KEY_MODE = "broadcast_mode";
     private static final String KEY_SONG_TITLE_TTS = "song_title_tts";
     private static final String KEY_RADIO_CONVERSATION = "radio_conversation_v1";
+    private static final String KEY_DAILY_RADIO = "daily_radio_v1";
+    private static final String KEY_TRACK_ARTIST = "song_artist_v1_";
     private static final String KEY_RANDOM_HISTORY = "random_history_v1";
     private static final String KEY_RANDOM_CYCLE = "random_cycle_v1";
     private static final String KEY_FILL_BROADCAST_IMAGE = "fill_broadcast_image";
@@ -84,6 +86,34 @@ public final class AppStorage {
 
     public static void setRadioConversationEnabled(Context c, boolean value) {
         prefs(c).edit().putBoolean(KEY_RADIO_CONVERSATION, value).apply();
+    }
+
+    /** Daily topics rotate based on the phone's local date; no install/network required. */
+    public static boolean dailyRadioEnabled(Context c) {
+        return prefs(c).getBoolean(KEY_DAILY_RADIO, true);
+    }
+
+    public static void setDailyRadioEnabled(Context c, boolean value) {
+        prefs(c).edit().putBoolean(KEY_DAILY_RADIO, value).apply();
+    }
+
+    /** User-selected artist attribution is metadata, NOT proof of AI singing. */
+    public static int artistForSong(Context c, String uri) {
+        if (uri == null || uri.trim().isEmpty()) return 0;
+        int stored = prefs(c).getInt(KEY_TRACK_ARTIST
+                + encodeKey(uri), 0);
+        return stored >= 1 && stored <= SunoArtistProductionCatalog.count() ? stored : 0;
+    }
+
+    public static void setArtistForSong(Context c, String uri, int artistId) {
+        if (uri == null || uri.trim().isEmpty()) return;
+        if (artistId < 0 || artistId > SunoArtistProductionCatalog.count())
+            throw new IllegalArgumentException("Invalid artist id");
+        String key = KEY_TRACK_ARTIST + encodeKey(uri);
+        SharedPreferences.Editor editor = prefs(c).edit();
+        if (artistId == 0) editor.remove(key);
+        else editor.putInt(key, artistId);
+        editor.apply();
     }
 
     public static Map<String, Long> loadRandomHistory(Context c) {

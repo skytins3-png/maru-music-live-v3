@@ -14,12 +14,14 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.speech.tts.UtteranceProgressListener;
 
 import androidx.core.app.NotificationCompat;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -53,6 +55,8 @@ public final class AutoGreetingService extends Service {
     private static final String EXTRA_GIFT_NAMES = "gift_names";
     private static final String EXTRA_FOLLOW_NAMES = "follow_names";
     private static final String EXTRA_RESUME_INDEX = "resume_index";
+    private static final String EXTRA_ARTIST_ID = "artist_id";
+    private static final String EXTRA_EPISODE_INDEX = "episode_index";
     private static final long SPEAK_TIMEOUT_MS = 35_000L;
     private static final String[] INTERMISSION_LANGUAGES =
             BroadcastVoicePolicy.orderedLanguages();
@@ -72,6 +76,7 @@ public final class AutoGreetingService extends Service {
     private int activeLanguageIndex = -1;
     private int activeDialogueIndex = -1;
     private RadioConversationScript.Line[] activeDialogue;
+    private final List<Voice> availableKoreanVoices = new ArrayList<>();
 
     private final Runnable speakTimeout = () -> {
         if (!speaking) return;
@@ -149,7 +154,8 @@ public final class AutoGreetingService extends Service {
     /** Queue an original two-presenter exchange, then resume the selected track. */
     public static boolean announceRadioIntermission(
             Context context, String nextTitle,
-            List<String> giftNames, List<String> followNames, int resumeIndex) {
+            List<String> giftNames, List<String> followNames,
+            int resumeIndex, int artistId, int episodeIndex) {
         if (context == null || resumeIndex < 0) return false;
         return safeStart(context, new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_RADIO_INTERMISSION)
@@ -161,7 +167,9 @@ public final class AutoGreetingService extends Service {
                 .putStringArrayListExtra(EXTRA_FOLLOW_NAMES,
                         new ArrayList<>(followNames == null
                                 ? java.util.Collections.<String>emptyList() : followNames))
-                .putExtra(EXTRA_RESUME_INDEX, resumeIndex));
+                .putExtra(EXTRA_RESUME_INDEX, resumeIndex)
+                .putExtra(EXTRA_ARTIST_ID, artistId)
+                .putExtra(EXTRA_EPISODE_INDEX, episodeIndex));
     }
 
     /** Keyboard-free preset closing announcement. Music is paused before this is called. */
@@ -230,6 +238,7 @@ public final class AutoGreetingService extends Service {
 
             ttsReady = true;
             ttsFailed = false;
+            loadSupportedKoreanVoices();
             tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
             tts.setPitch(BroadcastVoicePolicy.PITCH);
 
@@ -341,9 +350,12 @@ public final class AutoGreetingService extends Service {
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
         activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
-                ? RadioConversationScript.beforeSong(
-                        request.value, request.resumeIndex,
-                        request.giftNames, request.followNames)
+                ? MultiArtistRadioProgram.beforeSong(
+                        request.value, request.episodeIndex,
+                        java.time.LocalDate.now(),
+                        AppStorage.dailyRadioEnabled(this),
+                        request.giftNames, request.followNames,
+                        request.artistId)
                 : null;
 
         if (isRadioRequest()) {
@@ -378,12 +390,10 @@ public final class AutoGreetingService extends Service {
         }
 
         RadioConversationScript.Line line = activeDialogue[activeDialogueIndex];
-        tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
-        // Modest character differentiation, not a real person's cloned voice.
-        tts.setPitch(line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.90f : 1.08f);
-        String speakerName = line.speaker == RadioConversationScript.Speaker.AHWAN
-                ? "아환" : "윤솔";
-        String status = speakerName + " DJ · "
+        applyFictionalVoice(line);
+        String speakerName = line.artist != null ? line.artist.name
+                : line.speaker == RadioConversationScript.Speaker.AHWAN ? "아환" : "윤솔";
+        String status = speakerName + " · "
                 + (activeDialogueIndex + 1) + "/" + activeDialogue.length + " 대화 중";
         AutoGreetingStore.setStatus(this, status);
         startForeground(NOTIFICATION_ID, notification(status));
@@ -398,6 +408,41 @@ public final class AutoGreetingService extends Service {
         }
         main.removeCallbacks(speakTimeout);
         main.postDelayed(speakTimeout, SPEAK_TIMEOUT_MS);
+    }
+
+    /** Use local Korean voices where installed, without cloning anyone. */
+    private void loadSupportedKoreanVoices() {
+        availableKoreanVoices.clear();
+        try {
+            Set<Voice> installed = tts.getVoices();
+            if (installed == null) return;
+            for (Voice voice : installed) {
+                if (voice == null || voice.getLocale() == null
+                        || !"ko".equals(voice.getLocale().getLanguage())
+                        || voice.isNetworkConnectionRequired()) continue;
+                availableKoreanVoices.add(voice);
+            }
+            availableKoreanVoices.sort(Comparator.comparing(Voice::getName));
+        } catch (RuntimeException ignored) {
+            // Some device TTS providers do not enumerate installed voices.
+        }
+    }
+
+    private void applyFictionalVoice(RadioConversationScript.Line line) {
+        VirtualArtistCatalog.Artist artist = line.artist;
+        int voiceSlot = artist == null ? 0 : artist.voiceSlot;
+        if (!availableKoreanVoices.isEmpty()) {
+            try {
+                Voice chosen = availableKoreanVoices.get(
+                        Math.floorMod(voiceSlot, availableKoreanVoices.size()));
+                tts.setVoice(chosen);
+            } catch (RuntimeException ignored) {
+                // Fall back to phone's existing Korean voice.
+            }
+        }
+        tts.setPitch(artist != null ? artist.pitch :
+                line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.92f : 1.09f);
+        tts.setSpeechRate(artist != null ? artist.pace : BroadcastVoicePolicy.SPEECH_RATE);
     }
 
     private void speakCurrentLanguage() {
@@ -694,6 +739,8 @@ public final class AutoGreetingService extends Service {
         final List<String> giftNames;
         final List<String> followNames;
         final int resumeIndex;
+        int artistId;
+        int episodeIndex;
 
         AnnouncementRequest(
                 int kind,
@@ -717,7 +764,7 @@ public final class AutoGreetingService extends Service {
                             : kind == KIND_RADIO ? "radio" : language)
                     + "|" + giftNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + followNames.toString().toLowerCase(Locale.ROOT)
-                    + "|" + resumeIndex;
+                    + "|" + resumeIndex + "|" + artistId + "|" + episodeIndex;
         }
 
         static AnnouncementRequest fromIntent(Intent intent) {
@@ -737,11 +784,14 @@ public final class AutoGreetingService extends Service {
                         resumeIndex);
             }
             if (ACTION_RADIO_INTERMISSION.equals(action)) {
-                return new AnnouncementRequest(
+                AnnouncementRequest radio = new AnnouncementRequest(
                         KIND_RADIO, value, GreetingLanguage.KOREAN,
                         intent.getStringArrayListExtra(EXTRA_GIFT_NAMES),
                         intent.getStringArrayListExtra(EXTRA_FOLLOW_NAMES),
                         resumeIndex);
+                radio.artistId = intent.getIntExtra(EXTRA_ARTIST_ID, 0);
+                radio.episodeIndex = intent.getIntExtra(EXTRA_EPISODE_INDEX, 0);
+                return radio;
             }
             if (ACTION_CLOSING.equals(action)) {
                 return new AnnouncementRequest(
