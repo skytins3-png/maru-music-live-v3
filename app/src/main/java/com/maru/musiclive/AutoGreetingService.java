@@ -148,12 +148,19 @@ public final class AutoGreetingService extends Service {
 
     /** Queue an original two-presenter exchange, then resume the selected track. */
     public static boolean announceRadioIntermission(
-            Context context, String nextTitle, int resumeIndex) {
+            Context context, String nextTitle,
+            List<String> giftNames, List<String> followNames, int resumeIndex) {
         if (context == null || resumeIndex < 0) return false;
         return safeStart(context, new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_RADIO_INTERMISSION)
                 .putExtra(EXTRA_VALUE, RadioConversationScript.cleanTitle(nextTitle))
                 .putExtra(EXTRA_LANGUAGE, GreetingLanguage.KOREAN)
+                .putStringArrayListExtra(EXTRA_GIFT_NAMES,
+                        new ArrayList<>(giftNames == null
+                                ? java.util.Collections.<String>emptyList() : giftNames))
+                .putStringArrayListExtra(EXTRA_FOLLOW_NAMES,
+                        new ArrayList<>(followNames == null
+                                ? java.util.Collections.<String>emptyList() : followNames))
                 .putExtra(EXTRA_RESUME_INDEX, resumeIndex));
     }
 
@@ -315,7 +322,7 @@ public final class AutoGreetingService extends Service {
     }
 
     private void playNext() {
-        if (!ttsReady || speaking) return;
+        if (!ttsReady || speaking || activeRequest != null) return;
         AnnouncementRequest request;
         synchronized (queue) {
             request = queue.poll();
@@ -334,7 +341,9 @@ public final class AutoGreetingService extends Service {
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
         activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
-                ? RadioConversationScript.beforeSong(request.value, request.resumeIndex)
+                ? RadioConversationScript.beforeSong(
+                        request.value, request.resumeIndex,
+                        request.giftNames, request.followNames)
                 : null;
 
         if (isRadioRequest()) {
@@ -730,7 +739,9 @@ public final class AutoGreetingService extends Service {
             if (ACTION_RADIO_INTERMISSION.equals(action)) {
                 return new AnnouncementRequest(
                         KIND_RADIO, value, GreetingLanguage.KOREAN,
-                        new ArrayList<>(), new ArrayList<>(), resumeIndex);
+                        intent.getStringArrayListExtra(EXTRA_GIFT_NAMES),
+                        intent.getStringArrayListExtra(EXTRA_FOLLOW_NAMES),
+                        resumeIndex);
             }
             if (ACTION_CLOSING.equals(action)) {
                 return new AnnouncementRequest(
