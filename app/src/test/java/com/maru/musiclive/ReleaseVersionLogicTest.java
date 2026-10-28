@@ -17,7 +17,7 @@ public class ReleaseVersionLogicTest {
     @Test public void refusesCertificateMismatchAndMissingFingerprint() {
         String a = "ab".repeat(32);
         String b = "cd".repeat(32);
-        String release = "MARU RADIO trusted release\\nSIGNER_SHA256=" + a + "\\n";
+        String release = "MARU RADIO trusted release\nSIGNER_SHA256=" + a + "\n";
         assertTrue(ReleaseVersionLogic.sameReleaseSigner(release, a));
         assertTrue(ReleaseVersionLogic.sameReleaseSigner(release, a.toUpperCase()));
         assertFalse(ReleaseVersionLogic.sameReleaseSigner(release, b));
