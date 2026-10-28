@@ -623,6 +623,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "실제 가수별 노래 음원과 개별 보컬 모델은 별도로 제작·검증해야 하며 BIGO 자동 송출은 아닙니다.",
                 13, false));
 
+        column.addView(button("AI 가수 32명 · 고유 음색·창법 제작표", v ->
+                showSunoArtistRoster()));
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
                 requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
@@ -676,6 +678,62 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     /** Preview the DJ conversation and original music entirely on this device. */
+    /** Production profiles are plans, not completed artist voice models. */
+    private void showSunoArtistRoster() {
+        SunoArtistProductionCatalog.Profile[] profiles =
+                SunoArtistProductionCatalog.all();
+        String[] labels = new String[profiles.length];
+        for (int i = 0; i < profiles.length; i++) {
+            SunoArtistProductionCatalog.Profile item = profiles[i];
+            labels[i] = item.artistId + ". " + item.singerName()
+                    + " · " + item.genre + " · " + item.language
+                    + " · 제작 대기";
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("MARU STUDIO · 32명 가수 보컬 제작 목록")
+                .setMessage("32명 모두 고유 보컬 제작 사양만 준비된 상태입니다. "
+                        + "실제 가창 음원 및 개별 Persona 검증은 완료되지 않았습니다.")
+                .setItems(labels, (dialog, which) -> showSunoArtistProfile(profiles[which]))
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
+    private void showSunoArtistProfile(SunoArtistProductionCatalog.Profile singer) {
+        String info = "가수: " + singer.singerName()
+                + "\n장르: " + singer.genre
+                + "\n언어: " + singer.language
+                + "\n신곡 작업명: " + singer.originalTitle
+                + "\n곡 주제: " + singer.lyricalTheme
+                + "\n음역: " + singer.range
+                + "\n보컬 톤: " + singer.timbre
+                + "\n개별 창법: " + singer.technique
+                + "\n제작 상태: 음색·곡 검증 전"
+                + "\n\nSuno Style Prompt:\n" + singer.stylePrompt();
+        new AlertDialog.Builder(this)
+                .setTitle(singer.singerName() + " · 보컬 제작 명세")
+                .setMessage(info)
+                .setPositiveButton("Suno 스타일 복사", (dialog, which) -> {
+                    ClipboardManager clipboard =
+                            (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText(
+                                singer.singerName() + " Suno 스타일",
+                                singer.stylePrompt()));
+                        toast("가수별 Suno 스타일을 복사했습니다.");
+                    }
+                })
+                .setNeutralButton("Suno 제작 화면", (dialog, which) -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://suno.com/create")));
+                    } catch (RuntimeException error) {
+                        toast("Suno 페이지를 열 수 없습니다.");
+                    }
+                })
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
     private void startLocalRadioPreview() {
         if (songs.isEmpty()) {
             toast("미리듣기용 음악을 먼저 추가하세요.");
