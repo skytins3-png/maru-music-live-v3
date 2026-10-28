@@ -17,6 +17,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
 
 import java.io.IOException;
@@ -261,6 +262,9 @@ public final class RadioPlaybackService extends Service {
     private void prepareTrack(Originals.Track t, int ticket) {
         try {
             MediaPlayer m = new MediaPlayer();
+            // Hold a partial wake lock only while MediaPlayer is active.
+            // MediaPlayer manages acquisition/release across playback transitions.
+            m.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
             AudioAttributes.Builder output = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC);
