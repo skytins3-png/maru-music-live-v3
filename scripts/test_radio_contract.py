@@ -41,6 +41,17 @@ checks = {
     "music auto-end service timer": "SystemClock.elapsedRealtime()" in (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8") and "ACTION_SET_TIMER" in activity,
     "music timer only": "RadioProgram.durationMinutes(this)" in activity and
         "EXTRA_END_BIGO" not in activity,
+    "never default to one-hour stop": 'getBoolean("auto_stop_enabled", false)' in
+        (root / "radio/src/main/java/com/maru/radio/RadioProgram.java").read_text(encoding="utf-8"),
+    "timer requires explicit opt in": "RadioProgram.setAutoStopEnabled(this, true)" in activity and
+        "RadioProgram.setAutoStopEnabled(this, false)" in activity,
+    "scheduled start respects timer opt in": "if (RadioProgram.autoStopEnabled(this))" in
+        (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
+    "BIGO audio handoff releases focus": "ACTION_BIGO_COEXIST" in activity and
+        "audio.abandonAudioFocusRequest(focusRequest)" in
+        (root / "radio/src/main/java/com/maru/radio/RadioPlaybackService.java").read_text(encoding="utf-8"),
+    "BIGO handoff still user driven": "startActivity(open)" in activity and
+        "BigoControlAssist" not in activity,
     "one-time clock reminder": "RadioSchedule" in manifest and "POST_NOTIFICATIONS" in manifest and
         "new Intent(this, RadioAutomationActivity.class)" in activity,
     "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
