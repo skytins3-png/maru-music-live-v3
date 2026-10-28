@@ -1,4 +1,4 @@
-name: Build MARU MUSIC LIVE V3.2.16 APK
+name: Build MARU MUSIC LIVE V3.2.17 APK
 
 on:
   workflow_dispatch:
@@ -33,7 +33,7 @@ jobs:
           find . -maxdepth 1 -type f -name '*.java' -print -delete
           rm -rf build app/build .gradle
 
-          # 구형 음성 리소스와 알려진 저장소 잔재를 제거한다. V3.2.16에서는 접근성 서비스/민감 권한을 포함하지 않는다.
+          # 구형 음성 리소스와 알려진 저장소 잔재를 제거한다. V3.2.17에서는 접근성 서비스/민감 권한을 포함하지 않는다.
           rm -f app/src/main/res/raw/default_male_greeting*.mp3
           rm -f app/src/main/java/com/maru/musiclive/BigoAccessibilityService.java
           rm -f app/src/main/java/com/maru/musiclive/AccessibilityEventRelay.java
@@ -169,30 +169,72 @@ jobs:
           unzip -t app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.2.16-DEBUG.apk
-          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.2.16-MUSIC-RELEASE.apk
+          cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk
+          cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk
+          SIGNER=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+          [[ "$SIGNER" =~ ^[0-9a-f]{64}$ ]]
+          echo "$SIGNER" > MARU-SIGNER-SHA256.txt
+          echo "RELEASE-SIGNER-SHA256: $SIGNER"
 
           # Reject a renamed old APK: inspect the embedded manifest of the actual built outputs.
-          for apk in MARU-MUSIC-LIVE-V3.2.16-DEBUG.apk MARU-MUSIC-LIVE-V3.2.16-MUSIC-RELEASE.apk; do
+          for apk in MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk; do
             "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" > /tmp/maru-badging.txt
-            grep -F "name='com.maru.musiclive.ocr' versionCode='3035' versionName='3.2.16" /tmp/maru-badging.txt
-            echo "VERSION-VERIFIED: $apk has build code 3035 and version 3.2.16"
+            grep -F "name='com.maru.musiclive.ocr' versionCode='3036' versionName='3.2.17" /tmp/maru-badging.txt
+            echo "VERSION-VERIFIED: $apk has build code 3036 and version 3.2.17"
           done
 
       - name: Inspect actual built APK contents
         run: |
           echo "---- Debug APK raw resources ----"
-          unzip -l MARU-MUSIC-LIVE-V3.2.16-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          unzip -l MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
           echo "---- Release APK raw resources ----"
-          unzip -l MARU-MUSIC-LIVE-V3.2.16-MUSIC-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
-          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.16-DEBUG.apk
-          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.16-MUSIC-RELEASE.apk
+          unzip -l MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk | grep -E 'res/raw|actual_music|actual_lyrics' || true
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk
+          python3 scripts/check_built_apk.py MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk
 
       - name: Upload APK files
         uses: actions/upload-artifact@v4
         with:
-          name: MARU-MUSIC-LIVE-V3.2.16-APK
+          name: MARU-MUSIC-LIVE-V3.2.17-APK
           path: |
-            MARU-MUSIC-LIVE-V3.2.16-DEBUG.apk
-            MARU-MUSIC-LIVE-V3.2.16-MUSIC-RELEASE.apk
+            MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk
+            MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk
+            MARU-SIGNER-SHA256.txt
           if-no-files-found: error
+
+  publish:
+    name: Publish verified update APK
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch only the verified build APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: MARU-MUSIC-LIVE-V3.2.17-APK
+
+      - name: Publish stable GitHub Release for in-app updater
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk
+          unzip -t MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk > /dev/null
+          cp MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk MARU-RADIO.apk
+          sha256sum MARU-RADIO.apk > SHA256SUMS.txt
+          SIGNER=$(cat MARU-SIGNER-SHA256.txt)
+          [[ "$SIGNER" =~ ^[0-9a-f]{64}$ ]]
+          printf 'MARU RADIO V3.2.17 검증 배포판. Android 설치 승인은 사용자 선택입니다.\n\nSIGNER_SHA256=%s\n' "$SIGNER" > RELEASE_NOTES.txt
+          if gh release view "v3.2.17" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v3.2.17 already exists; do not overwrite its APK."
+            exit 0
+          fi
+          gh release create "v3.2.17" MARU-RADIO.apk SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "MARU RADIO v3.2.17 자동 업데이트 확인" \
+            --notes-file RELEASE_NOTES.txt \
+            --latest

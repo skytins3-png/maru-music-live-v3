@@ -80,6 +80,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService musicScanExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService appUpdateExecutor = Executors.newSingleThreadExecutor();
     private final List<String> songs = new ArrayList<>();
     private final List<String> images = new ArrayList<>();
     private final List<String> lyricDocs = new ArrayList<>();
@@ -332,6 +333,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         refreshAutoGreetingStatus();
         syncPlayButtonState();
         handler.postDelayed(this::syncPlayButtonState, 250L);
+        checkAppUpdate(false);
     }
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
@@ -510,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.16 · 아환 + AI 가수 32명 교대 방송",
+                "V3.2.17 · 아환 + AI 가수 32명 · 자동 업데이트 확인",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -526,6 +528,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 true);
         guide.setBackgroundColor(0x6651246B);
         column.addView(guide);
+        column.addView(button("새 버전 확인 · 업데이트 다운로드", v -> checkAppUpdate(true)));
+        column.addView(text(
+                "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
+                        + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
+                13, false));
 
         Button openPlayer = button(
                 "전체화면 이미지 플레이어 열기",
@@ -804,6 +811,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         String[] items = {
                 "BIGO 오디오 LIVE 시작",
                 "노래·이미지·설정 열기",
+                "새 버전 확인 · 업데이트",
                 "완전 종료"
         };
         new AlertDialog.Builder(this)
@@ -813,6 +821,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         startCommunityLive("오디오 LIVE");
                     } else if (which == 1) {
                         openSetupFromPlayer();
+                    } else if (which == 2) {
+                        checkAppUpdate(true);
                     } else {
                         stopAllBroadcastNow();
                     }
@@ -2202,7 +2212,61 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         handler.postDelayed(this::syncPlayButtonState, 120L);
     }
 
+    private void checkAppUpdate(boolean manual) {
+        android.content.SharedPreferences preferences =
+                getSharedPreferences("maru_update_check", Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        if (!manual) {
+            long last = preferences.getLong("last_checked_ms", 0L);
+            if (last > 0L && now >= last && now - last < 24L * 60L * 60L * 1000L) {
+                return;
+            }
+        }
+        preferences.edit().putLong("last_checked_ms", now).apply();
+        if (manual) toast("업데이트 서버 확인 중…");
+        appUpdateExecutor.execute(() -> {
+            AppUpdateChecker.Result result = AppUpdateChecker.check(getApplicationContext());
+            handler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (result.hasUpdate()) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("MARU RADIO V" + result.latestVersion + " 업데이트")
+                            .setMessage("현재 V" + result.installedVersion + " → 새 V"
+                                    + result.latestVersion + "\n\n"
+                                    + "새 APK 다운로드 페이지를 엽니다. "
+                                    + "설치 전에 시스템 승인이 필요하며, 기존 앱을 삭제하지 마세요.")
+                            .setPositiveButton("새 APK 다운로드", (dialog, which) -> {
+                                try {
+                                    startActivity(new Intent(Intent.ACTION_VIEW,
+                                            Uri.parse(result.downloadUrl)));
+                                } catch (ActivityNotFoundException error) {
+                                    toast("다운로드를 열 브라우저가 없습니다.");
+                                }
+                            })
+                            .setNegativeButton("나중에", null)
+                            .show();
+                } else if (result.needsSigningFix()) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("업데이트 설치 보호")
+                            .setMessage(result.message)
+                            .setPositiveButton("확인", null)
+                            .show();
+                } else if (manual) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("MARU RADIO 업데이트 확인")
+                            .setMessage(result.message + "\n\n설치 버전: V"
+                                    + result.installedVersion
+                                    + (result.latestVersion.isEmpty() ? ""
+                                            : "\n배포 버전: V" + result.latestVersion))
+                            .setPositiveButton("확인", null)
+                            .show();
+                }
+            });
+        });
+    }
+
     @Override protected void onDestroy() {
+        appUpdateExecutor.shutdownNow();
         musicScanExecutor.shutdownNow();
         handler.removeCallbacksAndMessages(null);
         try { unregisterReceiver(liveEventReceiver); } catch (IllegalArgumentException ignored) {}
