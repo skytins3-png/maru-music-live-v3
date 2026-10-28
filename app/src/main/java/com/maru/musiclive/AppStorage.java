@@ -22,6 +22,7 @@ public final class AppStorage {
     private static final String KEY_MODE = "broadcast_mode";
     private static final String KEY_SONG_TITLE_TTS = "song_title_tts";
     private static final String KEY_RADIO_CONVERSATION = "radio_conversation_v1";
+    private static final String KEY_DAILY_RADIO = "daily_radio_v1";
     private static final String KEY_RANDOM_HISTORY = "random_history_v1";
     private static final String KEY_RANDOM_CYCLE = "random_cycle_v1";
     private static final String KEY_FILL_BROADCAST_IMAGE = "fill_broadcast_image";
@@ -84,6 +85,15 @@ public final class AppStorage {
 
     public static void setRadioConversationEnabled(Context c, boolean value) {
         prefs(c).edit().putBoolean(KEY_RADIO_CONVERSATION, value).apply();
+    }
+
+    /** Daily topics rotate based on the phone's local date; no install/network required. */
+    public static boolean dailyRadioEnabled(Context c) {
+        return prefs(c).getBoolean(KEY_DAILY_RADIO, true);
+    }
+
+    public static void setDailyRadioEnabled(Context c, boolean value) {
+        prefs(c).edit().putBoolean(KEY_DAILY_RADIO, value).apply();
     }
 
     public static Map<String, Long> loadRandomHistory(Context c) {
