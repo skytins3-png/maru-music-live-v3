@@ -633,7 +633,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(button("완전 종료", v -> stopAllBroadcastNow()));
 
         TextView songGuide = text(
-                "노래 터치: 재생 · 길게: 삭제",
+                "노래 터치: 재생 · 길게: AI 가수 배정/삭제",
                 14,
                 false);
         songGuide.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -645,7 +645,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             if (playback != null) playback.play(position);
         });
         songList.setOnItemLongClickListener((parent, view, position, id) -> {
-            confirmDeleteSong(position);
+            showSongManageActions(position);
             return true;
         });
         column.addView(songList, new LinearLayout.LayoutParams(
@@ -1721,6 +1721,47 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
+    /** Attribution is opt-in; importing a file never fabricates a singer. */
+    private void showSongManageActions(int position) {
+        if (position < 0 || position >= songs.size()) return;
+        new AlertDialog.Builder(this)
+                .setTitle(displayName(Uri.parse(songs.get(position))))
+                .setItems(new String[]{
+                        "이 노래의 AI 가수 배정",
+                        "가수 배정 해제",
+                        "노래 삭제"
+                }, (dialog, selected) -> {
+                    if (selected == 0) showSongSingerPicker(position);
+                    else if (selected == 1) {
+                        AppStorage.setArtistForSong(this, songs.get(position), 0);
+                        refreshSongList();
+                        toast("이 곡의 가수 배정을 지웠습니다.");
+                    } else confirmDeleteSong(position);
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
+    private void showSongSingerPicker(int position) {
+        if (position < 0 || position >= songs.size()) return;
+        SunoArtistProductionCatalog.Profile[] profiles =
+                SunoArtistProductionCatalog.all();
+        String[] names = new String[profiles.length];
+        for (int i = 0; i < profiles.length; i++) {
+            names[i] = profiles[i].singerName() + " · " + profiles[i].genre
+                    + " · " + profiles[i].language;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("가수 배정 · 실제 가창 음원을 확인한 후 선택")
+                .setItems(names, (dialog, which) -> {
+                    AppStorage.setArtistForSong(this, songs.get(position),
+                            profiles[which].artistId);
+                    refreshSongList();
+                    toast(profiles[which].singerName()
+                            + " 가수 배정 완료 · 실제 음색 검증은 별도");
+                })
+                .setNegativeButton("취소", null).show();
+    }
+
     private void deleteSong(int position) {
         if (position < 0 || position >= songs.size()) return;
 
@@ -1728,6 +1769,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             playback.stopPlayback();
         }
 
+        AppStorage.setArtistForSong(this, songs.get(position), 0);
         songs.remove(position);
         if (lyricDocs.size() > position
                 && lyricDocs.size() == songs.size() + 1) {
@@ -1755,6 +1797,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         (dialog, which) -> {
                             if (playback != null) {
                                 playback.stopPlayback();
+                            }
+                            for (String song : songs) {
+                                AppStorage.setArtistForSong(this, song, 0);
                             }
                             songs.clear();
                             lyricDocs.clear();
@@ -2027,7 +2072,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private void refreshSongList() {
         if (songList == null) return;
         List<String> names = new ArrayList<>();
-        for (String song : songs) names.add(displayName(Uri.parse(song)));
+        for (String song : songs) {
+            int singerId = AppStorage.artistForSong(this, song);
+            String title = displayName(Uri.parse(song));
+            if (singerId > 0) {
+                title += " · " + VirtualArtistCatalog.at(singerId - 1).name;
+            }
+            names.add(title);
+        }
         songList.setAdapter(new ArrayAdapter<>(
                 this, android.R.layout.simple_list_item_1, names));
     }
