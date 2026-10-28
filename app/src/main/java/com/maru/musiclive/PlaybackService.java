@@ -90,6 +90,8 @@ public final class PlaybackService extends Service {
     private boolean randomMode;
     private boolean preparing;
     private boolean intermissionPending;
+    /** Independent of track index: even a single repeated song cycles guest singers. */
+    private int radioEpisodeIndex;
     private boolean randomRetryScheduled;
 
     private final Runnable randomRetry = () -> {
@@ -362,10 +364,12 @@ public final class PlaybackService extends Service {
         notifyState(false);
         startForeground(NOTIFICATION_ID, notification("곡 사이 통합 안내 중"));
 
+        int episode = radioEpisodeIndex;
+        radioEpisodeIndex = (radioEpisodeIndex + 1) % 1_000_000;
         boolean started = AppStorage.radioConversationEnabled(this)
                 ? AutoGreetingService.announceRadioIntermission(
                         this, title, snapshot.giftNames, snapshot.followNames,
-                        nextIndex, assignedArtist)
+                        nextIndex, assignedArtist, episode)
                 : AutoGreetingService.announceIntermission(
                         this,
                         title,
@@ -720,6 +724,7 @@ public final class PlaybackService extends Service {
             abandonFocus();
             cancelRandomRetry();
             intermissionPending = false;
+            radioEpisodeIndex = 0;
             releasePlayer();
             currentIndex = -1;
             notifyState(false);
