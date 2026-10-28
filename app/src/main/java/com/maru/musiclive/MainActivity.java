@@ -592,7 +592,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(random);
 
         CheckBox songTitleTts = checkBox(
-                "곡 사이 5개 언어 통합 안내 (아환·윤솔 모드에서는 대화 방송)",
+                "곡 사이 5개 언어 통합 안내",
                 AppStorage.songTitleTts(this));
         songTitleTts.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setSongTitleTts(this, checked));
@@ -606,6 +606,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             refreshAutoGreetingStatus();
         });
         column.addView(radioConversation);
+        column.addView(text(
+                "대화형 라디오를 켜면 곡 사이 5개 언어 안내 대신 아환·윤솔이 한국어로 대화합니다.",
+                13, false));
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
