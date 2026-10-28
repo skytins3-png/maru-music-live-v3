@@ -341,9 +341,14 @@ public final class AutoGreetingService extends Service {
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
         activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
-                ? RadioConversationScript.beforeSong(
-                        request.value, request.resumeIndex,
-                        request.giftNames, request.followNames)
+                ? (AppStorage.dailyRadioEnabled(this)
+                    ? DailyRadioProgram.beforeSong(
+                            request.value, request.resumeIndex,
+                            java.time.LocalDate.now(),
+                            request.giftNames, request.followNames)
+                    : RadioConversationScript.beforeSong(
+                            request.value, request.resumeIndex,
+                            request.giftNames, request.followNames))
                 : null;
 
         if (isRadioRequest()) {
