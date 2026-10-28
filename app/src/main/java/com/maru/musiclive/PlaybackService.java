@@ -362,7 +362,8 @@ public final class PlaybackService extends Service {
         startForeground(NOTIFICATION_ID, notification("곡 사이 통합 안내 중"));
 
         boolean started = AppStorage.radioConversationEnabled(this)
-                ? AutoGreetingService.announceRadioIntermission(this, title, nextIndex)
+                ? AutoGreetingService.announceRadioIntermission(
+                        this, title, snapshot.giftNames, snapshot.followNames, nextIndex)
                 : AutoGreetingService.announceIntermission(
                         this,
                         title,
