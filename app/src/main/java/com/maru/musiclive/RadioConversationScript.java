@@ -66,6 +66,28 @@ public final class RadioConversationScript {
         }
     }
 
+    /**
+     * Mention only events that were actually queued for this intermission.
+     * Do not speak untrusted nicknames or make up individual viewers.
+     */
+    public static Line[] beforeSong(
+            String title, int songIndex,
+            java.util.List<String> giftNames, java.util.List<String> followNames) {
+        Line[] base = beforeSong(title, songIndex);
+        boolean gifts = giftNames != null && !giftNames.isEmpty();
+        boolean follows = followNames != null && !followNames.isEmpty();
+        if (!gifts && !follows) return base;
+        String thanks = gifts && follows
+                ? "실제로 선물과 팔로우로 응원해주신 여러분, 감사합니다."
+                : gifts ? "선물로 응원해주신 여러분, 감사합니다."
+                        : "새로 팔로우해주신 여러분, 감사합니다.";
+        Line[] result = new Line[base.length + 1];
+        result[0] = base[0];
+        result[1] = new Line(Speaker.AHWAN, thanks);
+        System.arraycopy(base, 1, result, 2, base.length - 1);
+        return result;
+    }
+
     /** Limit unintended text-to-speech from externally named audio files. */
     public static String cleanTitle(String value) {
         if (value == null) return "다음 음악";
