@@ -551,6 +551,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
         column.addView(button(
+                "아환·윤솔 라디오 미리듣기 (BIGO 미송출)",
+                v -> startLocalRadioPreview()));
+        column.addView(button(
                 "BIGO 앱 직접 열기",
                 v -> openBigoChat()));
 
@@ -597,6 +600,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         songTitleTts.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setSongTitleTts(this, checked));
         column.addView(songTitleTts);
+
+        CheckBox radioConversation = checkBox(
+                "아환·윤솔 대화형 라디오 (곡 사이, 한국어)",
+                AppStorage.radioConversationEnabled(this));
+        radioConversation.setOnCheckedChangeListener((buttonView, checked) -> {
+            AppStorage.setRadioConversationEnabled(this, checked);
+            refreshAutoGreetingStatus();
+        });
+        column.addView(radioConversation);
+        column.addView(text(
+                "대화형 라디오를 켜면 곡 사이 5개 언어 안내 대신 아환·윤솔이 한국어로 대화합니다.",
+                13, false));
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
@@ -648,6 +663,24 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         audioPickerLauncher.launch(new String[]{"audio/*"}))
                 .setNegativeButton("닫기", null)
                 .show();
+    }
+
+    /** Preview the DJ conversation and original music entirely on this device. */
+    private void startLocalRadioPreview() {
+        if (songs.isEmpty()) {
+            toast("미리듣기용 음악을 먼저 추가하세요.");
+            return;
+        }
+        if (!AppStorage.songTitleTts(this) || !AppStorage.radioConversationEnabled(this)) {
+            toast("설정에서 곡 사이 TTS와 아환·윤솔 대화형 라디오를 켜 주세요.");
+            return;
+        }
+        AutoGreetingStore.setRunningMode(this, "local_radio_preview");
+        AutoGreetingStore.setStatus(this, "로컬 대화형 라디오 미리듣기 · BIGO 송출 없음");
+        if (playback != null) playback.setBigoCoexistenceMode(false);
+        startMusicForBroadcast();
+        refreshAutoGreetingStatus();
+        toast("라디오 미리듣기 실행 · 재생 중이었다면 다음 곡부터 대화합니다.");
     }
 
     private void startCommunityLive(String liveMode) {
@@ -905,11 +938,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         autoGreetingStatusView.setText(
                 mode + "\n"
-                        + "매 곡 사이 TTS: 한국어 → 영어 → 중국어 → 일본어 → 러시아어 모두 연속\n"
+                        + "곡 사이 음성: "
+                        + (!AppStorage.songTitleTts(this) ? "꺼짐"
+                            : AppStorage.radioConversationEnabled(this)
+                                ? "아환·윤솔 대화형 라디오"
+                                : "한국어 → 영어 → 중국어 → 일본어 → 러시아어 안내")
+                        + "\n"
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
                         + " · 대화형 화면 답변: "
                         + (AdaptiveAiStore.conversationEnabled(this) ? "켜짐" : "꺼짐")
-                        + " · 댓글 음성 답변: 꺼짐 · 댓글 글 자동전송: 켜짐"
+                        + " · 댓글 음성 답변: 꺼짐 · 댓글 글 자동전송: 꺼짐"
                         + " · 미확인 언어: "
                         + GreetingLanguage.koreanLabel(AdaptiveAiStore.defaultLanguage(this))
                         + "\n"
