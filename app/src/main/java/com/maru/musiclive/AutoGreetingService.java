@@ -37,6 +37,8 @@ public final class AutoGreetingService extends Service {
 
     private static final String ACTION_INTERMISSION =
             "com.maru.musiclive.TTS_INTERMISSION";
+    private static final String ACTION_RADIO_INTERMISSION =
+            "com.maru.musiclive.TTS_RADIO_INTERMISSION";
     private static final String ACTION_SONG_TITLE =
             "com.maru.musiclive.TTS_SONG_TITLE";
     private static final String ACTION_CLOSING =
@@ -68,10 +70,16 @@ public final class AutoGreetingService extends Service {
     private int activeResumeIndex = -1;
     private AnnouncementRequest activeRequest;
     private int activeLanguageIndex = -1;
+    private int activeDialogueIndex = -1;
+    private RadioConversationScript.Line[] activeDialogue;
 
     private final Runnable speakTimeout = () -> {
         if (!speaking) return;
-        if (isMultiLanguageRequest()) {
+        if (isRadioRequest()) {
+            AutoGreetingStore.setStatus(this, "대화 시간 초과 · 다음 멘트로 넘어갑니다.");
+            try { if (tts != null) tts.stop(); } catch (RuntimeException ignored) {}
+            advanceDialogue(false);
+        } else if (isMultiLanguageRequest()) {
             AutoGreetingStore.setStatus(this, "현재 언어 안내 시간이 초과되어 다음 언어로 넘어갑니다.");
             advanceLanguage(false);
         } else {
@@ -136,6 +144,17 @@ public final class AutoGreetingService extends Service {
                                 : followNames))
                 .putExtra(EXTRA_RESUME_INDEX, resumeIndex);
         return safeStart(context, intent);
+    }
+
+    /** Queue an original two-presenter exchange, then resume the selected track. */
+    public static boolean announceRadioIntermission(
+            Context context, String nextTitle, int resumeIndex) {
+        if (context == null || resumeIndex < 0) return false;
+        return safeStart(context, new Intent(context, AutoGreetingService.class)
+                .setAction(ACTION_RADIO_INTERMISSION)
+                .putExtra(EXTRA_VALUE, RadioConversationScript.cleanTitle(nextTitle))
+                .putExtra(EXTRA_LANGUAGE, GreetingLanguage.KOREAN)
+                .putExtra(EXTRA_RESUME_INDEX, resumeIndex));
     }
 
     /** Keyboard-free preset closing announcement. Music is paused before this is called. */
@@ -223,24 +242,35 @@ public final class AutoGreetingService extends Service {
                                 System.currentTimeMillis());
                         AutoGreetingStore.setStatus(
                                 AutoGreetingService.this,
-                                "곡 사이 5개 언어 통합 안내 재생 중");
+                                isRadioRequest()
+                                        ? "아환·윤솔 대화형 음악방송 진행 중"
+                                        : "곡 사이 TTS 안내 재생 중");
                     });
                 }
 
                 @Override public void onDone(String utteranceId) {
                     main.post(() -> {
                         if (!utteranceId.equals(activeUtteranceId)) return;
-                        if (isMultiLanguageRequest()) advanceLanguage(true);
+                        if (isRadioRequest()) advanceDialogue(true);
+                        else if (isMultiLanguageRequest()) advanceLanguage(true);
                         else finishCurrent(true);
                     });
                 }
 
                 @Override public void onError(String utteranceId) {
-                    main.post(() -> handleSpeechError("곡 사이 TTS 오류"));
+                    main.post(() -> {
+                        if (utteranceId.equals(activeUtteranceId)) {
+                            handleSpeechError("곡 사이 TTS 오류");
+                        }
+                    });
                 }
 
                 @Override public void onError(String utteranceId, int errorCode) {
-                    main.post(() -> handleSpeechError("곡 사이 TTS 오류 " + errorCode));
+                    main.post(() -> {
+                        if (utteranceId.equals(activeUtteranceId)) {
+                            handleSpeechError("곡 사이 TTS 오류 " + errorCode);
+                        }
+                    });
                 }
             });
             main.post(this::playNext);
@@ -255,6 +285,7 @@ public final class AutoGreetingService extends Service {
         }
 
         if (!ACTION_INTERMISSION.equals(action)
+                && !ACTION_RADIO_INTERMISSION.equals(action)
                 && !ACTION_SONG_TITLE.equals(action)
                 && !ACTION_CLOSING.equals(action)) {
             return START_NOT_STICKY;
@@ -301,12 +332,63 @@ public final class AutoGreetingService extends Service {
         activeResumeIndex = request.resumeIndex;
         activeLanguageIndex = request.kind == AnnouncementRequest.KIND_INTERMISSION
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
+        activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
+        activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
+                ? RadioConversationScript.beforeSong(request.value, request.resumeIndex)
+                : null;
 
-        if (isMultiLanguageRequest()) {
+        if (isRadioRequest()) {
+            speakCurrentDialogue();
+        } else if (isMultiLanguageRequest()) {
             speakCurrentLanguage();
         } else {
             speakSingleLanguage(request, request.language);
         }
+    }
+
+    /** Each line completes before the next speaker starts; no song overlap. */
+    private void speakCurrentDialogue() {
+        if (!isRadioRequest() || activeDialogue == null) {
+            finishCurrent(false);
+            return;
+        }
+        if (activeDialogueIndex < 0 || activeDialogueIndex >= activeDialogue.length) {
+            finishCurrent(true);
+            return;
+        }
+        if (!languageAvailable(GreetingLanguage.KOREAN)) {
+            AutoGreetingStore.setStatus(this, "한국어 TTS 없음 · 음악 재생으로 복귀");
+            finishCurrent(false);
+            return;
+        }
+        int result = tts.setLanguage(GreetingLanguage.locale(GreetingLanguage.KOREAN));
+        if (result == TextToSpeech.LANG_MISSING_DATA
+                || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+            finishCurrent(false);
+            return;
+        }
+
+        RadioConversationScript.Line line = activeDialogue[activeDialogueIndex];
+        tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
+        // Modest character differentiation, not a real person's cloned voice.
+        tts.setPitch(line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.90f : 1.08f);
+        String speakerName = line.speaker == RadioConversationScript.Speaker.AHWAN
+                ? "아환" : "윤솔";
+        String status = speakerName + " DJ · "
+                + (activeDialogueIndex + 1) + "/" + activeDialogue.length + " 대화 중";
+        AutoGreetingStore.setStatus(this, status);
+        startForeground(NOTIFICATION_ID, notification(status));
+        speaking = true;
+        activeUtteranceId = UUID.randomUUID().toString();
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, BroadcastVoicePolicy.VOLUME);
+        if (tts.speak(line.text, TextToSpeech.QUEUE_FLUSH, params,
+                activeUtteranceId) == TextToSpeech.ERROR) {
+            handleSpeechError("대화 음성 재생 오류");
+            return;
+        }
+        main.removeCallbacks(speakTimeout);
+        main.postDelayed(speakTimeout, SPEAK_TIMEOUT_MS);
     }
 
     private void speakCurrentLanguage() {
@@ -330,6 +412,8 @@ public final class AutoGreetingService extends Service {
     }
 
     private void speakSingleLanguage(AnnouncementRequest request, String requestedLanguage) {
+        tts.setPitch(BroadcastVoicePolicy.PITCH);
+        tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
         String language = GreetingLanguage.normalize(requestedLanguage);
         if (!languageAvailable(language)) {
             if (request.kind == AnnouncementRequest.KIND_INTERMISSION
@@ -409,6 +493,23 @@ public final class AutoGreetingService extends Service {
                 && result != TextToSpeech.LANG_NOT_SUPPORTED;
     }
 
+    private boolean isRadioRequest() {
+        return activeRequest != null
+                && activeRequest.kind == AnnouncementRequest.KIND_RADIO;
+    }
+
+    private void advanceDialogue(boolean success) {
+        main.removeCallbacks(speakTimeout);
+        speaking = false;
+        activeUtteranceId = "";
+        activeDialogueIndex++;
+        if (activeDialogue == null || activeDialogueIndex >= activeDialogue.length) {
+            finishCurrent(success);
+        } else {
+            main.postDelayed(this::speakCurrentDialogue, 180L);
+        }
+    }
+
     private boolean isMultiLanguageRequest() {
         return activeRequest != null
                 && (activeRequest.kind == AnnouncementRequest.KIND_INTERMISSION
@@ -430,10 +531,13 @@ public final class AutoGreetingService extends Service {
     private void handleSpeechError(String status) {
         AutoGreetingStore.setStatus(
                 this,
-                isMultiLanguageRequest()
-                        ? status + " · 다음 언어로 넘어갑니다."
-                        : status + " · 다음 노래를 시작합니다.");
-        if (isMultiLanguageRequest()) advanceLanguage(false);
+                isRadioRequest()
+                        ? status + " · 다음 진행 멘트로 넘어갑니다."
+                        : isMultiLanguageRequest()
+                            ? status + " · 다음 언어로 넘어갑니다."
+                            : status + " · 다음 노래를 시작합니다.");
+        if (isRadioRequest()) advanceDialogue(false);
+        else if (isMultiLanguageRequest()) advanceLanguage(false);
         else finishCurrent(false);
     }
 
@@ -447,6 +551,8 @@ public final class AutoGreetingService extends Service {
         activeResumeIndex = -1;
         activeRequest = null;
         activeLanguageIndex = -1;
+        activeDialogueIndex = -1;
+        activeDialogue = null;
         if (finishedKind == AnnouncementRequest.KIND_CLOSING) {
             AutoGreetingStore.setStatus(this, "방송 종료 안내 완료 · 전체 재생 종료");
             finishClosing();
@@ -521,6 +627,8 @@ public final class AutoGreetingService extends Service {
         activeResumeIndex = -1;
         activeRequest = null;
         activeLanguageIndex = -1;
+        activeDialogueIndex = -1;
+        activeDialogue = null;
         stopSelf();
     }
 
@@ -569,6 +677,7 @@ public final class AutoGreetingService extends Service {
         static final int KIND_INTERMISSION = 1;
         static final int KIND_SONG_TEST = 2;
         static final int KIND_CLOSING = 3;
+        static final int KIND_RADIO = 4;
 
         final int kind;
         final String value;
@@ -595,7 +704,8 @@ public final class AutoGreetingService extends Service {
         String key() {
             return kind
                     + "|" + value.toLowerCase(Locale.ROOT)
-                    + "|" + (kind == KIND_INTERMISSION || kind == KIND_CLOSING ? "all5" : language)
+                    + "|" + (kind == KIND_INTERMISSION || kind == KIND_CLOSING ? "all5"
+                            : kind == KIND_RADIO ? "radio" : language)
                     + "|" + giftNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + followNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + resumeIndex;
@@ -616,6 +726,11 @@ public final class AutoGreetingService extends Service {
                         gifts,
                         follows,
                         resumeIndex);
+            }
+            if (ACTION_RADIO_INTERMISSION.equals(action)) {
+                return new AnnouncementRequest(
+                        KIND_RADIO, value, GreetingLanguage.KOREAN,
+                        new ArrayList<>(), new ArrayList<>(), resumeIndex);
             }
             if (ACTION_CLOSING.equals(action)) {
                 return new AnnouncementRequest(
