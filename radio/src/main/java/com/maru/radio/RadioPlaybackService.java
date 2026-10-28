@@ -261,9 +261,13 @@ public final class RadioPlaybackService extends Service {
     private void prepareTrack(Originals.Track t, int ticket) {
         try {
             MediaPlayer m = new MediaPlayer();
-            m.setAudioAttributes(new AudioAttributes.Builder()
+            AudioAttributes.Builder output = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC);
+            if (Build.VERSION.SDK_INT >= 29) {
+                output.setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_ALL);
+            }
+            m.setAudioAttributes(output.build());
             if (t.isDownloadReference()) m.setDataSource(this, t.sourceUri());
             else m.setDataSource(t.path);
             m.setOnPreparedListener(p -> {
