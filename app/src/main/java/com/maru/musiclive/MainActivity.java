@@ -551,7 +551,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
         column.addView(button(
-                "아환·윤솔 라디오 미리듣기 (BIGO 미송출)",
+                "아환 + AI 가수 32명 미리듣기 (BIGO 미송출)",
                 v -> startLocalRadioPreview()));
         column.addView(button(
                 "BIGO 앱 직접 열기",
@@ -602,7 +602,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(songTitleTts);
 
         CheckBox radioConversation = checkBox(
-                "아환·윤솔 대화형 라디오 (곡 사이, 한국어)",
+                "아환 + 가상 AI 가수 32명 교대 방송 (곡 사이, 한국어)",
                 AppStorage.radioConversationEnabled(this));
         radioConversation.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setRadioConversationEnabled(this, checked);
@@ -618,9 +618,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         });
         column.addView(dailyRadio);
         column.addView(text(
-                "매일 날짜에 따라 준비된 오리지널 주제와 멘트가 자동 바뀝니다. "
-                        + "인터넷·API 키·매일 APK 설치 없이 동작하며 음악은 백그라운드 재생합니다. "
-                        + "완전한 생성형 AI 자유 대화나 BIGO 자동 송출은 아닙니다.",
+                "32명의 가상 AI 가수가 순환 출연합니다. 날짜별 오리지널 대화가 자동 변경됩니다. "
+                        + "대본은 매일 APK 재설치 없이 바뀌며 원곡은 백그라운드 재생합니다. "
+                        + "실제 가수별 노래 음원과 개별 보컬 모델은 별도로 제작·검증해야 하며 BIGO 자동 송출은 아닙니다.",
                 13, false));
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
@@ -682,11 +682,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             return;
         }
         if (!AppStorage.songTitleTts(this) || !AppStorage.radioConversationEnabled(this)) {
-            toast("설정에서 곡 사이 TTS와 아환·윤솔 대화형 라디오를 켜 주세요.");
+            toast("설정에서 곡 사이 TTS와 AI 가수 교대 방송을 켜 주세요.");
             return;
         }
         AutoGreetingStore.setRunningMode(this, "local_radio_preview");
-        AutoGreetingStore.setStatus(this, "로컬 대화형 라디오 미리듣기 · BIGO 송출 없음");
+        AutoGreetingStore.setStatus(this, "로컬 32명 가수 인터뷰 미리듣기 · BIGO 송출 없음");
         if (playback != null) playback.setBigoCoexistenceMode(false);
         startMusicForBroadcast();
         refreshAutoGreetingStatus();
@@ -954,7 +954,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                 ? (AppStorage.dailyRadioEnabled(this)
                                    ? "오늘의 대화 주제 자동 갱신 (" 
                                            + java.time.LocalDate.now().toString() + ")"
-                                   : "아환·윤솔 대화형 라디오")
+                                   : "아환과 32명 가상 AI 가수 대화")
                                 : "한국어 → 영어 → 중국어 → 일본어 → 러시아어 안내")
                         + "\n"
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
