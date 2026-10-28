@@ -171,6 +171,10 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
           cp app/build/outputs/apk/debug/app-debug.apk MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk
           cp app/build/outputs/apk/release/app-release.apk MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk
+          SIGNER=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+          [[ "$SIGNER" =~ ^[0-9a-f]{64}$ ]]
+          echo "$SIGNER" > MARU-SIGNER-SHA256.txt
+          echo "RELEASE-SIGNER-SHA256: $SIGNER"
 
           # Reject a renamed old APK: inspect the embedded manifest of the actual built outputs.
           for apk in MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk; do
@@ -195,6 +199,7 @@ jobs:
           path: |
             MARU-MUSIC-LIVE-V3.2.17-DEBUG.apk
             MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk
+            MARU-SIGNER-SHA256.txt
           if-no-files-found: error
 
   publish:
@@ -220,6 +225,9 @@ jobs:
           unzip -t MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk > /dev/null
           cp MARU-MUSIC-LIVE-V3.2.17-MUSIC-RELEASE.apk MARU-RADIO.apk
           sha256sum MARU-RADIO.apk > SHA256SUMS.txt
+          SIGNER=$(cat MARU-SIGNER-SHA256.txt)
+          [[ "$SIGNER" =~ ^[0-9a-f]{64}$ ]]
+          printf 'MARU RADIO V3.2.17 검증 배포판. Android 설치 승인은 사용자 선택입니다.\n\nSIGNER_SHA256=%s\n' "$SIGNER" > RELEASE_NOTES.txt
           if gh release view "v3.2.17" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release v3.2.17 already exists; do not overwrite its APK."
             exit 0
@@ -228,5 +236,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "MARU RADIO v3.2.17 자동 업데이트 확인" \
-            --notes "32명 AI 라디오 대화, 하루 한 번 새 앱 버전 자동 확인, 수동 업데이트 확인 버튼. APK 다운로드와 Android 설치 승인은 사용자가 결정합니다. 노래 가창 음원 자동 생성 및 BIGO 자동 송출은 검증되지 않았습니다." \
+            --notes-file RELEASE_NOTES.txt \
             --latest
