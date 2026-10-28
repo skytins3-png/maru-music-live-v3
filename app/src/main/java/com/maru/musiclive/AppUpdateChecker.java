@@ -3,6 +3,8 @@ package com.maru.musiclive;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.os.Build;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -12,6 +14,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /** Read-only HTTPS release lookup; downloading and installing require user taps. */
 public final class AppUpdateChecker {
@@ -35,8 +38,37 @@ public final class AppUpdateChecker {
             this.message = message;
         }
 
+        public boolean needsSigningFix() {
+            return message.startsWith("서명이 일치하지 않아");
+        }
+
         public boolean hasUpdate() {
             return downloadUrl != null && !downloadUrl.isEmpty();
+        }
+    }
+
+    private static String currentSignerSha256(Context context) {
+        try {
+            int flags = Build.VERSION.SDK_INT >= 28
+                    ? PackageManager.GET_SIGNING_CERTIFICATES
+                    : PackageManager.GET_SIGNATURES;
+            PackageInfo info = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), flags);
+            Signature[] signatures = Build.VERSION.SDK_INT >= 28
+                    ? (info.signingInfo == null ? null
+                        : info.signingInfo.getApkContentsSigners())
+                    : info.signatures;
+            if (signatures == null || signatures.length != 1) return "";
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(signatures[0].toByteArray());
+            StringBuilder hex = new StringBuilder(64);
+            for (byte item : digest) {
+                hex.append(Character.forDigit((item >>> 4) & 15, 16));
+                hex.append(Character.forDigit(item & 15, 16));
+            }
+            return hex.toString();
+        } catch (Exception ignored) {
+            return "";
         }
     }
 
@@ -89,6 +121,15 @@ public final class AppUpdateChecker {
             String latest = tag.substring(1);
             if (!ReleaseVersionLogic.newerThan(latest, installed)) {
                 return new Result(installed, latest, "", "현재 최신 버전을 사용 중입니다.");
+            }
+            // Android rejects updates signed with a different certificate.
+            // Do not send the user to an APK that cannot update their installed app.
+            String signer = currentSignerSha256(context);
+            if (!ReleaseVersionLogic.sameReleaseSigner(
+                    release.optString("body", ""), signer)) {
+                return new Result(installed, latest, "",
+                        "서명이 일치하지 않아 현재 앱 위에 설치할 수 없습니다. "
+                                + "기존 앱을 삭제하지 마세요. 유지되는 서명키로 새 배포판이 필요합니다.");
             }
             JSONArray assets = release.optJSONArray("assets");
             if (assets != null) {
