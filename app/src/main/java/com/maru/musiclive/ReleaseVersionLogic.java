@@ -10,6 +10,15 @@ public final class ReleaseVersionLogic {
     private static final String BASE =
             "https://github.com/skytins3-png/maru-music-live-v3/releases/download/v";
 
+    private static final Pattern RELEASE_SIGNER =
+            Pattern.compile("(?m)^SIGNER_SHA256=([0-9a-fA-F]{64})$");
+
+    public static boolean sameReleaseSigner(String releaseNotes, String installedSigner) {
+        if (releaseNotes == null || installedSigner == null) return false;
+        Matcher match = RELEASE_SIGNER.matcher(releaseNotes);
+        return match.find() && installedSigner.equalsIgnoreCase(match.group(1));
+    }
+
     private ReleaseVersionLogic() {}
 
     public static boolean newerThan(String remote, String installed) {
