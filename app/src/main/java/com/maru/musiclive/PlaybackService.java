@@ -353,6 +353,7 @@ public final class PlaybackService extends Service {
     private void startIntermissionBefore(int nextIndex) {
         if (nextIndex < 0 || nextIndex >= queue.size() || intermissionPending) return;
         String title = SongTitleResolver.resolve(this, queue.get(nextIndex));
+        int assignedArtist = AppStorage.artistForSong(this, queue.get(nextIndex));
         IntermissionStore.Snapshot snapshot = IntermissionStore.takeSnapshot(this);
         // 첫 곡 전 또는 현재 곡 종료 후: 음악이 없는 상태에서만 안내한다.
         releasePlayer();
@@ -363,7 +364,8 @@ public final class PlaybackService extends Service {
 
         boolean started = AppStorage.radioConversationEnabled(this)
                 ? AutoGreetingService.announceRadioIntermission(
-                        this, title, snapshot.giftNames, snapshot.followNames, nextIndex)
+                        this, title, snapshot.giftNames, snapshot.followNames,
+                        nextIndex, assignedArtist)
                 : AutoGreetingService.announceIntermission(
                         this,
                         title,
