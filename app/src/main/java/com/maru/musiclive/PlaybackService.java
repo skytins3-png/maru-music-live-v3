@@ -197,9 +197,14 @@ public final class PlaybackService extends Service {
         }
 
         if (player == null) {
-            // 방송 시작 직후에는 TTS 서비스를 새로 띄우지 않고 첫 곡을 바로 재생한다.
-            // 제목·감사 안내는 실제 곡과 곡 사이에서만 실행한다.
-            play(currentIndex < 0 ? 0 : currentIndex);
+            int firstIndex = currentIndex < 0 ? 0 : currentIndex;
+            // Radio mode opens with a dialogue before the first track.
+            // Legacy mode still starts the first song without an announcement.
+            if (AppStorage.songTitleTts(this) && AppStorage.radioConversationEnabled(this)) {
+                startIntermissionBefore(firstIndex);
+            } else {
+                play(firstIndex);
+            }
             return;
         }
 
@@ -356,12 +361,14 @@ public final class PlaybackService extends Service {
         notifyState(false);
         startForeground(NOTIFICATION_ID, notification("곡 사이 통합 안내 중"));
 
-        boolean started = AutoGreetingService.announceIntermission(
-                this,
-                title,
-                snapshot.giftNames,
-                snapshot.followNames,
-                nextIndex);
+        boolean started = AppStorage.radioConversationEnabled(this)
+                ? AutoGreetingService.announceRadioIntermission(this, title, nextIndex)
+                : AutoGreetingService.announceIntermission(
+                        this,
+                        title,
+                        snapshot.giftNames,
+                        snapshot.followNames,
+                        nextIndex);
         if (!started) {
             intermissionPending = false;
             playInternal(nextIndex);
