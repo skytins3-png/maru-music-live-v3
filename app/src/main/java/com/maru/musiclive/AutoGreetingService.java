@@ -56,6 +56,7 @@ public final class AutoGreetingService extends Service {
     private static final String EXTRA_FOLLOW_NAMES = "follow_names";
     private static final String EXTRA_RESUME_INDEX = "resume_index";
     private static final String EXTRA_ARTIST_ID = "artist_id";
+    private static final String EXTRA_EPISODE_INDEX = "episode_index";
     private static final long SPEAK_TIMEOUT_MS = 35_000L;
     private static final String[] INTERMISSION_LANGUAGES =
             BroadcastVoicePolicy.orderedLanguages();
@@ -154,7 +155,7 @@ public final class AutoGreetingService extends Service {
     public static boolean announceRadioIntermission(
             Context context, String nextTitle,
             List<String> giftNames, List<String> followNames,
-            int resumeIndex, int artistId) {
+            int resumeIndex, int artistId, int episodeIndex) {
         if (context == null || resumeIndex < 0) return false;
         return safeStart(context, new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_RADIO_INTERMISSION)
@@ -167,7 +168,8 @@ public final class AutoGreetingService extends Service {
                         new ArrayList<>(followNames == null
                                 ? java.util.Collections.<String>emptyList() : followNames))
                 .putExtra(EXTRA_RESUME_INDEX, resumeIndex)
-                .putExtra(EXTRA_ARTIST_ID, artistId));
+                .putExtra(EXTRA_ARTIST_ID, artistId)
+                .putExtra(EXTRA_EPISODE_INDEX, episodeIndex));
     }
 
     /** Keyboard-free preset closing announcement. Music is paused before this is called. */
@@ -349,7 +351,7 @@ public final class AutoGreetingService extends Service {
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
         activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
                 ? MultiArtistRadioProgram.beforeSong(
-                        request.value, request.resumeIndex,
+                        request.value, request.episodeIndex,
                         java.time.LocalDate.now(),
                         AppStorage.dailyRadioEnabled(this),
                         request.giftNames, request.followNames,
@@ -738,6 +740,7 @@ public final class AutoGreetingService extends Service {
         final List<String> followNames;
         final int resumeIndex;
         int artistId;
+        int episodeIndex;
 
         AnnouncementRequest(
                 int kind,
@@ -761,7 +764,7 @@ public final class AutoGreetingService extends Service {
                             : kind == KIND_RADIO ? "radio" : language)
                     + "|" + giftNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + followNames.toString().toLowerCase(Locale.ROOT)
-                    + "|" + resumeIndex + "|" + artistId;
+                    + "|" + resumeIndex + "|" + artistId + "|" + episodeIndex;
         }
 
         static AnnouncementRequest fromIntent(Intent intent) {
@@ -787,6 +790,7 @@ public final class AutoGreetingService extends Service {
                         intent.getStringArrayListExtra(EXTRA_FOLLOW_NAMES),
                         resumeIndex);
                 radio.artistId = intent.getIntExtra(EXTRA_ARTIST_ID, 0);
+                radio.episodeIndex = intent.getIntExtra(EXTRA_EPISODE_INDEX, 0);
                 return radio;
             }
             if (ACTION_CLOSING.equals(action)) {
