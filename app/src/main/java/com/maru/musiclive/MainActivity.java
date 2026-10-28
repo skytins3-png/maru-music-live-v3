@@ -923,7 +923,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
                         + " · 대화형 화면 답변: "
                         + (AdaptiveAiStore.conversationEnabled(this) ? "켜짐" : "꺼짐")
-                        + " · 댓글 음성 답변: 꺼짐 · 댓글 글 자동전송: 켜짐"
+                        + " · 댓글 음성 답변: 꺼짐 · 댓글 글 자동전송: 꺼짐"
                         + " · 미확인 언어: "
                         + GreetingLanguage.koreanLabel(AdaptiveAiStore.defaultLanguage(this))
                         + "\n"
