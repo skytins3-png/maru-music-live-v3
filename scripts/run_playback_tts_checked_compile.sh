@@ -143,6 +143,7 @@ JAVA
 cat > "$SRC/com/maru/musiclive/AppStorage.java" <<'JAVA'
 package com.maru.musiclive; import android.content.Context; import java.util.*; public final class AppStorage {
  public static boolean songTitleTts(Context c){return true;}
+  public static boolean radioConversationEnabled(Context c){return true;}
  public static java.util.List<String> loadSongs(Context c){return new java.util.ArrayList<>();}
  public static boolean repeatAll(Context c){return true;}
  public static boolean random(Context c){return false;}
@@ -180,6 +181,7 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/IntermissionStore.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/VolumeDucking.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/RadioConversationScript.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/AutoGreetingService.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackService.java"
 
