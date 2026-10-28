@@ -551,6 +551,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
         column.addView(button(
+                "아환·윤솔 라디오 미리듣기 (BIGO 미송출)",
+                v -> startLocalRadioPreview()));
+        column.addView(button(
                 "BIGO 앱 직접 열기",
                 v -> openBigoChat()));
 
@@ -660,6 +663,24 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         audioPickerLauncher.launch(new String[]{"audio/*"}))
                 .setNegativeButton("닫기", null)
                 .show();
+    }
+
+    /** Preview the DJ conversation and original music entirely on this device. */
+    private void startLocalRadioPreview() {
+        if (songs.isEmpty()) {
+            toast("미리듣기용 음악을 먼저 추가하세요.");
+            return;
+        }
+        if (!AppStorage.songTitleTts(this) || !AppStorage.radioConversationEnabled(this)) {
+            toast("설정에서 곡 사이 TTS와 아환·윤솔 대화형 라디오를 켜 주세요.");
+            return;
+        }
+        AutoGreetingStore.setRunningMode(this, "local_radio_preview");
+        AutoGreetingStore.setStatus(this, "로컬 대화형 라디오 미리듣기 · BIGO 송출 없음");
+        if (playback != null) playback.setBigoCoexistenceMode(false);
+        startMusicForBroadcast();
+        refreshAutoGreetingStatus();
+        toast("라디오 미리듣기 실행 · 재생 중이었다면 다음 곡부터 대화합니다.");
     }
 
     private void startCommunityLive(String liveMode) {
