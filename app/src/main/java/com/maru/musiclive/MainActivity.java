@@ -592,11 +592,20 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(random);
 
         CheckBox songTitleTts = checkBox(
-                "곡 사이 5개 언어 통합 안내",
+                "곡 사이 음성 안내 켜기",
                 AppStorage.songTitleTts(this));
         songTitleTts.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setSongTitleTts(this, checked));
         column.addView(songTitleTts);
+
+        CheckBox radioConversation = checkBox(
+                "아환·윤솔 대화형 라디오 (곡 사이, 한국어)",
+                AppStorage.radioConversationEnabled(this));
+        radioConversation.setOnCheckedChangeListener((buttonView, checked) -> {
+            AppStorage.setRadioConversationEnabled(this, checked);
+            refreshAutoGreetingStatus();
+        });
+        column.addView(radioConversation);
 
         column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
@@ -905,7 +914,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         autoGreetingStatusView.setText(
                 mode + "\n"
-                        + "매 곡 사이 TTS: 한국어 → 영어 → 중국어 → 일본어 → 러시아어 모두 연속\n"
+                        + "곡 사이 음성: "
+                        + (!AppStorage.songTitleTts(this) ? "꺼짐"
+                            : AppStorage.radioConversationEnabled(this)
+                                ? "아환·윤솔 대화형 라디오"
+                                : "한국어 → 영어 → 중국어 → 일본어 → 러시아어 안내")
+                        + "\n"
                         + "AI 습득: " + (AdaptiveAiStore.enabled(this) ? "켜짐" : "꺼짐")
                         + " · 대화형 화면 답변: "
                         + (AdaptiveAiStore.conversationEnabled(this) ? "켜짐" : "꺼짐")
