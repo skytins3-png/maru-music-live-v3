@@ -690,9 +690,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     + " · 제작 대기";
         }
         new AlertDialog.Builder(this)
-                .setTitle("MARU STUDIO · 32명 가수 보컬 제작 목록")
-                .setMessage("32명 모두 고유 보컬 제작 사양만 준비된 상태입니다. "
-                        + "실제 가창 음원 및 개별 Persona 검증은 완료되지 않았습니다.")
+                .setTitle("32명 보컬 제작표 · 실제 가창 생성 전")
                 .setItems(labels, (dialog, which) -> showSunoArtistProfile(profiles[which]))
                 .setNegativeButton("닫기", null)
                 .show();
