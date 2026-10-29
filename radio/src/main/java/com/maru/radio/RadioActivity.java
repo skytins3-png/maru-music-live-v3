@@ -74,6 +74,8 @@ public final class RadioActivity extends Activity {
     private Button programCategoryButton;
     private Button presenterToggleButton;
     private Button playerToggleButton;
+    private Button skipTalkButton;
+    private TextView dialogueLine;
     private SeekBar playerSeek;
     private boolean playerSeeking;
     private final Handler playerHandler = new Handler(Looper.getMainLooper());
@@ -106,6 +108,7 @@ public final class RadioActivity extends Activity {
     private final Set<String> selected = new HashSet<>();
     private boolean sameTitleOnly = false;
     private boolean importInProgress = false;
+    private String artistFilter = "", genreFilter = "";
     private int sortMode = 0; // 0 = newest imported first, 1 = title, 2 = oldest first
 
 
@@ -144,18 +147,25 @@ public final class RadioActivity extends Activity {
         // Preserve the currently installed MARU RADIO and its private files.
         // This separate package has independent app storage; never imply that
         // old app-local songs/preferences have already been copied.
-        if ("com.maru.radio.transition.v17".equals(getPackageName())) {
-            root.addView(label("🛡 MARU RADIO 1.7 안전전환", 26, VIOLET, true));
+        if ("com.maru.radio.transition.v1929".equals(getPackageName())) {
+            root.addView(label("🛡 MARU RADIO 1.9.29 시험판", 26, VIOLET, true));
             root.addView(label("기존 MARU RADIO는 삭제되거나 바뀌지 않았습니다. 이 앱은 별도로 설치되어 저장곡과 설정이 자동 이전되지 않습니다.",
                     14, WHITE, false));
-            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 진행자 대화 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
+            root.addView(label("① 원본 Suno 음악은 Download 폴더에서 다시 선택하세요. ② 아환 음악 초대석 기능을 켜고 시험해 보세요. ③ 원래 사용하던 앱은 그대로 두세요.",
                     13, 0xFFFFD8AE, false));
             root.addView(compactButton("⬇ Download에서 자작곡 다시 연결", this::pickDownloads));
             root.addView(label("⚠ BIGO 청취자 실제 소리 전달은 별도 기기로 확인해야 합니다. 서명 문제 해결 없이 기존 앱을 덮어쓰지 않습니다.",
                     12, 0xFFDDD4F5, false));
             gap(root, 12);
         }
-        root.addView(label("MARU RADIO", 31, VIOLET, true));
+        root.addView(label("MARU RADIO · 예약·STUDIO 통합", 25, VIOLET, true));
+        try {
+            android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            root.addView(label("설치 버전 " + info.versionName + " · " + getPackageName(), 12, WHITE, false));
+        } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {}
+        root.addView(compactButton("🎵 음악 보관함 · 검색 / 재생목록", () -> {
+            if (search != null) scroll.smoothScrollTo(0, search.getTop());
+        }));
         root.addView(label("Suno 원곡 · BIGO 오디오 LIVE", 16, WHITE, false));
         root.addView(label("Suno MP3/WAV 원곡 · 연속재생 · 백그라운드 음악", 13, 0xFFB1A6C5, false));
         gap(root, 8);
@@ -190,6 +200,11 @@ public final class RadioActivity extends Activity {
                 playerAction(RadioPlaybackService.ACTION_NEXT)),
                 new LinearLayout.LayoutParams(0, dp(55), 1));
         playerCard.addView(playbackButtons);
+        dialogueLine = label("", 15, 0xFFE4D8F3, false);
+        playerCard.addView(dialogueLine);
+        skipTalkButton = compactButton("대화 건너뛰고 이 곡 듣기", () -> playerAction(RadioPlaybackService.ACTION_SKIP_TALK));
+        skipTalkButton.setVisibility(View.GONE);
+        playerCard.addView(skipTalkButton);
         playerSeek = new SeekBar(this);
         playerSeek.setMax(1000);
         playerSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -226,20 +241,21 @@ public final class RadioActivity extends Activity {
         presenterToggleButton = compactButton("", this::togglePresenters);
         programCard.addView(presenterToggleButton);
         updatePresenterToggle();
-        programCard.addView(label("선택한 가상 진행자들이 기기 TTS로 인사하고 원본을 소개한 뒤 노래를 재생합니다. BIGO 마이크 송출은 별도 확인이 필요합니다.",
+        programCard.addView(compactButton("초대석 대본 · 30명", this::previewGuestShow));
+        programCard.addView(label("아환과 가상 가수가 곡 이야기를 나눈 뒤 원곡을 연속 재생합니다. 대화는 기기 음성으로 읽는 대본이며, Suno 가창 목소리와 다를 수 있습니다. BIGO 송출·실시간 댓글은 미연결입니다.",
                 12, 0xFFCCC0DA, false));
         programSummary = label("방송 분류와 종료시간을 선택하세요.", 13, 0xFFE4D8F3, false);
         programCard.addView(programSummary);
         LinearLayout timerButtons = new LinearLayout(this);
         timerButtons.setOrientation(LinearLayout.HORIZONTAL);
-        timerButtons.addView(compactButton("⏱ 시간 설정 · 시작", this::configureProgramTimer),
-                new LinearLayout.LayoutParams(0, dp(53), 1.2f));
+        timerButtons.addView(compactButton("⏱ 선택한 분 뒤 음악 종료", this::configureProgramTimer),
+                new LinearLayout.LayoutParams(0, -2, 1.2f));
         timerButtons.addView(compactButton("타이머 취소", this::cancelProgramTimer),
-                new LinearLayout.LayoutParams(0, dp(53), 0.85f));
+                new LinearLayout.LayoutParams(0, -2, 0.85f));
         programCard.addView(timerButtons);
-        programCard.addView(compactButton("📅 시작 시각 예약 · 다국어 댓글 답변", () ->
+        programCard.addView(compactButton("📅 시작·종료 시각 함께 예약", () ->
                 startActivity(new Intent(this, RadioAutomationActivity.class))));
-        programCard.addView(label("미래 시작은 알림 후 직접 확인 · 자동 댓글 수집은 미지원",
+        programCard.addView(label("예약 시 MARU 음악 자동 시작·종료 · BIGO 방송 제어와 댓글 수집은 미연결",
                 12, 0xFFCCC0DA, false));
         gap(root, 8);
 
@@ -260,8 +276,8 @@ public final class RadioActivity extends Activity {
         startBigo.setTextSize(15);
         Button endBigo = button("■ BIGO 종료 화면", this::requestBigoEnd);
         endBigo.setTextSize(15);
-        startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
-        startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, dp(58), 1));
+        startEndButtons.addView(startBigo, new LinearLayout.LayoutParams(0, -2, 1));
+        startEndButtons.addView(endBigo, new LinearLayout.LayoutParams(0, -2, 1));
         bigoStartEnd.addView(startEndButtons);
         bigoStartEnd.addView(button("🎧 BIGO 청취자 수신 테스트", () ->
                 startActivity(new Intent(this, BigoAudioCheckActivity.class))));
@@ -273,7 +289,7 @@ public final class RadioActivity extends Activity {
                 "Download 바로가기", this::pickDownloads,
                 "다른 폴더에서 가져오기", this::pickFiles);
 
-        card(root, "2  원곡 목록 · 선택 삭제",
+        card(root, "2  음악 보관함",
                 "다운로드 원곡은 복사하지 않고 읽기 권한만 보관합니다. 검색·선택 삭제는 MARU 목록에만 적용됩니다.",
                 "곡 목록 새로고침", this::refreshSongs,
                 "같은 제목 후보 확인", this::toggleSameTitleFilter);
@@ -285,7 +301,7 @@ public final class RadioActivity extends Activity {
         search.setTextColor(WHITE);
         search.setHintTextColor(0xFFA79BB8);
         search.setTextSize(16);
-        search.setHint("곡 제목 검색");
+        search.setHint("제목 · 가수 · 장르 검색");
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -295,6 +311,13 @@ public final class RadioActivity extends Activity {
         });
         root.addView(search);
 
+        root.addView(label("곡별 메뉴를 추가하지 않습니다. 가수는 ‘제목 — 가수’ 파일명에서 추정하며, 언어는 제목에서 추정합니다. 잘못된 정보는 곡의 ⋮에서 수정하세요.", 13, WHITE, false));
+        root.addView(compactButton("가수 필터", () -> catalogFilter(true)));
+        root.addView(compactButton("장르 필터", () -> catalogFilter(false)));
+        root.addView(compactButton("언어 / 연주 분류", this::selectProgramCategory));
+        root.addView(compactButton("재생목록 선택 · 전체 보관함", this::choosePlaylist));
+        root.addView(compactButton("선택한 곡으로 재생목록 저장", this::savePlaylist));
+        root.addView(compactButton("▶ 현재 보이는 곡 연속 재생", this::playShown));
         LinearLayout bulkTools = new LinearLayout(this);
         bulkTools.setOrientation(LinearLayout.HORIZONTAL);
         bulkTools.addView(compactButton("보이는 곡 선택", this::selectShown), new LinearLayout.LayoutParams(0, -2, 1f));
@@ -326,7 +349,7 @@ public final class RadioActivity extends Activity {
                 choose.setTextSize(14);
                 choose.setMaxLines(2);
                 choose.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                choose.setText(t.title + "  · " + RadioProgram.NAMES[RadioProgram.category(RadioActivity.this, t)]);
+                choose.setText(t.title + "\n" + RadioCatalog.artist(RadioActivity.this, t) + " · " + RadioCatalog.genre(RadioActivity.this, t) + " · " + RadioProgram.NAMES[RadioProgram.category(RadioActivity.this, t)]);
                 choose.setChecked(selected.contains(t.hash));
                 choose.setOnCheckedChangeListener((button, checked) -> {
                     if (checked) selected.add(t.hash);
@@ -350,6 +373,8 @@ public final class RadioActivity extends Activity {
                 "BIGO LIVE 열기", this::openBigo,
                 "송출 음량 확인 방법", this::broadcastGuide);
 
+        root.addView(compactButton("Suno 플레이리스트 · 등록 / 열기", this::sunoPlaylists));
+        root.addView(label("링크는 Suno 앱 또는 브라우저에서 엽니다. 곡 목록·음원 자동 가져오기는 지원하지 않습니다. 내려받은 원곡은 ‘다른 폴더에서 가져오기’로 여러 곡을 한 번에 등록하세요.", 13, WHITE, false));
         root.addView(compactButton("Suno 열기", this::openSuno));
         status = label("준비 완료 · 다운로드 원본 파일은 변경하지 않아요.", 13,
                 0xFF9BDEBC, false);
@@ -403,7 +428,8 @@ public final class RadioActivity extends Activity {
         button.setTextSize(12);
         button.setMinimumHeight(dp(45));
         button.setMinHeight(dp(45));
-        button.setPadding(dp(2), 0, dp(2), 0);
+        button.setPadding(dp(6), dp(10), dp(6), dp(10));
+        button.setSingleLine(false);
         return button;
     }
 
@@ -451,6 +477,41 @@ public final class RadioActivity extends Activity {
         }
     }
 
+    private void sunoPlaylists() {
+        android.content.SharedPreferences prefs = getSharedPreferences("suno_playlists", MODE_PRIVATE);
+        List<String> names = new ArrayList<>(prefs.getAll().keySet());
+        Collections.sort(names);
+        List<String> menu = new ArrayList<>(); menu.add("＋ 플레이리스트 링크 등록"); menu.addAll(names);
+        new AlertDialog.Builder(this).setTitle("Suno 플레이리스트")
+            .setItems(menu.toArray(new String[0]), (d, index) -> {
+                if (index == 0) { addSunoPlaylist(); return; }
+                String name = names.get(index - 1);
+                String url = SunoPlaylistLink.normalize(prefs.getString(name, ""));
+                new AlertDialog.Builder(this).setTitle(name).setMessage("Suno에서 재생합니다. MARU 음악 보관함으로 자동 다운로드되지 않습니다.")
+                    .setPositiveButton("Suno에서 열기", (dialog, w) -> {
+                        if (url == null) { say("유효한 Suno 플레이리스트 주소가 아닙니다."); return; }
+                        try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
+                        catch (RuntimeException ex) { say("Suno 앱 또는 브라우저를 열 수 없습니다."); }
+                    }).setNeutralButton("등록 해제", (dialog, w) -> { prefs.edit().remove(name).apply(); say("앱의 링크 등록만 해제했습니다. Suno 목록은 유지됩니다."); })
+                    .setNegativeButton("닫기", null).show();
+            }).setNegativeButton("닫기", null).show();
+    }
+    private void addSunoPlaylist() {
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        EditText name = new EditText(this); name.setHint("목록 이름 (예: 신나는 중국노래)"); box.addView(name);
+        EditText link = new EditText(this); link.setHint("Suno 공유 → 링크 복사 후 붙여넣기"); link.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI); box.addView(link);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Suno 플레이리스트 등록").setView(box)
+            .setPositiveButton("저장", null).setNegativeButton("취소", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            String title = name.getText().toString().trim(); String url = SunoPlaylistLink.normalize(link.getText().toString());
+            if (title.isEmpty()) { name.setError("이름을 입력해 주세요."); return; }
+            if (url == null) { link.setError("https://suno.com/playlist/ 로 시작하는 공유 주소를 넣어 주세요."); return; }
+            android.content.SharedPreferences prefs = getSharedPreferences("suno_playlists", MODE_PRIVATE);
+            if (prefs.contains(title)) { name.setError("이미 있는 이름입니다. 다른 이름을 입력해 주세요."); return; }
+            prefs.edit().putString(title, url).apply(); dialog.dismiss(); say("Suno 플레이리스트 링크를 저장했습니다.");
+        }));
+        dialog.show();
+    }
     private void openSuno() {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://suno.com/")));
@@ -506,19 +567,32 @@ public final class RadioActivity extends Activity {
             .setPositiveButton("확인", null).show();
     }
 
+    private void previewGuestShow() {
+        String[] names = new String[RadioGuestShow.GUESTS.length];
+        for(int i=0;i<names.length;i++) names[i]=RadioGuestShow.GUESTS[i].name+" · "+RadioGuestShow.GUESTS[i].title;
+        new AlertDialog.Builder(this).setTitle("음악 초대석 · 가상 가수 대본")
+            .setItems(names, (dialog, which) -> {
+                RadioGuestShow.Guest g=RadioGuestShow.GUESTS[which];
+                StringBuilder text=new StringBuilder();
+                for(RadioShowLines.Line l:RadioGuestShow.intro(g.title,g.name,true,"")) text.append(l.speaker).append(": ").append(l.text).append("\n\n");
+                text.append("[원곡 재생]\n보관함에 같은 제목과 가수를 지정한 원곡이 있어야 재생됩니다.");
+                new AlertDialog.Builder(this).setTitle(g.name+" 초대석").setMessage(text.toString()).setPositiveButton("닫기",null).show();
+            }).setNegativeButton("닫기",null).show();
+    }
+
     private void togglePresenters() {
         boolean next = !RadioProgram.showEnabled(this);
         RadioProgram.setShowEnabled(this, next);
         updatePresenterToggle();
         say(next
-                ? "가상 진행자 대화 켜짐. 다음 노래부터 TTS로 소개합니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
-                : "가상 진행자 대화 꺼짐. 다음 노래부터 원곡만 재생합니다.");
+                ? "가상 아환 음악 초대석 켜짐. 다음 노래부터 아환과 가상 가수의 대본 대화를 읽습니다. 기기 음성 엔진이 없다면 원곡만 이어집니다."
+                : "가상 아환 음악 초대석 꺼짐. 다음 노래부터 원곡만 재생합니다.");
     }
     private void updatePresenterToggle() {
         if (presenterToggleButton != null) presenterToggleButton.setText(
                 RadioProgram.showEnabled(this)
-                        ? "🎙 진행자 대화 켜짐 (누르면 끄기)"
-                        : "🎙 진행자 대화 꺼짐 (누르면 켜기)");
+                        ? "🎙 아환 음악 초대석 켜짐 (누르면 끄기)"
+                        : "🎙 아환 음악 초대석 꺼짐 (누르면 켜기)");
     }
 
     private void selectProgramCategory() {
@@ -557,7 +631,9 @@ public final class RadioActivity extends Activity {
         if (programSummary != null) {
             int minutes = RadioProgram.durationMinutes(this);
             long remaining = radioService == null ? 0 : radioService.timerRemainingMs();
-            programSummary.setText("설정 " + minutes + "분 · "
+            programSummary.setText("시작: " + RadioSchedule.formatted(this)
+                    + "\n종료: " + RadioSchedule.endFormatted(this)
+                    + "\n" + (minutes == 0 ? "분 타이머 사용 안 함" : "선택한 분 타이머 " + minutes + "분") + " · "
                     + (remaining <= 0 ? "타이머 중지" :
                     "자동 재생 종료까지 " + (remaining / 60000) + "분 "
                             + ((remaining / 1000) % 60) + "초")
@@ -576,7 +652,7 @@ public final class RadioActivity extends Activity {
         NumberPicker picker = new NumberPicker(this);
         picker.setMinValue(5);
         picker.setMaxValue(720);
-        picker.setValue(currentMinutes);
+        picker.setValue(Math.max(5, currentMinutes));
         picker.setWrapSelectorWheel(false);
         content.addView(picker);
         new AlertDialog.Builder(this)
@@ -601,6 +677,7 @@ public final class RadioActivity extends Activity {
     }
 
     private void cancelProgramTimer() {
+        RadioProgram.setDurationMinutes(this, 0);
         startService(new Intent(this, RadioPlaybackService.class)
                 .setAction(RadioPlaybackService.ACTION_CANCEL_TIMER));
         say("음악 종료 타이머 취소 · 음악 재생은 유지합니다.");
@@ -617,12 +694,12 @@ public final class RadioActivity extends Activity {
     private void updateCount() {
         if (songCount == null) return;
         songCount.setText("보관 " + allTracks.size() + "곡 · 표시 "
-                + shownTracks.size() + "곡 · 선택 " + selected.size() + "곡");
+                + shownTracks.size() + "곡 · 선택 " + selected.size() + "곡\n목록: " + (RadioCatalog.active(this).isEmpty() ? "전체" : RadioCatalog.active(this)) + " · 가수: " + (artistFilter.isEmpty() ? "전체" : artistFilter) + " · 장르: " + (genreFilter.isEmpty() ? "전체" : genreFilter));
     }
 
     private void updateVisibleTracks() {
         shownTracks.clear();
-        List<Originals.Track> sorted = new ArrayList<>(allTracks);
+        List<Originals.Track> sorted = new ArrayList<>(RadioCatalog.ordered(this, allTracks));
         if (sortMode == 0) Collections.reverse(sorted);
         else if (sortMode == 1) Collections.sort(sorted,
                 (a, b) -> a.title.compareToIgnoreCase(b.title));
@@ -638,7 +715,10 @@ public final class RadioActivity extends Activity {
         for (Originals.Track t : sorted) {
             if (activeCategory != 0 && activeCategory != 5
                     && RadioProgram.category(this, t) != activeCategory) continue;
-            if (!t.title.toLowerCase(Locale.ROOT).contains(query)) continue;
+            String artist = RadioCatalog.artist(this, t), genre = RadioCatalog.genre(this, t);
+            if (!artistFilter.isEmpty() && !artistFilter.equals(artist)) continue;
+            if (!genreFilter.isEmpty() && !genreFilter.equals(genre)) continue;
+            if (!(t.title + " " + artist + " " + genre).toLowerCase(Locale.ROOT).contains(query)) continue;
             String normalized = t.title.trim().toLowerCase(Locale.ROOT);
             if (sameTitleOnly && nameCounts.get(normalized) < 2) continue;
             shownTracks.add(t);
@@ -721,12 +801,59 @@ public final class RadioActivity extends Activity {
         });
     }
 
+    private void catalogFilter(boolean artist) {
+        java.util.TreeSet<String> values = new java.util.TreeSet<>();
+        for (Originals.Track t : allTracks) values.add(artist ? RadioCatalog.artist(this, t) : RadioCatalog.genre(this, t));
+        List<String> names = new ArrayList<>(); names.add("전체"); names.addAll(values);
+        new AlertDialog.Builder(this).setTitle(artist ? "가수" : "장르")
+            .setItems(names.toArray(new String[0]), (d, n) -> {
+                if (artist) artistFilter = n == 0 ? "" : names.get(n);
+                else genreFilter = n == 0 ? "" : names.get(n);
+                updateVisibleTracks();
+            }).setNegativeButton("닫기", null).show();
+    }
+    private void editMetadata(Originals.Track track) {
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        EditText artist = new EditText(this); artist.setHint("가수"); artist.setText(RadioCatalog.artist(this, track)); box.addView(artist);
+        EditText genre = new EditText(this); genre.setHint("장르"); genre.setText(RadioCatalog.genre(this, track)); box.addView(genre);
+        new AlertDialog.Builder(this).setTitle("곡 정보 수정").setView(box)
+            .setPositiveButton("저장", (d, w) -> { RadioCatalog.metadata(this, track, artist.getText().toString(), genre.getText().toString()); updateVisibleTracks(); })
+            .setNegativeButton("취소", null).show();
+    }
+    private void savePlaylist() {
+        List<Originals.Track> songs = new ArrayList<>();
+        for (Originals.Track t : shownTracks) if (selected.contains(t.hash)) songs.add(t);
+        if (songs.isEmpty()) { say("저장할 곡을 목록에서 선택해 주세요."); return; }
+        EditText name = new EditText(this); name.setHint("새 재생목록 이름");
+        new AlertDialog.Builder(this).setTitle("현재 표시 순서로 목록 저장").setView(name)
+            .setPositiveButton("저장", (d, w) -> {
+                String value = name.getText().toString().trim();
+                if (value.isEmpty() || value.startsWith("현재 보기") || RadioCatalog.names(this).contains(value)) { say("다른 새 목록 이름을 입력해 주세요."); return; }
+                RadioCatalog.save(this, value, songs); say(value + " · " + songs.size() + "곡 저장");
+            }).setNegativeButton("취소", null).show();
+    }
+    private void choosePlaylist() {
+        List<String> names = new ArrayList<>(); names.add("전체 보관함"); names.addAll(RadioCatalog.names(this));
+        new AlertDialog.Builder(this).setTitle("재생목록 선택").setItems(names.toArray(new String[0]), (d, n) -> {
+            RadioCatalog.select(this, n == 0 ? "" : names.get(n));
+            artistFilter = ""; genreFilter = ""; sameTitleOnly = false; sortMode = 2;
+            RadioProgram.select(this, 0); search.setText(""); updateVisibleTracks(); refreshProgramUI();
+        }).setNegativeButton("닫기", null).show();
+    }
+    private void playShown() {
+        if (shownTracks.isEmpty()) { say("재생할 원곡을 먼저 추가하거나 필터를 바꿔 주세요."); return; }
+        List<Originals.Track> songs = new ArrayList<>(shownTracks);
+        RadioCatalog.save(this, "현재 보기", songs); RadioCatalog.select(this, "현재 보기");
+        RadioProgram.select(this, 0); sortMode = 2;
+        refreshProgramUI(); updateVisibleTracks(); playTrack(songs.get(0));
+    }
     private void showTrackActions(Originals.Track track) {
         new AlertDialog.Builder(this).setTitle(track.title)
-                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "곡 분류 변경", "이 곡 삭제"}, (dialog, which) -> {
+                .setItems(new String[]{"원곡 재생", "BIGO용 저장", "곡 분류 변경", "가수·장르 수정", "이 곡 삭제"}, (dialog, which) -> {
                     if (which == 0) playTrack(track);
                     else if (which == 1) export(track);
                     else if (which == 2) classifyTrack(track);
+                    else if (which == 3) editMetadata(track);
                     else confirmDelete(track);
                 })
                 .setNegativeButton("닫기", null).show();
@@ -785,15 +912,20 @@ public final class RadioActivity extends Activity {
         if (playerTitle == null || playerToggleButton == null) return;
         if (radioService == null) {
             playerToggleButton.setText("▶ 재생");
+            if (dialogueLine != null) dialogueLine.setText("");
+            if (skipTalkButton != null) skipTalkButton.setVisibility(View.GONE);
             if (playerTitle.getText().length() == 0)
                 playerTitle.setText("목록에서 음악을 선택하세요.");
             return;
         }
         String title = radioService.currentTitle();
         boolean playing = radioService.isPlaying();
-        playerTitle.setText((radioService.isLoading() ? "불러오는 중 · "
+        boolean talking = radioService.isPresenting();
+        dialogueLine.setText(radioService.currentDialogue());
+        skipTalkButton.setVisibility(talking ? View.VISIBLE : View.GONE);
+        playerTitle.setText((talking ? "초대석 대화 중 · " : radioService.isLoading() ? "불러오는 중 · "
                 : playing ? "재생 중 · " : "일시정지 · ") + title);
-        playerToggleButton.setText(playing ? "⏸ 일시정지" : "▶ 재생");
+        playerToggleButton.setText((playing || radioService.isLoading()) ? "⏸ 일시정지" : "▶ 재생");
         int duration = radioService.durationMs();
         if (!playerSeeking && playerSeek != null) {
             playerSeek.setMax(Math.max(duration, 1000));
