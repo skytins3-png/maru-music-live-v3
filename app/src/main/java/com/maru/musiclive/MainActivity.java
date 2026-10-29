@@ -512,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.19 · 갤럭시용 경량 라디오 · 연속 재생",
+                "V3.2.20 · AI 초대석 라디오 · 사연과 신청곡",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -560,6 +560,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(button(
                 "아환 + AI 가수 32명 미리듣기 (BIGO 미송출)",
                 v -> startLocalRadioPreview()));
+        column.addView(button("라디오 청취자 사연 접수 · 승인 후 낭독",
+                v -> showAudienceStoryInput()));
+        column.addView(button("신청곡 받기 · 등록된 원곡 다음에 편성",
+                v -> showSongRequestInput()));
+        column.addView(button("AI 방송 학습자료 · 검토 메모 저장",
+                v -> showApprovedLearningInput()));
+        column.addView(text(
+                "초대석 대화는 휴대폰 안에서 만든 가상 AI 진행 대본입니다. "
+                + "사연·신청곡은 운영자가 직접 접수하고 승인한 것만 사용합니다. "
+                + "외부 사이트는 운영자가 직접 열고 사실과 저작권을 검토한 "
+                + "요약 메모만 저장합니다. BIGO 채팅 자동 수집이나 AI 웹 자율학습은 제공하지 않습니다.",
+                13, false));
         column.addView(button(
                 "BIGO 앱 직접 열기",
                 v -> openBigoChat()));
@@ -624,6 +636,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             refreshAutoGreetingStatus();
         });
         column.addView(dailyRadio);
+        CheckBox longGuestTalk = checkBox(
+                "라디오 초대석 · 40회 이상 긴 대화 후 노래 재생",
+                AppStorage.longGuestTalkEnabled(this));
+        longGuestTalk.setOnCheckedChangeListener((v, checked) ->
+                AppStorage.setLongGuestTalkEnabled(this, checked));
+        column.addView(longGuestTalk);
         column.addView(text(
                 "32명의 가상 AI 가수가 순환 출연합니다. 날짜별 오리지널 대화가 자동 변경됩니다. "
                         + "대본은 매일 APK 재설치 없이 바뀌며 원곡은 백그라운드 재생합니다. "
@@ -663,6 +681,102 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         refreshAutoGreetingStatus();
         appRoot.addView(setupScreen);
         setContentView(appRoot);
+    }
+
+    /** Stories are submitted manually, not taken from the BIGO private chat. */
+    private void showAudienceStoryInput() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(22), dp(8), dp(22), dp(8));
+        EditText nickname = new EditText(this);
+        nickname.setHint("청취자 표시 이름 (비우면 익명)");
+        content.addView(nickname);
+        EditText body = new EditText(this);
+        body.setHint("승인 받은 사연을 입력하세요 (350자 이내)");
+        body.setMinLines(4);
+        content.addView(body);
+        CheckBox consent = checkBox(
+                "작성자 또는 청취자의 방송 낭독 동의를 확인했습니다", false);
+        content.addView(consent);
+        new AlertDialog.Builder(this)
+                .setTitle("사연 접수 · 현재 대기 "
+                        + RadioAudienceStore.pendingStoryCount(this) + "건")
+                .setView(content)
+                .setPositiveButton("낭독 대기열에 저장", (dialog, which) -> {
+                    if (!consent.isChecked()) {
+                        toast("사연 공개 동의를 확인한 다음 다시 접수하세요.");
+                        return;
+                    }
+                    if (RadioAudienceStore.submitApprovedStory(
+                            this, nickname.getText().toString(), body.getText().toString())) {
+                        toast("사연 접수 완료 · 다음 초대석에서 한 건씩 낭독");
+                    } else {
+                        toast("사연 내용을 입력하세요.");
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void showSongRequestInput() {
+        if (songs.isEmpty()) {
+            toast("먼저 방송할 MP3/WAV 원곡을 추가하세요.");
+            return;
+        }
+        String[] titles = new String[songs.size()];
+        for (int i = 0; i < songs.size(); i++) {
+            titles[i] = displayName(Uri.parse(songs.get(i)));
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("신청곡 접수 · 대기 "
+                        + RadioAudienceStore.pendingRequestCount(this) + "곡")
+                .setItems(titles, (dialog, index) -> {
+                    if (RadioAudienceStore.requestSong(this, songs.get(index)))
+                        toast("신청곡 접수: " + titles[index]
+                                + " · 현재 곡이 끝나면 우선 편성");
+                })
+                .setNegativeButton("닫기", null).show();
+    }
+
+    /** Web pages are opened by an explicit user action, never crawled. */
+    private void showApprovedLearningInput() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(22), dp(8), dp(22), dp(8));
+        EditText url = new EditText(this);
+        url.setHint("참고 사이트 https://주소");
+        url.setSingleLine(true);
+        content.addView(url);
+        EditText note = new EditText(this);
+        note.setHint("직접 검토한 짧은 요약·음악 진행 소재 (350자)");
+        note.setMinLines(3);
+        content.addView(note);
+        new AlertDialog.Builder(this)
+                .setTitle("검토한 학습자료 · 저장 "
+                        + RadioAudienceStore.approvedNoteCount(this) + "건")
+                .setMessage("방송의 새 소재로 쓸 자료를 운영자가 직접 검토하세요. "
+                        + "외부 사이트에 자동 로그인하거나 자동 수집하지 않습니다.")
+                .setView(content)
+                .setPositiveButton("검토 메모 저장", (dialog, which) -> {
+                    if (RadioAudienceStore.addApprovedResearch(
+                            this, url.getText().toString(), note.getText().toString()))
+                        toast("검토 메모 저장 완료 · 초대석 대화에 순환 반영");
+                    else toast("https:// 주소와 검토 메모를 모두 입력하세요.");
+                })
+                .setNeutralButton("사이트 열기", (dialog, which) -> {
+                    String link = url.getText().toString().trim();
+                    if (!link.startsWith("https://")) {
+                        toast("https:// 주소를 입력해 주세요.");
+                        return;
+                    }
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(link)));
+                    } catch (RuntimeException error) {
+                        toast("브라우저에서 사이트를 열 수 없습니다.");
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
     }
 
     private void showSunoBigoGuide() {

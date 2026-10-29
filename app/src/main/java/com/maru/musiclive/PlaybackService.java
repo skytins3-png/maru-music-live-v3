@@ -95,6 +95,7 @@ public final class PlaybackService extends Service {
     private boolean preparing;
     private boolean intermissionPending;
     private String intermissionToken = "";
+    private String pendingRequestedSong = "";
     private final Set<Integer> unplayableTracks = new HashSet<>();
     /** Independent of track index: even a single repeated song cycles guest singers. */
     private int radioEpisodeIndex;
@@ -178,6 +179,7 @@ public final class PlaybackService extends Service {
         queue.clear();
         trackKeys.clear();
         unplayableTracks.clear();
+        pendingRequestedSong = "";
         if (uris != null) {
             for (String uri : uris) {
                 if (uri == null || uri.trim().isEmpty()) continue;
@@ -283,6 +285,12 @@ public final class PlaybackService extends Service {
                     randomGuard.markStarted(
                             trackKeyAt(currentIndex),
                             System.currentTimeMillis());
+                    if (!pendingRequestedSong.isEmpty()
+                            && pendingRequestedSong.equals(queue.get(currentIndex))) {
+                        RadioAudienceStore.markRequestServed(
+                                PlaybackService.this, pendingRequestedSong);
+                        pendingRequestedSong = "";
+                    }
                     saveRandomPlaybackState();
                 }
                 notifyTrack();
@@ -342,6 +350,13 @@ public final class PlaybackService extends Service {
         // on an inaccessible playlist. Failures remain quarantined until
         // the listener changes the queue or explicitly selects a song.
         int failed = currentIndex;
+        if (!pendingRequestedSong.isEmpty() && failed >= 0
+                && failed < queue.size()
+                && pendingRequestedSong.equals(queue.get(failed))) {
+            // Unreadable requested audio must not trap future episodes.
+            RadioAudienceStore.markRequestServed(this, pendingRequestedSong);
+            pendingRequestedSong = "";
+        }
         releasePlayer();
         intermissionPending = false;
         intermissionToken = "";
@@ -417,7 +432,9 @@ public final class PlaybackService extends Service {
         boolean started = AppStorage.radioConversationEnabled(this)
                 ? AutoGreetingService.announceRadioIntermission(
                         this, title, snapshot.giftNames, snapshot.followNames,
-                        nextIndex, assignedArtist, episode, intermissionToken)
+                        nextIndex, assignedArtist, episode, intermissionToken,
+                        !pendingRequestedSong.isEmpty()
+                                && pendingRequestedSong.equals(queue.get(nextIndex)))
                 : AutoGreetingService.announceIntermission(
                         this,
                         title,
@@ -433,6 +450,20 @@ public final class PlaybackService extends Service {
 
     private int calculateNextIndex() {
         if (queue.isEmpty()) return -1;
+        // Only imported/registered original songs may be requested. A random
+        // playlist still enforces its 20-minute no-repeat rule.
+        String request = RadioAudienceStore.peekRequestedSong(this);
+        if (!request.isEmpty()) {
+            int index = queue.indexOf(request);
+            if (index < 0) {
+                RadioAudienceStore.markRequestServed(this, request);
+            } else if (!randomMode || !randomGuard.wasPlayedWithin(
+                    trackKeyAt(index), System.currentTimeMillis())) {
+                pendingRequestedSong = request;
+                return index;
+            }
+        }
+        pendingRequestedSong = "";
         if (randomMode) {
             int nextIndex = randomGuard.chooseNext(
                     trackKeys,
@@ -585,6 +616,7 @@ public final class PlaybackService extends Service {
         intermissionPending = false;
         intermissionToken = "";
         unplayableTracks.clear();
+        pendingRequestedSong = "";
         releasePlayer();
         currentIndex = -1;
         notifyState(false);
@@ -789,6 +821,7 @@ public final class PlaybackService extends Service {
             intermissionPending = false;
             intermissionToken = "";
             unplayableTracks.clear();
+            pendingRequestedSong = "";
             radioEpisodeIndex = 0;
             releasePlayer();
             currentIndex = -1;

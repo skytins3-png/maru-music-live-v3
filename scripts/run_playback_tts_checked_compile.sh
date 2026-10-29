@@ -45,9 +45,9 @@ import java.util.ArrayList;
 public class Intent {
  private String action; public Intent(){} public Intent(Context c,Class<?> k){}
  public Intent setAction(String a){action=a;return this;} public String getAction(){return action;} public Intent setPackage(String p){return this;}
- public Intent putExtra(String k,String v){return this;} public Intent putExtra(String k,int v){return this;}
+ public Intent putExtra(String k,String v){return this;} public Intent putExtra(String k,int v){return this;} public Intent putExtra(String k,boolean v){return this;}
  public Intent putStringArrayListExtra(String k,ArrayList<String> v){return this;}
- public String getStringExtra(String k){return null;} public int getIntExtra(String k,int d){return d;}
+ public String getStringExtra(String k){return null;} public int getIntExtra(String k,int d){return d;} public boolean getBooleanExtra(String k,boolean d){return d;}
  public ArrayList<String> getStringArrayListExtra(String k){return null;}
 }
 JAVA
@@ -149,6 +149,7 @@ package com.maru.musiclive; import android.content.Context; import java.util.*; 
  public static boolean songTitleTts(Context c){return true;}
   public static boolean radioConversationEnabled(Context c){return true;}
   public static boolean dailyRadioEnabled(Context c){return true;}
+  public static boolean longGuestTalkEnabled(Context c){return true;}
   public static int artistForSong(Context c,String uri){return 0;}
  public static java.util.List<String> loadSongs(Context c){return new java.util.ArrayList<>();}
  public static boolean repeatAll(Context c){return true;}
@@ -156,6 +157,20 @@ package com.maru.musiclive; import android.content.Context; import java.util.*; 
  public static Map<String,Long> loadRandomHistory(Context c){return new LinkedHashMap<>();}
  public static Set<String> loadRandomCycle(Context c){return new HashSet<>();}
  public static void saveRandomPlaybackState(Context c,Map<String,Long> h,Set<String> s){}
+}
+JAVA
+cat > "$SRC/com/maru/musiclive/RadioAudienceStore.java" <<'JAVA'
+package com.maru.musiclive;
+import android.content.Context;
+public final class RadioAudienceStore {
+ public static final class Story {
+  public final String id="",name="",text="";
+ }
+ public static Story peekStory(Context c){return null;}
+ public static String approvedResearchNote(Context c,int n){return "";}
+ public static String peekRequestedSong(Context c){return "";}
+ public static void markRequestServed(Context c,String id){}
+ public static void markStoryRead(Context c,String id){}
 }
 JAVA
 cat > "$SRC/com/maru/musiclive/SongTitleResolver.java" <<'JAVA'
@@ -192,6 +207,7 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RadioConversationScript.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/DailyRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/MultiArtistRadioProgram.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/GuestTalkShow.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/AutoGreetingService.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackService.java"
 
