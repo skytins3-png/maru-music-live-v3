@@ -350,6 +350,13 @@ public final class PlaybackService extends Service {
         // on an inaccessible playlist. Failures remain quarantined until
         // the listener changes the queue or explicitly selects a song.
         int failed = currentIndex;
+        if (!pendingRequestedSong.isEmpty() && failed >= 0
+                && failed < queue.size()
+                && pendingRequestedSong.equals(queue.get(failed))) {
+            // Unreadable requested audio must not trap future episodes.
+            RadioAudienceStore.markRequestServed(this, pendingRequestedSong);
+            pendingRequestedSong = "";
+        }
         releasePlayer();
         intermissionPending = false;
         intermissionToken = "";
