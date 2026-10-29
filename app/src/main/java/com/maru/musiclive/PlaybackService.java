@@ -23,7 +23,10 @@ import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -54,6 +57,7 @@ public final class PlaybackService extends Service {
     public static final String ACTION_STOP_ALL =
             "com.maru.musiclive.PLAYBACK_STOP_ALL";
     public static final String EXTRA_TRACK_INDEX = "track_index";
+    public static final String EXTRA_ANNOUNCEMENT_TOKEN = "announcement_token";
 
     private static final String CHANNEL_ID = "maru_playback";
     private static final int NOTIFICATION_ID = 273;
@@ -90,6 +94,8 @@ public final class PlaybackService extends Service {
     private boolean randomMode;
     private boolean preparing;
     private boolean intermissionPending;
+    private String intermissionToken = "";
+    private final Set<Integer> unplayableTracks = new HashSet<>();
     /** Independent of track index: even a single repeated song cycles guest singers. */
     private int radioEpisodeIndex;
     private boolean randomRetryScheduled;
@@ -131,9 +137,16 @@ public final class PlaybackService extends Service {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_PLAY_AFTER_ANNOUNCEMENT.equals(action)) {
             int index = intent.getIntExtra(EXTRA_TRACK_INDEX, -1);
+            String token = intent.getStringExtra(EXTRA_ANNOUNCEMENT_TOKEN);
             synchronized (this) {
-                intermissionPending = false;
-                if (index >= 0) playInternal(index);
+                // Cancelled/obsolete TTS callbacks must never replace manually selected music.
+                if (intermissionPending && token != null
+                        && !token.isEmpty() && token.equals(intermissionToken)
+                        && index >= 0) {
+                    intermissionPending = false;
+                    intermissionToken = "";
+                    playInternal(index);
+                }
             }
         } else if (ACTION_TOGGLE.equals(action)) {
             toggle();
@@ -164,6 +177,7 @@ public final class PlaybackService extends Service {
         cancelRandomRetry();
         queue.clear();
         trackKeys.clear();
+        unplayableTracks.clear();
         if (uris != null) {
             for (String uri : uris) {
                 if (uri == null || uri.trim().isEmpty()) continue;
@@ -233,6 +247,8 @@ public final class PlaybackService extends Service {
         cancelRandomRetry();
         AutoGreetingService.cancel(this);
         intermissionPending = false;
+        intermissionToken = "";
+        unplayableTracks.clear(); // Explicit tap permits retrying a repaired original.
         playInternal(index);
     }
 
@@ -278,11 +294,11 @@ public final class PlaybackService extends Service {
             } catch (RuntimeException error) {
                 synchronized (PlaybackService.this) {
                     preparing = false;
-                    if (player == mp) player = null;
+                    if (player != mp) return;
+                    player = null;
                     try { mp.release(); } catch (RuntimeException ignored) {}
+                    skipUnplayableTrack("노래 재생 시작 실패: " + safeMessage(error));
                 }
-                notifyState(false);
-                error("노래 재생 시작 실패: " + safeMessage(error));
             }
         });
         next.setOnCompletionListener(mp -> {
@@ -292,10 +308,10 @@ public final class PlaybackService extends Service {
         });
         next.setOnErrorListener((mp, what, extra) -> {
             synchronized (PlaybackService.this) {
+                if (player != mp) return true;
                 preparing = false;
-                intermissionPending = false;
+                skipUnplayableTrack("재생 오류: " + what + "/" + extra);
             }
-            error("재생 오류: " + what + "/" + extra);
             return true;
         });
 
@@ -307,18 +323,49 @@ public final class PlaybackService extends Service {
             preparing = false;
             if (player == next) player = null;
             try { next.release(); } catch (RuntimeException ignored) {}
-            error("노래 파일 권한이 만료되었습니다. 설정에서 삭제 후 다시 추가하세요.");
+            skipUnplayableTrack("노래 파일 권한이 만료되었습니다. 파일을 다시 추가하세요.");
         } catch (IOException | IllegalArgumentException | IllegalStateException error) {
             preparing = false;
             if (player == next) player = null;
             try { next.release(); } catch (RuntimeException ignored) {}
-            error("파일을 열 수 없습니다: " + safeMessage(error));
+            skipUnplayableTrack("파일을 열 수 없습니다: " + safeMessage(error));
         } catch (RuntimeException error) {
             preparing = false;
             if (player == next) player = null;
             try { next.release(); } catch (RuntimeException ignored) {}
-            error("재생 준비 오류: " + safeMessage(error));
+            skipUnplayableTrack("재생 준비 오류: " + safeMessage(error));
         }
+    }
+
+    private void skipUnplayableTrack(String reason) {
+        // A failed MP3 must not strand the broadcast, but never loop forever
+        // on an inaccessible playlist. Failures remain quarantined until
+        // the listener changes the queue or explicitly selects a song.
+        int failed = currentIndex;
+        releasePlayer();
+        intermissionPending = false;
+        intermissionToken = "";
+        if (failed >= 0) unplayableTracks.add(failed);
+        error(reason);
+        notifyState(false);
+        int nextIndex = PlaybackRecoveryPolicy.nextPlayable(
+                queue.size(), failed, unplayableTracks);
+        if (nextIndex < 0) {
+            startForeground(NOTIFICATION_ID,
+                    notification("재생 가능한 곡 없음 · 파일 확인 필요"));
+            AutoGreetingStore.setStatus(this,
+                    "등록된 곡을 재생할 수 없습니다. 파일 권한이나 원본 MP3를 확인하세요.");
+            return;
+        }
+        AutoGreetingStore.setStatus(this,
+                "손상되거나 권한이 없는 곡 건너뛰기 · 다음 원곡 재생");
+        // Avoid synchronous recursion when many missing files are consecutive.
+        main.post(() -> {
+            synchronized (PlaybackService.this) {
+                if (player == null && !preparing && !intermissionPending
+                        && currentIndex == failed) playInternal(nextIndex);
+            }
+        });
     }
 
     private String safeMessage(Throwable error) {
@@ -361,6 +408,7 @@ public final class PlaybackService extends Service {
         releasePlayer();
         preparing = false;
         intermissionPending = true;
+        intermissionToken = UUID.randomUUID().toString();
         notifyState(false);
         startForeground(NOTIFICATION_ID, notification("곡 사이 통합 안내 중"));
 
@@ -369,15 +417,16 @@ public final class PlaybackService extends Service {
         boolean started = AppStorage.radioConversationEnabled(this)
                 ? AutoGreetingService.announceRadioIntermission(
                         this, title, snapshot.giftNames, snapshot.followNames,
-                        nextIndex, assignedArtist, episode)
+                        nextIndex, assignedArtist, episode, intermissionToken)
                 : AutoGreetingService.announceIntermission(
                         this,
                         title,
                         snapshot.giftNames,
                         snapshot.followNames,
-                        nextIndex);
+                        nextIndex, intermissionToken);
         if (!started) {
             intermissionPending = false;
+            intermissionToken = "";
             playInternal(nextIndex);
         }
     }
@@ -480,7 +529,14 @@ public final class PlaybackService extends Service {
     }
 
     public synchronized void toggle() {
-        if (intermissionPending) return;
+        if (intermissionPending) {
+            AutoGreetingService.cancel(this);
+            intermissionPending = false;
+            intermissionToken = "";
+            notifyState(false);
+            startForeground(NOTIFICATION_ID, notification("라디오 일시정지"));
+            return;
+        }
         if (player == null) {
             play(currentIndex < 0 ? 0 : currentIndex);
             return;
@@ -527,6 +583,8 @@ public final class PlaybackService extends Service {
         cancelRandomRetry();
         AutoGreetingService.cancel(this);
         intermissionPending = false;
+        intermissionToken = "";
+        unplayableTracks.clear();
         releasePlayer();
         currentIndex = -1;
         notifyState(false);
@@ -534,6 +592,11 @@ public final class PlaybackService extends Service {
     }
 
     public synchronized void next() {
+        if (intermissionPending) {
+            int nextIndex = calculateNextIndex();
+            if (nextIndex >= 0) play(nextIndex);
+            return;
+        }
         transitionToNext();
     }
 
@@ -724,6 +787,8 @@ public final class PlaybackService extends Service {
             abandonFocus();
             cancelRandomRetry();
             intermissionPending = false;
+            intermissionToken = "";
+            unplayableTracks.clear();
             radioEpisodeIndex = 0;
             releasePlayer();
             currentIndex = -1;

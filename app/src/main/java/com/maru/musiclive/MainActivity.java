@@ -512,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.17 · 아환 + AI 가수 32명 · 자동 업데이트 확인",
+                "V3.2.18 · AI 라디오 연속 재생 복구",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));

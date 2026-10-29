@@ -187,6 +187,7 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/IntermissionStore.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/VolumeDucking.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RandomPlaybackGuard.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackRecoveryPolicy.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/VirtualArtistCatalog.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RadioConversationScript.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/DailyRadioProgram.java" \
