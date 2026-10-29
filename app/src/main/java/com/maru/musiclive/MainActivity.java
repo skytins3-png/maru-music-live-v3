@@ -512,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.19 · 갤럭시용 경량 라디오 · 연속 재생",
+                "V3.2.20 · AI 초대석 라디오 · 사연과 신청곡",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
