@@ -57,6 +57,7 @@ public final class AutoGreetingService extends Service {
     private static final String EXTRA_RESUME_INDEX = "resume_index";
     private static final String EXTRA_ARTIST_ID = "artist_id";
     private static final String EXTRA_EPISODE_INDEX = "episode_index";
+    private static final String EXTRA_LISTENER_REQUESTED = "listener_requested";
     private static final long SPEAK_TIMEOUT_MS = 35_000L;
     private static final long TTS_INIT_TIMEOUT_MS = 15_000L;
     private static final String EXTRA_ANNOUNCEMENT_TOKEN =
@@ -79,6 +80,7 @@ public final class AutoGreetingService extends Service {
     private int activeLanguageIndex = -1;
     private int activeDialogueIndex = -1;
     private RadioConversationScript.Line[] activeDialogue;
+    private String activeStoryId = "";
     private final List<Voice> availableKoreanVoices = new ArrayList<>();
 
     private final Runnable ttsInitTimeout = () -> {
@@ -166,7 +168,8 @@ public final class AutoGreetingService extends Service {
     public static boolean announceRadioIntermission(
             Context context, String nextTitle,
             List<String> giftNames, List<String> followNames,
-            int resumeIndex, int artistId, int episodeIndex, String token) {
+            int resumeIndex, int artistId, int episodeIndex, String token,
+            boolean listenerRequested) {
         if (context == null || resumeIndex < 0) return false;
         return safeStart(context, new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_RADIO_INTERMISSION)
@@ -181,6 +184,7 @@ public final class AutoGreetingService extends Service {
                 .putExtra(EXTRA_RESUME_INDEX, resumeIndex)
                 .putExtra(EXTRA_ARTIST_ID, artistId)
                 .putExtra(EXTRA_EPISODE_INDEX, episodeIndex)
+                .putExtra(EXTRA_LISTENER_REQUESTED, listenerRequested)
                 .putExtra(EXTRA_ANNOUNCEMENT_TOKEN, token));
     }
 
@@ -365,14 +369,26 @@ public final class AutoGreetingService extends Service {
         activeLanguageIndex = request.kind == AnnouncementRequest.KIND_INTERMISSION
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
-        activeDialogue = request.kind == AnnouncementRequest.KIND_RADIO
-                ? MultiArtistRadioProgram.beforeSong(
-                        request.value, request.episodeIndex,
-                        java.time.LocalDate.now(),
+        activeStoryId = "";
+        if (request.kind == AnnouncementRequest.KIND_RADIO) {
+            if (AppStorage.longGuestTalkEnabled(this)) {
+                RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
+                if (story != null) activeStoryId = story.id;
+                activeDialogue = GuestTalkShow.beforeSong(
+                        request.value, request.episodeIndex, java.time.LocalDate.now(),
+                        request.artistId, story == null ? "" : story.name,
+                        story == null ? "" : story.text,
+                        RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
+                        request.listenerRequested);
+            } else {
+                activeDialogue = MultiArtistRadioProgram.beforeSong(
+                        request.value, request.episodeIndex, java.time.LocalDate.now(),
                         AppStorage.dailyRadioEnabled(this),
-                        request.giftNames, request.followNames,
-                        request.artistId)
-                : null;
+                        request.giftNames, request.followNames, request.artistId);
+            }
+        } else {
+            activeDialogue = null;
+        }
 
         if (isRadioRequest()) {
             speakCurrentDialogue();
@@ -616,6 +632,10 @@ public final class AutoGreetingService extends Service {
         int resumeIndex = activeResumeIndex;
         int finishedKind = activeRequest == null ? -1 : activeRequest.kind;
         String resumeToken = activeRequest == null ? "" : activeRequest.resumeToken;
+        if (success && finishedKind == AnnouncementRequest.KIND_RADIO
+                && !activeStoryId.isEmpty())
+            RadioAudienceStore.markStoryRead(this, activeStoryId);
+        activeStoryId = "";
         speaking = false;
         activeUtteranceId = "";
         activeRequestKey = "";
@@ -705,6 +725,7 @@ public final class AutoGreetingService extends Service {
         activeLanguageIndex = -1;
         activeDialogueIndex = -1;
         activeDialogue = null;
+        activeStoryId = "";
         stopSelf();
     }
 
@@ -764,6 +785,7 @@ public final class AutoGreetingService extends Service {
         String resumeToken = "";
         int artistId;
         int episodeIndex;
+        boolean listenerRequested;
 
         AnnouncementRequest(
                 int kind,
@@ -788,7 +810,7 @@ public final class AutoGreetingService extends Service {
                     + "|" + giftNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + followNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + resumeIndex + "|" + artistId + "|" + episodeIndex
-                    + "|" + resumeToken;
+                    + "|" + resumeToken + "|" + listenerRequested;
         }
 
         static AnnouncementRequest fromIntent(Intent intent) {
@@ -813,6 +835,7 @@ public final class AutoGreetingService extends Service {
                         resumeIndex);
                 radio.artistId = intent.getIntExtra(EXTRA_ARTIST_ID, 0);
                 radio.episodeIndex = intent.getIntExtra(EXTRA_EPISODE_INDEX, 0);
+                radio.listenerRequested = intent.getBooleanExtra(EXTRA_LISTENER_REQUESTED, false);
                 radio.resumeToken = intent.getStringExtra(EXTRA_ANNOUNCEMENT_TOKEN);
                 return radio;
             }
