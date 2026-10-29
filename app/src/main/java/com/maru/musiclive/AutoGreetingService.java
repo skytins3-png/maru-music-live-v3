@@ -58,6 +58,9 @@ public final class AutoGreetingService extends Service {
     private static final String EXTRA_ARTIST_ID = "artist_id";
     private static final String EXTRA_EPISODE_INDEX = "episode_index";
     private static final long SPEAK_TIMEOUT_MS = 35_000L;
+    private static final long TTS_INIT_TIMEOUT_MS = 15_000L;
+    private static final String EXTRA_ANNOUNCEMENT_TOKEN =
+            PlaybackService.EXTRA_ANNOUNCEMENT_TOKEN;
     private static final String[] INTERMISSION_LANGUAGES =
             BroadcastVoicePolicy.orderedLanguages();
 
@@ -78,6 +81,13 @@ public final class AutoGreetingService extends Service {
     private RadioConversationScript.Line[] activeDialogue;
     private final List<Voice> availableKoreanVoices = new ArrayList<>();
 
+    private final Runnable ttsInitTimeout = () -> {
+        if (ttsReady || ttsFailed) return;
+        ttsFailed = true;
+        AutoGreetingStore.setStatus(this,
+                "음성 엔진 초기화 지연 · 음악을 계속 재생합니다.");
+        resumeQueuedWithoutSpeech();
+    };
     private final Runnable speakTimeout = () -> {
         if (!speaking) return;
         if (isRadioRequest()) {
@@ -131,7 +141,7 @@ public final class AutoGreetingService extends Service {
             String nextTitle,
             List<String> giftNames,
             List<String> followNames,
-            int resumeIndex) {
+            int resumeIndex, String token) {
         if (context == null) return false;
         Intent intent = new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_INTERMISSION)
@@ -147,7 +157,8 @@ public final class AutoGreetingService extends Service {
                         new ArrayList<>(followNames == null
                                 ? java.util.Collections.<String>emptyList()
                                 : followNames))
-                .putExtra(EXTRA_RESUME_INDEX, resumeIndex);
+                .putExtra(EXTRA_RESUME_INDEX, resumeIndex)
+                .putExtra(EXTRA_ANNOUNCEMENT_TOKEN, token);
         return safeStart(context, intent);
     }
 
@@ -155,7 +166,7 @@ public final class AutoGreetingService extends Service {
     public static boolean announceRadioIntermission(
             Context context, String nextTitle,
             List<String> giftNames, List<String> followNames,
-            int resumeIndex, int artistId, int episodeIndex) {
+            int resumeIndex, int artistId, int episodeIndex, String token) {
         if (context == null || resumeIndex < 0) return false;
         return safeStart(context, new Intent(context, AutoGreetingService.class)
                 .setAction(ACTION_RADIO_INTERMISSION)
@@ -169,7 +180,8 @@ public final class AutoGreetingService extends Service {
                                 ? java.util.Collections.<String>emptyList() : followNames))
                 .putExtra(EXTRA_RESUME_INDEX, resumeIndex)
                 .putExtra(EXTRA_ARTIST_ID, artistId)
-                .putExtra(EXTRA_EPISODE_INDEX, episodeIndex));
+                .putExtra(EXTRA_EPISODE_INDEX, episodeIndex)
+                .putExtra(EXTRA_ANNOUNCEMENT_TOKEN, token));
     }
 
     /** Keyboard-free preset closing announcement. Music is paused before this is called. */
@@ -224,10 +236,13 @@ public final class AutoGreetingService extends Service {
         createChannel();
         startForeground(NOTIFICATION_ID, notification("곡 사이 통합 안내 준비 중"));
         initializeTts();
+        main.postDelayed(ttsInitTimeout, TTS_INIT_TIMEOUT_MS);
     }
 
     private void initializeTts() {
         tts = new TextToSpeech(this, status -> {
+            main.removeCallbacks(ttsInitTimeout);
+            if (ttsFailed) return; // Timeout already continued music, never restart talk.
             if (status != TextToSpeech.SUCCESS) {
                 ttsReady = false;
                 ttsFailed = true;
@@ -310,7 +325,8 @@ public final class AutoGreetingService extends Service {
         AnnouncementRequest request = AnnouncementRequest.fromIntent(intent);
         if (ttsFailed) {
             if (request.kind == AnnouncementRequest.KIND_CLOSING) finishClosing();
-            else if (request.resumeIndex >= 0) resumeTrack(request.resumeIndex);
+            else if (request.resumeIndex >= 0)
+                resumeTrack(request.resumeIndex, request.resumeToken);
             return START_NOT_STICKY;
         }
 
@@ -599,6 +615,7 @@ public final class AutoGreetingService extends Service {
         main.removeCallbacks(speakTimeout);
         int resumeIndex = activeResumeIndex;
         int finishedKind = activeRequest == null ? -1 : activeRequest.kind;
+        String resumeToken = activeRequest == null ? "" : activeRequest.resumeToken;
         speaking = false;
         activeUtteranceId = "";
         activeRequestKey = "";
@@ -617,7 +634,7 @@ public final class AutoGreetingService extends Service {
                 success
                         ? "곡 사이 통합 안내 완료 · 다음 노래 시작"
                         : "곡 사이 통합 안내 종료 · 다음 노래 시작");
-        if (resumeIndex >= 0) resumeTrack(resumeIndex);
+        if (resumeIndex >= 0) resumeTrack(resumeIndex, resumeToken);
         main.postDelayed(this::playNext, 200L);
     }
 
@@ -636,13 +653,17 @@ public final class AutoGreetingService extends Service {
 
     private void resumeQueuedWithoutSpeech() {
         int resumeIndex = -1;
+        String resumeToken = "";
         boolean closing = false;
         synchronized (queue) {
             while (!queue.isEmpty()) {
                 AnnouncementRequest request = queue.poll();
                 if (request == null) continue;
                 if (request.kind == AnnouncementRequest.KIND_CLOSING) closing = true;
-                if (resumeIndex < 0 && request.resumeIndex >= 0) resumeIndex = request.resumeIndex;
+                if (resumeIndex < 0 && request.resumeIndex >= 0) {
+                    resumeIndex = request.resumeIndex;
+                    resumeToken = request.resumeToken;
+                }
             }
             queuedKeys.clear();
         }
@@ -650,14 +671,15 @@ public final class AutoGreetingService extends Service {
             finishClosing();
             return;
         }
-        if (resumeIndex >= 0) resumeTrack(resumeIndex);
+        if (resumeIndex >= 0) resumeTrack(resumeIndex, resumeToken);
         stopSelf();
     }
 
-    private void resumeTrack(int index) {
+    private void resumeTrack(int index, String token) {
         Intent intent = new Intent(this, PlaybackService.class)
                 .setAction(PlaybackService.ACTION_PLAY_AFTER_ANNOUNCEMENT)
-                .putExtra(PlaybackService.EXTRA_TRACK_INDEX, index);
+                .putExtra(PlaybackService.EXTRA_TRACK_INDEX, index)
+                .putExtra(EXTRA_ANNOUNCEMENT_TOKEN, token);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
             else startService(intent);
@@ -739,6 +761,7 @@ public final class AutoGreetingService extends Service {
         final List<String> giftNames;
         final List<String> followNames;
         final int resumeIndex;
+        String resumeToken = "";
         int artistId;
         int episodeIndex;
 
@@ -764,7 +787,8 @@ public final class AutoGreetingService extends Service {
                             : kind == KIND_RADIO ? "radio" : language)
                     + "|" + giftNames.toString().toLowerCase(Locale.ROOT)
                     + "|" + followNames.toString().toLowerCase(Locale.ROOT)
-                    + "|" + resumeIndex + "|" + artistId + "|" + episodeIndex;
+                    + "|" + resumeIndex + "|" + artistId + "|" + episodeIndex
+                    + "|" + resumeToken;
         }
 
         static AnnouncementRequest fromIntent(Intent intent) {
@@ -775,13 +799,11 @@ public final class AutoGreetingService extends Service {
             if (ACTION_INTERMISSION.equals(action)) {
                 ArrayList<String> gifts = intent.getStringArrayListExtra(EXTRA_GIFT_NAMES);
                 ArrayList<String> follows = intent.getStringArrayListExtra(EXTRA_FOLLOW_NAMES);
-                return new AnnouncementRequest(
+                AnnouncementRequest request = new AnnouncementRequest(
                         KIND_INTERMISSION,
-                        value,
-                        language,
-                        gifts,
-                        follows,
-                        resumeIndex);
+                        value, language, gifts, follows, resumeIndex);
+                request.resumeToken = intent.getStringExtra(EXTRA_ANNOUNCEMENT_TOKEN);
+                return request;
             }
             if (ACTION_RADIO_INTERMISSION.equals(action)) {
                 AnnouncementRequest radio = new AnnouncementRequest(
@@ -791,6 +813,7 @@ public final class AutoGreetingService extends Service {
                         resumeIndex);
                 radio.artistId = intent.getIntExtra(EXTRA_ARTIST_ID, 0);
                 radio.episodeIndex = intent.getIntExtra(EXTRA_EPISODE_INDEX, 0);
+                radio.resumeToken = intent.getStringExtra(EXTRA_ANNOUNCEMENT_TOKEN);
                 return radio;
             }
             if (ACTION_CLOSING.equals(action)) {
