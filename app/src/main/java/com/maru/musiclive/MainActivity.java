@@ -535,7 +535,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "Android does not automatically transfer private data between separate apps. "
                         + "Re-select your own MP3/WAV files from Downloads in this app.",
                 13, true));
-        column.addView(button("새 버전 확인 · 업데이트 다운로드", v -> checkAppUpdate(true)));
+        column.addView(button("Check for app updates", v -> checkAppUpdate(true)));
         column.addView(text(
                 "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
                         + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
@@ -569,6 +569,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 v -> startLocalRadioPreview()));
         column.addView(button("Suno playlist · open & import MP3 files",
                 v -> showSunoPlaylistGuide()));
+        column.addView(button("MUSIC SHARE · Upload / Download / Stories",
+                v -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                                "https://skytins3-png.github.io/maru-ai-song-studio/music-share/")));
+                    } catch (RuntimeException error) {
+                        toast("Unable to open the music platform.");
+                    }
+                }));
         column.addView(button("Listener stories · approve before reading",
                 v -> showAudienceStoryInput()));
         column.addView(button("Song requests · play from imported tracks",
@@ -630,7 +639,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(songTitleTts);
 
         CheckBox radioConversation = checkBox(
-                "아환 + 가상 AI 가수 32명 교대 방송 (곡 사이, 한국어)",
+                "Guest radio show between imported songs (English by default)",
                 AppStorage.radioConversationEnabled(this));
         radioConversation.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setRadioConversationEnabled(this, checked);
@@ -638,7 +647,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         });
         column.addView(radioConversation);
         CheckBox dailyRadio = checkBox(
-                "매일 새로운 대화 주제 자동 변경 (재설치 필요 없음)",
+                "Fresh conversation topics by day (no reinstall needed)",
                 AppStorage.dailyRadioEnabled(this));
         dailyRadio.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setDailyRadioEnabled(this, checked);
