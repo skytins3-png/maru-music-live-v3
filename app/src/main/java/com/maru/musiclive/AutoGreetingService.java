@@ -393,10 +393,14 @@ public final class AutoGreetingService extends Service {
                             RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
                             request.listenerRequested);
             } else {
-                activeDialogue = MultiArtistRadioProgram.beforeSong(
-                        request.value, request.episodeIndex, java.time.LocalDate.now(),
-                        AppStorage.dailyRadioEnabled(this),
-                        request.giftNames, request.followNames, request.artistId);
+                activeDialogue = englishRadioDialogue
+                        ? EnglishRadioTalkShow.shortBeforeSong(
+                            request.value, request.episodeIndex,
+                            java.time.LocalDate.now(), request.artistId)
+                        : MultiArtistRadioProgram.beforeSong(
+                            request.value, request.episodeIndex, java.time.LocalDate.now(),
+                            AppStorage.dailyRadioEnabled(this),
+                            request.giftNames, request.followNames, request.artistId);
             }
         } else {
             activeDialogue = null;
