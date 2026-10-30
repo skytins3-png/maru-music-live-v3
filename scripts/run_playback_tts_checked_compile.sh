@@ -150,6 +150,7 @@ package com.maru.musiclive; import android.content.Context; import java.util.*; 
   public static boolean radioConversationEnabled(Context c){return true;}
   public static boolean dailyRadioEnabled(Context c){return true;}
   public static boolean longGuestTalkEnabled(Context c){return true;}
+  public static boolean englishRadioEnabled(Context c){return true;}
   public static int artistForSong(Context c,String uri){return 0;}
  public static java.util.List<String> loadSongs(Context c){return new java.util.ArrayList<>();}
  public static boolean repeatAll(Context c){return true;}
@@ -166,6 +167,7 @@ public final class RadioAudienceStore {
  public static final class Story {
   public final String id="",name="",text="";
  }
+ public static String clean(String s,int n){return s==null?"":s;}
  public static Story peekStory(Context c){return null;}
  public static String approvedResearchNote(Context c,int n){return "";}
  public static String peekRequestedSong(Context c){return "";}
@@ -208,6 +210,7 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/DailyRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/MultiArtistRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/GuestTalkShow.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/EnglishRadioTalkShow.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/AutoGreetingService.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackService.java"
 
