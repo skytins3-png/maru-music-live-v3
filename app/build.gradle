@@ -7,7 +7,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.maru.musiclive.ocr'
+        applicationId 'com.maru.musiclive.station'
         minSdk 26
         targetSdk 36
         // Galaxy S26 Ultra and current 64-bit Android devices.
@@ -16,8 +16,8 @@ android {
         ndk {
             abiFilters 'arm64-v8a'
         }
-        versionCode 3039
-        versionName '3.2.20'
+        versionCode 3040
+        versionName '3.2.21'
     }
 
     buildTypes {
