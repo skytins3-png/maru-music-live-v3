@@ -26,7 +26,7 @@ FORBIDDEN_DEX_STRINGS = {
 # fragments of one longer Java string. javac folds adjacent literals, so DEX
 # contains the whole guide string rather than each fragment as a separate entry.
 REQUIRED_EXACT_DEX_STRINGS = {
-    "V3.2.20 · AI 초대석 라디오 · 사연과 신청곡",
+    "V3.2.21 · 별도 설치판 · AI 초대석·사연·신청곡",
     "BIGO 오디오 LIVE 시작",
     "Suno → BIGO 원곡 방송 안내",
     "곡 사이 5개 언어 통합 안내",
