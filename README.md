@@ -1,3 +1,13 @@
+# MARU RADIO EN V3.2.23 · English Weather & News first install
+
+**If you have never installed MARU**, use the single v3.2.23 APK from the signed official GitHub Release. This is Android package `com.maru.musiclive.english` and home-screen name `MARU RADIO EN`; no previous versions need to be installed. Download only `MARU-RADIO.apk` under the v3.2.23 Release Assets; source ZIP is not an installer.
+
+- The top **Daily Weather & News Radio · Start English Show** button opens the verified MARU RADIO web page, which runs Ahwan's fictional English DJ/guest banter, producer-approved listener stories, optional local MP3/WAV, cited Open-Meteo weather for user-selectable cities and timestamped BBC headline updates.
+- Automatic upstream retrieval is done by the independent `maru-ai-song-studio` GitHub Actions scheduled job (~every 4 hours). A new APK is NOT needed for each news/weather refresh. Data may lag; if stale or unavailable, the show continues without claiming fake live facts.
+- Click Start radio once in the browser. This is an online web-radio **preview**, not automatic entry into BIGO or routing audio to BIGO microphone. Android battery/screens-off may suspend it.
+- Other local radio buttons still play user-added files or old fictional TTS; they do not silently gain the new weather/news data. Only the labelled online weather/news button opens the daily content.
+- **Important signing limitation**: current workflow builds use ephemeral debug signing. This fresh install will succeed on a compatible Android device if the package does not already exist, but future *in-place updates* require a securely stored, fixed release keystore in GitHub Secrets. Do not uninstall older apps merely to install another build. No real-device install or BIGO mic routing is certified by CI.
+
 # MARU RADIO EN V3.2.22 — English human-style talk and Suno playlist workflow
 
 - Spoken radio conversation **defaults to English**. On-air characters are host Ahwan and one fictional guest for the whole show, not 32 people repeating the same topic. Episodes rotate 16 original everyday conversation themes and include gentle humor, empathy, informal reactions, and short textual chuckles. This is still **prewritten TTS**, not a spontaneous human recording or real voice singing. Laughter text is not the same as a genuine recorded laughter sound effect.
