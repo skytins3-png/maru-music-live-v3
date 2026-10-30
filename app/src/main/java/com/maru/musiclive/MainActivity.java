@@ -565,13 +565,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
         column.addView(button(
-                "아환 + AI 가수 32명 미리듣기 (BIGO 미송출)",
+                "English Radio Show · Ahwan & Guest (local preview)",
                 v -> startLocalRadioPreview()));
-        column.addView(button("라디오 청취자 사연 접수 · 승인 후 낭독",
+        column.addView(button("Suno playlist · open & import MP3 files",
+                v -> showSunoPlaylistGuide()));
+        column.addView(button("Listener stories · approve before reading",
                 v -> showAudienceStoryInput()));
-        column.addView(button("신청곡 받기 · 등록된 원곡 다음에 편성",
+        column.addView(button("Song requests · play from imported tracks",
                 v -> showSongRequestInput()));
-        column.addView(button("AI 방송 학습자료 · 검토 메모 저장",
+        column.addView(button("Producer notes · approved topics",
                 v -> showApprovedLearningInput()));
         column.addView(text(
                 "초대석 대화는 휴대폰 안에서 만든 가상 AI 진행 대본입니다. "
@@ -643,8 +645,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             refreshAutoGreetingStatus();
         });
         column.addView(dailyRadio);
+        CheckBox englishShow = checkBox(
+                "English conversation · warm, funny, one guest per show",
+                AppStorage.englishRadioEnabled(this));
+        englishShow.setOnCheckedChangeListener((v, checked) ->
+                AppStorage.setEnglishRadioEnabled(this, checked));
+        column.addView(englishShow);
         CheckBox longGuestTalk = checkBox(
-                "라디오 초대석 · 40회 이상 긴 대화 후 노래 재생",
+                "Long guest talk · 40 natural conversational turns before music",
                 AppStorage.longGuestTalkEnabled(this));
         longGuestTalk.setOnCheckedChangeListener((v, checked) ->
                 AppStorage.setLongGuestTalkEnabled(this, checked));
@@ -690,35 +698,70 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         setContentView(appRoot);
     }
 
+    /** Official Suno playlist links are for browsing; media import uses Android's
+     * multi-select document picker. No scraping of private Suno account audio. */
+    private void showSunoPlaylistGuide() {
+        EditText input = new EditText(this);
+        input.setHint("https://suno.com/playlist/...");
+        input.setSingleLine(true);
+        input.setText(AppStorage.sunoPlaylistUrl(this));
+        FrameLayout holder = new FrameLayout(this);
+        holder.setPadding(dp(20), dp(5), dp(20), dp(5));
+        holder.addView(input, match());
+        new AlertDialog.Builder(this)
+                .setTitle("Suno playlist · English radio")
+                .setMessage("Create a playlist in Suno and paste its share link here. "
+                        + "The app can open the playlist, but cannot silently download "
+                        + "private Suno songs. Download your own licensed MP3 tracks in "
+                        + "Suno first, then choose multiple MP3/WAV files in one action.")
+                .setView(holder)
+                .setPositiveButton("Open Suno playlist", (dialog, which) -> {
+                    String url = input.getText().toString().trim();
+                    if (!url.matches("https://(www\\.)?suno\\.com/playlist/[A-Za-z0-9-]+/?")) {
+                        toast("Paste a Suno playlist URL from suno.com/playlist/...");
+                        return;
+                    }
+                    AppStorage.setSunoPlaylistUrl(this, url);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (RuntimeException ignored) {
+                        toast("Unable to open Suno in the browser.");
+                    }
+                })
+                .setNeutralButton("Import MP3/WAV files", (dialog, which) ->
+                        audioPickerLauncher.launch(new String[]{"audio/*"}))
+                .setNegativeButton("Cancel", null).show();
+    }
+
     /** Stories are submitted manually, not taken from the BIGO private chat. */
     private void showAudienceStoryInput() {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(22), dp(8), dp(22), dp(8));
         EditText nickname = new EditText(this);
-        nickname.setHint("청취자 표시 이름 (비우면 익명)");
+        nickname.setHint("Listener name (optional)");
         content.addView(nickname);
         EditText body = new EditText(this);
-        body.setHint("승인 받은 사연을 입력하세요 (350자 이내)");
+        body.setHint("Approved listener story, preferably in English (max 350 characters)");
         body.setMinLines(4);
         content.addView(body);
         CheckBox consent = checkBox(
-                "작성자 또는 청취자의 방송 낭독 동의를 확인했습니다", false);
+                "I confirmed the writer consents to broadcasting this story", false);
         content.addView(consent);
         new AlertDialog.Builder(this)
-                .setTitle("사연 접수 · 현재 대기 "
+                .setTitle("Listener stories · waiting "
                         + RadioAudienceStore.pendingStoryCount(this) + "건")
                 .setView(content)
-                .setPositiveButton("낭독 대기열에 저장", (dialog, which) -> {
+                .setPositiveButton("Save for reading", (dialog, which) -> {
                     if (!consent.isChecked()) {
-                        toast("사연 공개 동의를 확인한 다음 다시 접수하세요.");
+                        toast("Confirm the story owner’s permission first.");
                         return;
                     }
                     if (RadioAudienceStore.submitApprovedStory(
                             this, nickname.getText().toString(), body.getText().toString())) {
-                        toast("사연 접수 완료 · 다음 초대석에서 한 건씩 낭독");
+                        toast("Story saved · read at the next guest talk.");
                     } else {
-                        toast("사연 내용을 입력하세요.");
+                        toast("Please enter the story.");
                     }
                 })
                 .setNegativeButton("취소", null)
