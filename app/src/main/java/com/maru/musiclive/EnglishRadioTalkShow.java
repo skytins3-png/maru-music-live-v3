@@ -131,6 +131,17 @@ public final class EnglishRadioTalkShow {
         guest(lines, artist, "Thanks for spending this time with us. Enjoy the song, and we'll catch up again soon.");
         return lines.toArray(new RadioConversationScript.Line[0]);
     }
+    public static RadioConversationScript.Line[] shortBeforeSong(
+            String title, int episode, LocalDate date, int artistId) {
+        RadioConversationScript.Line[] full = beforeSong(
+                title, episode, date, artistId, "", "", "", false);
+        return new RadioConversationScript.Line[]{
+                full[0], full[1], full[2], full[3], full[4],
+                full[full.length - 3], full[full.length - 2],
+                full[full.length - 1]
+        };
+    }
+
     private static String safeName(String s) {
         String clean = RadioAudienceStore.clean(s, 24);
         return clean.isEmpty() ? "a listener" : clean;
