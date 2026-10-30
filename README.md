@@ -1,3 +1,14 @@
+# MARU RADIO EN V3.2.22 — English human-style talk and Suno playlist workflow
+
+- Spoken radio conversation **defaults to English**. On-air characters are host Ahwan and one fictional guest for the whole show, not 32 people repeating the same topic. Episodes rotate 16 original everyday conversation themes and include gentle humor, empathy, informal reactions, and short textual chuckles. This is still **prewritten TTS**, not a spontaneous human recording or real voice singing. Laughter text is not the same as a genuine recorded laughter sound effect.
+- `EnglishRadioTalkShow` builds 40+ conversational turns for long show mode; short show mode remains in English too. Guests use the phone's available offline English TTS voice choices; no real-person voice clones or unauthorized recordings.
+- Story text is included **only when approved and entered** via the app by the producer; song requests play imported, locally available originals after the current track. The English voice reads story text as entered; there is no automatic Korean-to-English translation.
+- `Suno playlist` button stores and opens an official `https://suno.com/playlist/...` URL, then offers Android multi-file MP3/WAV selection. Suno accounts, playlists and private song downloads are not scraped; actual original audio files are added only through authorized user selection (or Suno share of audio files).
+- `MUSIC SHARE` button opens the separate static website's music uploads, free creator-approved downloads and consent-based public story submission. The public story route requires GitHub login; it is **not** a private inbox and does not auto-feed unapproved content to live broadcast.
+- **Side-by-side install**: V3.2.22 uses `com.maru.musiclive.english` and launcher name **MARU RADIO EN**, so it does not overwrite the previous `com.maru.musiclive.ocr` or `com.maru.musiclive.station` signed with different temporary build keys. Existing app private data do not automatically move.
+- **Important unsolved signing issue**: hosted GitHub Actions still uses per-build debug signing keys. Without a durable privately stored signing key configured as GitHub Actions Secrets, subsequent releases of the *same* English app cannot reliably install over this one. Never commit a keystore/password to the public repository.
+- No direct BIGO microphone mixer injection, no actual 32 recorded singing voices, no automatic Suno playlist download, no remote private story server, and no real-device broadcast certification.
+
 # MARU RADIO STATION V3.2.21 — 기존 앱 보존·별도 설치
 
 ## 설치 불가 오류를 해결하는 방법
