@@ -93,6 +93,7 @@ workflow_tag = f'V{version_name}' if version_name else ''
 
 check('version code', version_code == '3040')
 check('version name', version_name == '3.2.21')
+check('separate app package (preserves installed MARU)', "applicationId 'com.maru.musiclive.station'" in gradle)
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
         rf'\b(?:public|protected)\s+void\s+{lifecycle_name}\s*\(', main
