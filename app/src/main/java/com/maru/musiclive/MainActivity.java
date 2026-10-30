@@ -512,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.22 · English Radio Talk · Stories & Requests",
+                "V3.2.23 · Daily English Weather & News Radio",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -564,6 +564,24 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(regularLive);
 
 
+        Button dailyRadioWeb = button(
+                "▶ Daily Weather & News Radio · Start English Show",
+                v -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                                "https://skytins3-png.github.io/maru-ai-song-studio/music-share/radio.html")));
+                    } catch (RuntimeException error) {
+                        toast("Open the MARU RADIO webpage in a browser.");
+                    }
+                });
+        dailyRadioWeb.setTextSize(19f);
+        column.addView(dailyRadioWeb);
+        column.addView(text(
+                "English weather and verified news updates come from the public MARU web radio. "
+                        + "Select your weather city and tap Start radio once in your browser. "
+                        + "This is a browser-based online show; the phone may stop speech on screen lock. "
+                        + "It is not direct BIGO audio transmission.",
+                13, false));
         column.addView(button(
                 "English Radio Show · Ahwan & Guest (local preview)",
                 v -> startLocalRadioPreview()));

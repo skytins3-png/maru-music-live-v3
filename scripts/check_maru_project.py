@@ -91,8 +91,8 @@ version_name = version_name_match.group(1) if version_name_match else ''
 workflow_text = (root / '.github/workflows/build-apk.yml').read_text(encoding='utf-8')
 workflow_tag = f'V{version_name}' if version_name else ''
 
-check('version code', version_code == '3041')
-check('version name', version_name == '3.2.22')
+check('version code', version_code == '3042')
+check('version name', version_name == '3.2.23')
 check('separate app package (preserves installed MARU)', "applicationId 'com.maru.musiclive.english'" in gradle)
 for lifecycle_name in ('onCreate', 'onResume', 'onPause', 'onDestroy', 'onConfigurationChanged'):
     lifecycle_count = len(re.findall(
