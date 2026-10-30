@@ -82,6 +82,8 @@ public final class AutoGreetingService extends Service {
     private RadioConversationScript.Line[] activeDialogue;
     private String activeStoryId = "";
     private final List<Voice> availableKoreanVoices = new ArrayList<>();
+    private final List<Voice> availableEnglishVoices = new ArrayList<>();
+    private boolean englishRadioDialogue;
 
     private final Runnable ttsInitTimeout = () -> {
         if (ttsReady || ttsFailed) return;
@@ -258,6 +260,7 @@ public final class AutoGreetingService extends Service {
             ttsReady = true;
             ttsFailed = false;
             loadSupportedKoreanVoices();
+            loadSupportedEnglishVoices();
             tts.setSpeechRate(BroadcastVoicePolicy.SPEECH_RATE);
             tts.setPitch(BroadcastVoicePolicy.PITCH);
 
@@ -278,7 +281,7 @@ public final class AutoGreetingService extends Service {
                         AutoGreetingStore.setStatus(
                                 AutoGreetingService.this,
                                 isRadioRequest()
-                                        ? "아환·윤솔 대화형 음악방송 진행 중"
+                                        ? "Ahwan Radio · guest conversation"
                                         : "곡 사이 TTS 안내 재생 중");
                     });
                 }
@@ -369,22 +372,35 @@ public final class AutoGreetingService extends Service {
         activeLanguageIndex = request.kind == AnnouncementRequest.KIND_INTERMISSION
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
+        englishRadioDialogue = request.kind == AnnouncementRequest.KIND_RADIO
+                && AppStorage.englishRadioEnabled(this);
         activeStoryId = "";
         if (request.kind == AnnouncementRequest.KIND_RADIO) {
             if (AppStorage.longGuestTalkEnabled(this)) {
                 RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
                 if (story != null) activeStoryId = story.id;
-                activeDialogue = GuestTalkShow.beforeSong(
-                        request.value, request.episodeIndex, java.time.LocalDate.now(),
-                        request.artistId, story == null ? "" : story.name,
-                        story == null ? "" : story.text,
-                        RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
-                        request.listenerRequested);
+                activeDialogue = englishRadioDialogue
+                        ? EnglishRadioTalkShow.beforeSong(
+                            request.value, request.episodeIndex, java.time.LocalDate.now(),
+                            request.artistId, story == null ? "" : story.name,
+                            story == null ? "" : story.text,
+                            RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
+                            request.listenerRequested)
+                        : GuestTalkShow.beforeSong(
+                            request.value, request.episodeIndex, java.time.LocalDate.now(),
+                            request.artistId, story == null ? "" : story.name,
+                            story == null ? "" : story.text,
+                            RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
+                            request.listenerRequested);
             } else {
-                activeDialogue = MultiArtistRadioProgram.beforeSong(
-                        request.value, request.episodeIndex, java.time.LocalDate.now(),
-                        AppStorage.dailyRadioEnabled(this),
-                        request.giftNames, request.followNames, request.artistId);
+                activeDialogue = englishRadioDialogue
+                        ? EnglishRadioTalkShow.shortBeforeSong(
+                            request.value, request.episodeIndex,
+                            java.time.LocalDate.now(), request.artistId)
+                        : MultiArtistRadioProgram.beforeSong(
+                            request.value, request.episodeIndex, java.time.LocalDate.now(),
+                            AppStorage.dailyRadioEnabled(this),
+                            request.giftNames, request.followNames, request.artistId);
             }
         } else {
             activeDialogue = null;
@@ -409,12 +425,15 @@ public final class AutoGreetingService extends Service {
             finishCurrent(true);
             return;
         }
-        if (!languageAvailable(GreetingLanguage.KOREAN)) {
-            AutoGreetingStore.setStatus(this, "한국어 TTS 없음 · 음악 재생으로 복귀");
+        String dialogLanguage = englishRadioDialogue
+                ? GreetingLanguage.ENGLISH : GreetingLanguage.KOREAN;
+        if (!languageAvailable(dialogLanguage)) {
+            AutoGreetingStore.setStatus(this,
+                    "Selected TTS voice unavailable · playing the next track");
             finishCurrent(false);
             return;
         }
-        int result = tts.setLanguage(GreetingLanguage.locale(GreetingLanguage.KOREAN));
+        int result = tts.setLanguage(GreetingLanguage.locale(dialogLanguage));
         if (result == TextToSpeech.LANG_MISSING_DATA
                 || result == TextToSpeech.LANG_NOT_SUPPORTED) {
             finishCurrent(false);
@@ -460,13 +479,30 @@ public final class AutoGreetingService extends Service {
         }
     }
 
+    private void loadSupportedEnglishVoices() {
+        availableEnglishVoices.clear();
+        try {
+            Set<Voice> installed = tts.getVoices();
+            if (installed == null) return;
+            for (Voice voice : installed) {
+                if (voice == null || voice.getLocale() == null
+                        || !"en".equals(voice.getLocale().getLanguage())
+                        || voice.isNetworkConnectionRequired()) continue;
+                availableEnglishVoices.add(voice);
+            }
+            availableEnglishVoices.sort(Comparator.comparing(Voice::getName));
+        } catch (RuntimeException ignored) {}
+    }
+
     private void applyFictionalVoice(RadioConversationScript.Line line) {
         VirtualArtistCatalog.Artist artist = line.artist;
         int voiceSlot = artist == null ? 0 : artist.voiceSlot;
-        if (!availableKoreanVoices.isEmpty()) {
+        List<Voice> voices = englishRadioDialogue
+                ? availableEnglishVoices : availableKoreanVoices;
+        if (!voices.isEmpty()) {
             try {
-                Voice chosen = availableKoreanVoices.get(
-                        Math.floorMod(voiceSlot, availableKoreanVoices.size()));
+                Voice chosen = voices.get(
+                        Math.floorMod(voiceSlot, voices.size()));
                 tts.setVoice(chosen);
             } catch (RuntimeException ignored) {
                 // Fall back to phone's existing Korean voice.
@@ -644,6 +680,7 @@ public final class AutoGreetingService extends Service {
         activeLanguageIndex = -1;
         activeDialogueIndex = -1;
         activeDialogue = null;
+        englishRadioDialogue = false;
         if (finishedKind == AnnouncementRequest.KIND_CLOSING) {
             AutoGreetingStore.setStatus(this, "방송 종료 안내 완료 · 전체 재생 종료");
             finishClosing();

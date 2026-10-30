@@ -512,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.21 · 별도 설치판 · AI 초대석·사연·신청곡",
+                "V3.2.22 · English Radio Talk · Stories & Requests",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -529,13 +529,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         guide.setBackgroundColor(0x6651246B);
         column.addView(guide);
         column.addView(text(
-                "설치 오류 해결: 이 버전은 기존 V3.2.19/V3.2.20과 이름이 다른 "
-                        + "MARU RADIO STATION 앱으로 별도 설치됩니다. "
-                        + "기존 MARU MUSIC LIVE 앱은 삭제되지 않으며 그 앱의 노래·설정도 그대로 보존합니다. "
-                        + "다만 Android 보안 정책상 이전 앱의 비공개 데이터가 새 앱에 자동 이전되지는 않습니다. "
-                        + "휴대폰 다운로드 폴더에 보관한 원곡을 새 앱에서 다시 선택해 주세요.",
+                "This English edition installs separately from older MARU MUSIC LIVE and MARU RADIO STATION apps. "
+                        + "Do not uninstall your existing apps. "
+                        + "Their songs and private settings remain in those apps. "
+                        + "Android does not automatically transfer private data between separate apps. "
+                        + "Re-select your own MP3/WAV files from Downloads in this app.",
                 13, true));
-        column.addView(button("새 버전 확인 · 업데이트 다운로드", v -> checkAppUpdate(true)));
+        column.addView(button("Check for app updates", v -> checkAppUpdate(true)));
         column.addView(text(
                 "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
                         + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
@@ -565,13 +565,24 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
 
         column.addView(button(
-                "아환 + AI 가수 32명 미리듣기 (BIGO 미송출)",
+                "English Radio Show · Ahwan & Guest (local preview)",
                 v -> startLocalRadioPreview()));
-        column.addView(button("라디오 청취자 사연 접수 · 승인 후 낭독",
+        column.addView(button("Suno playlist · open & import MP3 files",
+                v -> showSunoPlaylistGuide()));
+        column.addView(button("MUSIC SHARE · Upload / Download / Stories",
+                v -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                                "https://skytins3-png.github.io/maru-ai-song-studio/music-share/")));
+                    } catch (RuntimeException error) {
+                        toast("Unable to open the music platform.");
+                    }
+                }));
+        column.addView(button("Listener stories · approve before reading",
                 v -> showAudienceStoryInput()));
-        column.addView(button("신청곡 받기 · 등록된 원곡 다음에 편성",
+        column.addView(button("Song requests · play from imported tracks",
                 v -> showSongRequestInput()));
-        column.addView(button("AI 방송 학습자료 · 검토 메모 저장",
+        column.addView(button("Producer notes · approved topics",
                 v -> showApprovedLearningInput()));
         column.addView(text(
                 "초대석 대화는 휴대폰 안에서 만든 가상 AI 진행 대본입니다. "
@@ -628,7 +639,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(songTitleTts);
 
         CheckBox radioConversation = checkBox(
-                "아환 + 가상 AI 가수 32명 교대 방송 (곡 사이, 한국어)",
+                "Guest radio show between imported songs (English by default)",
                 AppStorage.radioConversationEnabled(this));
         radioConversation.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setRadioConversationEnabled(this, checked);
@@ -636,15 +647,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         });
         column.addView(radioConversation);
         CheckBox dailyRadio = checkBox(
-                "매일 새로운 대화 주제 자동 변경 (재설치 필요 없음)",
+                "Fresh conversation topics by day (no reinstall needed)",
                 AppStorage.dailyRadioEnabled(this));
         dailyRadio.setOnCheckedChangeListener((buttonView, checked) -> {
             AppStorage.setDailyRadioEnabled(this, checked);
             refreshAutoGreetingStatus();
         });
         column.addView(dailyRadio);
+        CheckBox englishShow = checkBox(
+                "English conversation · warm, funny, one guest per show",
+                AppStorage.englishRadioEnabled(this));
+        englishShow.setOnCheckedChangeListener((v, checked) ->
+                AppStorage.setEnglishRadioEnabled(this, checked));
+        column.addView(englishShow);
         CheckBox longGuestTalk = checkBox(
-                "라디오 초대석 · 40회 이상 긴 대화 후 노래 재생",
+                "Long guest talk · 40 natural conversational turns before music",
                 AppStorage.longGuestTalkEnabled(this));
         longGuestTalk.setOnCheckedChangeListener((v, checked) ->
                 AppStorage.setLongGuestTalkEnabled(this, checked));
@@ -690,35 +707,70 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         setContentView(appRoot);
     }
 
+    /** Official Suno playlist links are for browsing; media import uses Android's
+     * multi-select document picker. No scraping of private Suno account audio. */
+    private void showSunoPlaylistGuide() {
+        EditText input = new EditText(this);
+        input.setHint("https://suno.com/playlist/...");
+        input.setSingleLine(true);
+        input.setText(AppStorage.sunoPlaylistUrl(this));
+        FrameLayout holder = new FrameLayout(this);
+        holder.setPadding(dp(20), dp(5), dp(20), dp(5));
+        holder.addView(input, match());
+        new AlertDialog.Builder(this)
+                .setTitle("Suno playlist · English radio")
+                .setMessage("Create a playlist in Suno and paste its share link here. "
+                        + "The app can open the playlist, but cannot silently download "
+                        + "private Suno songs. Download your own licensed MP3 tracks in "
+                        + "Suno first, then choose multiple MP3/WAV files in one action.")
+                .setView(holder)
+                .setPositiveButton("Open Suno playlist", (dialog, which) -> {
+                    String url = input.getText().toString().trim();
+                    if (!url.matches("https://(www\\.)?suno\\.com/playlist/[A-Za-z0-9-]+/?")) {
+                        toast("Paste a Suno playlist URL from suno.com/playlist/...");
+                        return;
+                    }
+                    AppStorage.setSunoPlaylistUrl(this, url);
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    } catch (RuntimeException ignored) {
+                        toast("Unable to open Suno in the browser.");
+                    }
+                })
+                .setNeutralButton("Import MP3/WAV files", (dialog, which) ->
+                        audioPickerLauncher.launch(new String[]{"audio/*"}))
+                .setNegativeButton("Cancel", null).show();
+    }
+
     /** Stories are submitted manually, not taken from the BIGO private chat. */
     private void showAudienceStoryInput() {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(22), dp(8), dp(22), dp(8));
         EditText nickname = new EditText(this);
-        nickname.setHint("청취자 표시 이름 (비우면 익명)");
+        nickname.setHint("Listener name (optional)");
         content.addView(nickname);
         EditText body = new EditText(this);
-        body.setHint("승인 받은 사연을 입력하세요 (350자 이내)");
+        body.setHint("Approved listener story, preferably in English (max 350 characters)");
         body.setMinLines(4);
         content.addView(body);
         CheckBox consent = checkBox(
-                "작성자 또는 청취자의 방송 낭독 동의를 확인했습니다", false);
+                "I confirmed the writer consents to broadcasting this story", false);
         content.addView(consent);
         new AlertDialog.Builder(this)
-                .setTitle("사연 접수 · 현재 대기 "
+                .setTitle("Listener stories · waiting "
                         + RadioAudienceStore.pendingStoryCount(this) + "건")
                 .setView(content)
-                .setPositiveButton("낭독 대기열에 저장", (dialog, which) -> {
+                .setPositiveButton("Save for reading", (dialog, which) -> {
                     if (!consent.isChecked()) {
-                        toast("사연 공개 동의를 확인한 다음 다시 접수하세요.");
+                        toast("Confirm the story owner’s permission first.");
                         return;
                     }
                     if (RadioAudienceStore.submitApprovedStory(
                             this, nickname.getText().toString(), body.getText().toString())) {
-                        toast("사연 접수 완료 · 다음 초대석에서 한 건씩 낭독");
+                        toast("Story saved · read at the next guest talk.");
                     } else {
-                        toast("사연 내용을 입력하세요.");
+                        toast("Please enter the story.");
                     }
                 })
                 .setNegativeButton("취소", null)
