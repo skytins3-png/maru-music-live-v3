@@ -142,6 +142,8 @@ def validate_static_once() -> list[str]:
         errors.append("app/build.gradle versionCode is not 3040")
     if not version_name or version_name.group(1) != EXPECTED_VERSION_NAME:
         errors.append("app/build.gradle versionName is not 3.2.21")
+    if "applicationId 'com.maru.musiclive.station'" not in app_gradle:
+        errors.append("installer would collide with original MARU app; separate applicationId required")
 
     main_activity = (MAIN / "java" / "com" / "maru" / "musiclive" / "MainActivity.java")
     one_click_plan = (MAIN / "java" / "com" / "maru" / "musiclive" / "OneClickBroadcastPlan.java")
