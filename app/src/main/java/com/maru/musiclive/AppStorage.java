@@ -24,6 +24,7 @@ public final class AppStorage {
     private static final String KEY_RADIO_CONVERSATION = "radio_conversation_v1";
     private static final String KEY_DAILY_RADIO = "daily_radio_v1";
     private static final String KEY_LONG_GUEST_TALK = "radio_long_guest_talk_v1";
+    private static final String KEY_ENGLISH_TALK = "english_human_talk_v1";
     private static final String KEY_TRACK_ARTIST = "song_artist_v1_";
     private static final String KEY_RANDOM_HISTORY = "random_history_v1";
     private static final String KEY_RANDOM_CYCLE = "random_cycle_v1";
@@ -90,6 +91,14 @@ public final class AppStorage {
     }
 
     /** Daily topics rotate based on the phone's local date; no install/network required. */
+    public static boolean englishRadioEnabled(Context c) {
+        return prefs(c).getBoolean(KEY_ENGLISH_TALK, true);
+    }
+
+    public static void setEnglishRadioEnabled(Context c, boolean yes) {
+        prefs(c).edit().putBoolean(KEY_ENGLISH_TALK, yes).apply();
+    }
+
     public static boolean longGuestTalkEnabled(Context c) {
         return prefs(c).getBoolean(KEY_LONG_GUEST_TALK, true);
     }
