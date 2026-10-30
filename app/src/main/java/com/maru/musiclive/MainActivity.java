@@ -512,7 +512,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.21 · 별도 설치판 · AI 초대석·사연·신청곡",
+                "V3.2.22 · English Radio Talk · Stories & Requests",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -529,11 +529,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         guide.setBackgroundColor(0x6651246B);
         column.addView(guide);
         column.addView(text(
-                "설치 오류 해결: 이 버전은 기존 V3.2.19/V3.2.20과 이름이 다른 "
-                        + "MARU RADIO STATION 앱으로 별도 설치됩니다. "
-                        + "기존 MARU MUSIC LIVE 앱은 삭제되지 않으며 그 앱의 노래·설정도 그대로 보존합니다. "
-                        + "다만 Android 보안 정책상 이전 앱의 비공개 데이터가 새 앱에 자동 이전되지는 않습니다. "
-                        + "휴대폰 다운로드 폴더에 보관한 원곡을 새 앱에서 다시 선택해 주세요.",
+                "This English edition installs separately from older MARU MUSIC LIVE and MARU RADIO STATION apps. "
+                        + "Do not uninstall your existing apps. "
+                        + "Their songs and private settings remain in those apps. "
+                        + "Android does not automatically transfer private data between separate apps. "
+                        + "Re-select your own MP3/WAV files from Downloads in this app.",
                 13, true));
         column.addView(button("새 버전 확인 · 업데이트 다운로드", v -> checkAppUpdate(true)));
         column.addView(text(
