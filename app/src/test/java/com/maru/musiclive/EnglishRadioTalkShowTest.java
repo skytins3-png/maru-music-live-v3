@@ -43,4 +43,50 @@ public class EnglishRadioTalkShowTest {
                 "Two",1,day,1,"","","",false);
         assertNotEquals(a[2].text,b[2].text);
     }
+    @Test public void compactEnglishTalkHasExactlyFourBanterTurnsAndOneSongCue() {
+        LocalDate day = LocalDate.of(2026, 10, 31);
+        RadioConversationScript.Line[] first =
+                EnglishRadioTalkShow.shortBeforeSong("Autumn Road", 0, day, 1);
+        RadioConversationScript.Line[] next =
+                EnglishRadioTalkShow.shortBeforeSong("Spring Road", 1, day, 1);
+        assertEquals(5, first.length);
+        assertEquals(5, next.length);
+        assertEquals(RadioConversationScript.Speaker.AHWAN, first[0].speaker);
+        assertEquals(RadioConversationScript.Speaker.GUEST, first[1].speaker);
+        assertEquals(RadioConversationScript.Speaker.AHWAN, first[2].speaker);
+        assertEquals(RadioConversationScript.Speaker.GUEST, first[3].speaker);
+        assertEquals(RadioConversationScript.Speaker.AHWAN, first[4].speaker);
+        int words=0;
+        for (RadioConversationScript.Line line : first) {
+            assertTrue("one concise utterance", line.text.length() < 125);
+            words += line.text.trim().split("\\s+").length;
+            assertFalse("do not repeat welcome message", line.text.toLowerCase().contains("welcome back"));
+        }
+        assertTrue("less than 70 words", words < 70);
+        assertTrue(first[4].text.contains("Autumn Road"));
+        assertNotEquals("fresh conversation next song", first[0].text, next[0].text);
+        assertNotNull(first[1].artist);
+        assertEquals(first[1].artist.id, first[3].artist.id);
+    }
+
+    @Test public void producerApprovedStoryStaysShortAndIsNotInvented() {
+        LocalDate day=LocalDate.of(2026, 10, 31);
+        RadioConversationScript.Line[] approved =
+                EnglishRadioTalkShow.shortBeforeSong(
+                    "Family Song", 8, day, 1, "Rose",
+                    "My childhood friend sent me a letter and made me smile all day.");
+        assertEquals(5, approved.length);
+        String joined="";
+        for (RadioConversationScript.Line line : approved) joined+=line.text+" ";
+        assertTrue(joined.contains("Rose"));
+        assertTrue(joined.contains("childhood friend"));
+        assertTrue(joined.contains("Family Song"));
+        RadioConversationScript.Line[] noStory =
+                EnglishRadioTalkShow.shortBeforeSong(
+                    "Family Song", 8, day, 1, "", "");
+        String plain="";
+        for (RadioConversationScript.Line line : noStory) plain+=line.text+" ";
+        assertFalse(plain.contains("childhood friend"));
+    }
+
 }
