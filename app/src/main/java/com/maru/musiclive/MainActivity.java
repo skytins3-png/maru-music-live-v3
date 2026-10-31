@@ -570,7 +570,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                 + "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
                                 + "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
                                 + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 또는 Suno 동반 토크에 사용합니다. "
-                                + "댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요. "
+                                + "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요. "
                                 + "MARU나 Suno의 음악·TTS가 BIGO 청취자에게 송출된다고 보장하지 않습니다.")
                         .setPositiveButton("확인", null).show()));
         guide.setBackgroundColor(0x6651246B);
