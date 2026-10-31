@@ -525,14 +525,56 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
         column.addView(version);
 
+        // Single app hub: select MARU local songs or Suno as the music source.
+        // Suno mode runs opt-in TTS from a foreground notification; MARU does not
+        // capture or manipulate third-party audio or BIGO's broadcast controls.
+        TextView hubTitle = text("통합 방송 · 음악과 아환 토크", 19, true);
+        hubTitle.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
+        column.addView(hubTitle);
+        column.addView(button("① 내 MP3 + 짧은 영어 토크", v -> {
+            // Prevent two independent MARU TTS engines from speaking at once.
+            stopSunoCompanion();
+            // The existing native PlaybackService introduces imported songs.
+            AppStorage.setRadioConversationEnabled(this, true);
+            AppStorage.setEnglishRadioEnabled(this, true);
+            AppStorage.setLongGuestTalkEnabled(this, false);
+            AppStorage.setSongTitleTts(this, true);
+            if (songs.isEmpty()) {
+                toast("먼저 '노래 직접 추가'에서 원곡 MP3를 선택하세요.");
+            } else {
+                startLocalRadioPreview();
+            }
+        }));
+        column.addView(button("② Suno 음악 + 아환 자동 토크 (3분 후 시작)", v ->
+                startSunoCompanion(true)));
+        column.addView(button("③ Suno 음악 + 아환 수동 토크", v ->
+                startSunoCompanion(false)));
+        column.addView(button("아환 짧은 토크 지금 말하기", v ->
+                speakSunoCompanionNow()));
+        column.addView(button("Suno 아환 토크 완전 종료", v -> stopSunoCompanion()));
+        column.addView(text(
+                "Suno 노래를 다운로드하지 않아도 아환 멘트를 재생할 수 있습니다. "
+                + "알림창의 '짧은 토크'로 직접 멘트할 수 있습니다. 자동 모드는 "
+                + "Suno 곡 변경을 감지하지 않고 약 6분마다 토크합니다. "
+                + "휴대폰에 따라 Suno 음악이 잠시 작아지거나 멈출 수 있습니다. "
+                + "BIGO 청취자 실제 송출은 보장되지 않습니다.",
+                12, false));
+
         TextView guide = text(
-                "오디오 LIVE를 누르면 MARU 원곡을 재생한 뒤 BIGO 앱을 엽니다. "
-                        + "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
-                        + "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
-                        + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. "
-                        + "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요.",
-                15,
-                true);
+                "하나의 MARU 화면에서 원곡 라디오와 Suno + 아환 토크를 선택하세요. "
+                + "Suno 곡 재생은 Suno 앱에서 직접 시작합니다. "
+                + "BIGO 청취자 송출은 별도 검증이 필요합니다.",
+                12, false);
+        column.addView(button("BIGO 이용·개인정보 안내", v ->
+                new AlertDialog.Builder(this)
+                        .setTitle("BIGO 방송 조작은 사용자가 직접")
+                        .setMessage("오디오 LIVE를 누르면 MARU 원곡을 재생한 뒤 BIGO 앱을 엽니다. "
+                                + "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
+                                + "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
+                                + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 또는 Suno 동반 토크에 사용합니다. "
+                                + "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요. "
+                                + "MARU나 Suno의 음악·TTS가 BIGO 청취자에게 송출된다고 보장하지 않습니다.")
+                        .setPositiveButton("확인", null).show()));
         guide.setBackgroundColor(0x6651246B);
         column.addView(guide);
         column.addView(text(
@@ -547,6 +589,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
                         + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
                 13, false));
+
 
         Button openPlayer = button(
                 "전체화면 이미지 플레이어 열기",
@@ -955,7 +998,61 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         toast("라디오 미리듣기 실행 · 재생 중이었다면 다음 곡부터 대화합니다.");
     }
 
+
+    /** User starts a companion from MARU, then listens to the official Suno app. */
+    private void startSunoCompanion(boolean automatic) {
+        try {
+            // Never run two music sources when the user explicitly chose Suno.
+            if (playback != null) playback.pause();
+            AutoGreetingService.cancel(this);
+            SunoTalkCompanionService.command(this, automatic
+                    ? SunoTalkCompanionService.ACTION_START_AUTO
+                    : SunoTalkCompanionService.ACTION_MANUAL);
+            openOfficialSuno();
+            toast(automatic
+                    ? "아환 자동 토크 켜짐 · 알림에서 즉시 멘트 가능"
+                    : "아환 수동 토크 켜짐 · 알림에서 멘트를 누르세요");
+        } catch (RuntimeException error) {
+            toast("Suno 토크를 시작하지 못했습니다. 알림 권한과 음성 설정을 확인하세요.");
+        }
+    }
+
+    private void openOfficialSuno() {
+        try {
+            Intent installed = getPackageManager().getLaunchIntentForPackage("com.suno.android");
+            if (installed != null) {
+                startActivity(installed);
+                return;
+            }
+        } catch (RuntimeException ignored) {}
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://suno.com/")));
+        } catch (RuntimeException ignored) {
+            toast("Suno 앱이나 웹사이트를 열 수 없습니다.");
+        }
+    }
+
+    private void speakSunoCompanionNow() {
+        try {
+            SunoTalkCompanionService.command(this, SunoTalkCompanionService.ACTION_TALK_NOW);
+        } catch (RuntimeException error) {
+            toast("아환 토크 음성을 시작할 수 없습니다.");
+        }
+    }
+
+    private void stopSunoCompanion() {
+        try {
+            SunoTalkCompanionService.command(this, SunoTalkCompanionService.ACTION_STOP);
+            toast("Suno 아환 토크 종료");
+        } catch (RuntimeException error) {
+            toast("토크 중지 요청을 처리하지 못했습니다.");
+        }
+    }
+
     private void startCommunityLive(String liveMode) {
+        // Selecting MARU's own radio playback ends any Suno companion TTS.
+        stopSunoCompanion();
         Intent bigoLaunch = getPackageManager()
                 .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (songs.isEmpty()) {
@@ -1013,6 +1110,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         String[] items = {
                 "BIGO 오디오 LIVE 시작",
                 "BIGO와 함께 보기 · 미니 조종창",
+                "Suno 음악 + 아환 자동 토크",
+                "아환 짧은 멘트 바로 말하기",
+                "Suno 아환 토크 종료",
                 "노래·이미지·설정 열기",
                 "새 버전 확인 · 업데이트",
                 "완전 종료"
@@ -1020,17 +1120,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         new AlertDialog.Builder(this)
                 .setTitle("MARU MUSIC LIVE")
                 .setItems(items, (dialog, which) -> {
-                    if (which == 0) {
-                        startCommunityLive("오디오 LIVE");
-                    } else if (which == 1) {
-                        showMiniController();
-                    } else if (which == 2) {
-                        openSetupFromPlayer();
-                    } else if (which == 3) {
-                        checkAppUpdate(true);
-                    } else {
-                        stopAllBroadcastNow();
-                    }
+                    if (which == 0) startCommunityLive("오디오 LIVE");
+                    else if (which == 1) showMiniController();
+                    else if (which == 2) startSunoCompanion(true);
+                    else if (which == 3) speakSunoCompanionNow();
+                    else if (which == 4) stopSunoCompanion();
+                    else if (which == 5) openSetupFromPlayer();
+                    else if (which == 6) checkAppUpdate(true);
+                    else stopAllBroadcastNow();
                 })
                 .setNegativeButton("취소", null)
                 .show();
@@ -1085,6 +1182,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }));
         column.addView(musicControls);
 
+        LinearLayout companionActions = new LinearLayout(this);
+        companionActions.setOrientation(LinearLayout.HORIZONTAL);
+        companionActions.addView(smallButton("Suno + 토크", v -> startSunoCompanion(true)));
+        companionActions.addView(smallButton("아환 멘트", v -> speakSunoCompanionNow()));
+        column.addView(companionActions);
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.addView(smallButton("BIGO 열기", v -> openBigoChat()));
@@ -1519,6 +1621,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void stopAllBroadcastNow() {
+        // All audio-related controls should stop, including optional Suno TTS.
+        stopSunoCompanion();
         Intent stop = new Intent(this, PlaybackService.class)
                 .setAction(PlaybackService.ACTION_STOP_ALL);
         try {
