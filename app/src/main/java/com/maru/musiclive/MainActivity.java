@@ -930,6 +930,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 }
                 return true;
             }
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (!isTrustedStudioUrl(Uri.parse(url))) return;
+                // Open the broadcast panel directly rather than requiring the
+                // user to scroll past the large music-composer landing page.
+                view.evaluateJavascript(
+                        "(function(){"
+                        + "if(typeof coreOpenPanel==='function')"
+                        + "coreOpenPanel('audioAnalyzer','broadcast');"
+                        + "var p=document.getElementById('broadcastPlayerCard');"
+                        + "if(p)p.classList.remove('collapsed');"
+                        + "setTimeout(function(){var e=document.getElementById("
+                        + "'maruBroadcastWorkspace');if(e)e.scrollIntoView({block:'start'});},350);"
+                        + "})();", null);
+            }
             @Override public void onReceivedError(
                     WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) help.setText(
