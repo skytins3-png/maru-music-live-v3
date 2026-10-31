@@ -156,12 +156,6 @@ public final class EnglishRadioTalkShow {
     /** Four natural mini-scene turns plus one song cue, never a long intro. */
     public static RadioConversationScript.Line[] shortBeforeSong(
             String title, int episode, LocalDate date, int artistId) {
-        if (date == null) throw new IllegalArgumentException("date required");
-        int guestIdx = Math.floorMod(date.toEpochDay() + episode, GUEST_NAMES.length);
-        VirtualArtistCatalog.Artist artist = artistId > 0
-                && artistId <= VirtualArtistCatalog.all().size()
-                ? VirtualArtistCatalog.at(artistId - 1)
-                : VirtualArtistCatalog.at(guestIdx);
         return shortBeforeSong(title, episode, date, artistId, "", "");
     }
 
@@ -191,8 +185,7 @@ public final class EnglishRadioTalkShow {
                     new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN,
                             "And now, " + safeTitle(title) + ".")
             };
-        }        String[] scene = SHORT_SCENES[Math.floorMod(
-                date.toEpochDay() * 7L + episode, SHORT_SCENES.length)];
+        }
         return new RadioConversationScript.Line[]{
                 new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN, scene[0]),
                 new RadioConversationScript.Line(RadioConversationScript.Speaker.GUEST, scene[1], artist),
