@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <queries>
         <package android:name="sg.bigo.live" />
+        <package android:name="com.suno.android" />
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
@@ -33,6 +34,7 @@
         </activity>
         <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".AutoGreetingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".SunoTalkCompanionService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".ScreenOcrGreetingService" android:exported="false" android:foregroundServiceType="mediaProjection|mediaPlayback" />
     </application>
 </manifest>
