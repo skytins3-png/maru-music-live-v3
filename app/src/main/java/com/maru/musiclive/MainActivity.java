@@ -865,6 +865,123 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         setContentView(appRoot);
     }
 
+
+    /**
+     * Same-app access to the web Studio. No JavaScript interface or native-file
+     * bridge: the web song list remains browser-origin storage, separate from
+     * MARU's native library. No BIGO broadcast automation is introduced.
+     */
+    private static final String TRUSTED_STUDIO_URL =
+            "https://skytins3-png.github.io/maru-ai-song-studio/";
+
+    private boolean isTrustedStudioUrl(Uri url) {
+        return url != null && "https".equalsIgnoreCase(url.getScheme())
+                && "skytins3-png.github.io".equalsIgnoreCase(url.getHost())
+                && url.getPath() != null
+                && (url.getPath().equals("/maru-ai-song-studio")
+                || url.getPath().startsWith("/maru-ai-song-studio/"));
+    }
+
+    private void openEmbeddedWebStudio() {
+        if (webStudioMode) return;
+        // Avoid overlapping native music/Suno voice with web audio.
+        if (playback != null) playback.pause();
+        stopSunoCompanion();
+        if (broadcastVisible) leavePlayerScreen(false);
+        homePlayerMode = false;
+        miniPlayerMode = false;
+        webStudioMode = true;
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        showSystemBars();
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setBackgroundColor(ContextCompat.getColor(this, R.color.maru_bg));
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(smallButton("← MARU", v -> closeEmbeddedWebStudio()));
+        header.addView(smallButton("브라우저로 열기", v -> {
+            try { startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(TRUSTED_STUDIO_URL))); }
+            catch (RuntimeException e) { toast("브라우저를 열 수 없습니다."); }
+        }));
+        layout.addView(header);
+        TextView help = text("왼쪽 고정 목록 · 원곡은 이 화면에서 별도로 추가", 11, false);
+        layout.addView(help);
+
+        WebView web = new WebView(this);
+        webStudioView = web;
+        WebSettings settings = web.getSettings();
+        settings.setJavaScriptEnabled(true); // only trusted HTTPS MARU site
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(true); // selected system file picker URI
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setSupportMultipleWindows(false);
+        settings.setMediaPlaybackRequiresUserGesture(true);
+        web.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(
+                    WebView view, WebResourceRequest request) {
+                if (!request.isForMainFrame()) return false;
+                Uri target = request.getUrl();
+                if (isTrustedStudioUrl(target)) return false;
+                try { startActivity(new Intent(Intent.ACTION_VIEW, target)); }
+                catch (RuntimeException e) { toast("외부 링크를 열 수 없습니다."); }
+                return true;
+            }
+            @Override public void onReceivedError(
+                    WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) help.setText(
+                        "스튜디오 연결 실패 · 인터넷 연결을 확인하세요.");
+            }
+        });
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view,
+                    ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (webStudioFileCallback != null) {
+                    webStudioFileCallback.onReceiveValue(null);
+                    webStudioFileCallback = null;
+                }
+                webStudioFileCallback = callback;
+                try {
+                    Intent picker = params.createIntent();
+                    picker.addCategory(Intent.CATEGORY_OPENABLE);
+                    webStudioFileLauncher.launch(picker);
+                    return true;
+                } catch (RuntimeException e) {
+                    webStudioFileCallback = null;
+                    callback.onReceiveValue(null);
+                    toast("노래·사진·영상 파일 선택을 열 수 없습니다.");
+                    return true;
+                }
+            }
+        });
+        layout.addView(web, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        setContentView(layout);
+        web.loadUrl(TRUSTED_STUDIO_URL);
+    }
+
+    private void closeEmbeddedWebStudio() {
+        webStudioMode = false;
+        if (webStudioFileCallback != null) {
+            webStudioFileCallback.onReceiveValue(null);
+            webStudioFileCallback = null;
+        }
+        if (webStudioView != null) {
+            WebView web = webStudioView;
+            webStudioView = null;
+            web.stopLoading();
+            web.loadUrl("about:blank");
+            web.destroy();
+        }
+        homePlayerMode = false;
+        miniPlayerMode = false;
+        showSystemBars();
+        setContentView(appRoot);
+    }
+
     /** Official Suno playlist links are for browsing; media import uses Android's
      * multi-select document picker. No scraping of private Suno account audio. */
     private void showSunoPlaylistGuide() {
@@ -2790,6 +2907,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        if (webStudioFileCallback != null) {
+            webStudioFileCallback.onReceiveValue(null);
+            webStudioFileCallback = null;
+        }
+        if (webStudioView != null) {
+            WebView web = webStudioView;
+            webStudioView = null;
+            web.destroy();
+        }
+
         if (ownVoicePreview != null) {
             try { ownVoicePreview.stop(); } catch (RuntimeException ignored) {}
             ownVoicePreview.release();
