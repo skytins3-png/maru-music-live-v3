@@ -51,6 +51,13 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
@@ -98,6 +105,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean localTestMode;
     private boolean homePlayerMode;
     private boolean miniPlayerMode;
+    private boolean webStudioMode;
+    private WebView webStudioView;
+    private ValueCallback<Uri[]> webStudioFileCallback;
+    private ActivityResultLauncher<Intent> webStudioFileLauncher;
     private TextView miniSongTitle;
     private Button miniPlayButton;
     private MediaPlayer ownVoicePreview;
@@ -257,7 +268,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         importSharedOriginals(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
-                if (miniPlayerMode) {
+                if (webStudioMode) {
+                    closeEmbeddedWebStudio();
+                } else if (miniPlayerMode) {
                     openSetupFromMini();
                 } else if (homePlayerMode) {
                     showHomePlayerMenu();
@@ -362,6 +375,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void registerLaunchers() {
+        webStudioFileLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    ValueCallback<Uri[]> callback = webStudioFileCallback;
+                    webStudioFileCallback = null;
+                    if (callback != null) {
+                        Uri[] selected = WebChromeClient.FileChooserParams.parseResult(
+                                result.getResultCode(), result.getData());
+                        callback.onReceiveValue(selected);
+                    }
+                });
         ownVoicePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenDocument(), uri -> {
                     if (uri == null) return;
@@ -579,6 +602,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         TextView hubTitle = text("통합 방송 · 음악과 아환 토크", 19, true);
         hubTitle.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
         column.addView(hubTitle);
+        column.addView(button("🖥 왼쪽 노래목록 · 곡별 사진/영상 스튜디오",
+                v -> openEmbeddedWebStudio()));
         column.addView(button("① 내 MP3 + 짧은 영어 토크", v -> {
             // Prevent two independent MARU TTS engines from speaking at once.
             stopSunoCompanion();
@@ -837,6 +862,138 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         refreshSongList();
         refreshAutoGreetingStatus();
         appRoot.addView(setupScreen);
+        setContentView(appRoot);
+    }
+
+
+    /**
+     * Same-app access to the web Studio. No JavaScript interface or native-file
+     * bridge: the web song list remains browser-origin storage, separate from
+     * MARU's native library. No BIGO broadcast automation is introduced.
+     */
+    private static final String TRUSTED_STUDIO_URL = TrustedWebStudio.URL;
+
+    private boolean isTrustedStudioUrl(Uri url) {
+        return url != null && TrustedWebStudio.mayNavigateInside(url.toString());
+    }
+
+    private void openEmbeddedWebStudio() {
+        if (webStudioMode) return;
+        // Avoid overlapping native music/Suno voice with web audio.
+        if (playback != null) playback.pause();
+        stopSunoCompanion();
+        if (broadcastVisible) leavePlayerScreen(false);
+        homePlayerMode = false;
+        miniPlayerMode = false;
+        webStudioMode = true;
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        showSystemBars();
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setBackgroundColor(ContextCompat.getColor(this, R.color.maru_bg));
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(smallButton("← MARU", v -> closeEmbeddedWebStudio()));
+        header.addView(smallButton("브라우저로 열기", v -> {
+            try { startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(TRUSTED_STUDIO_URL))); }
+            catch (RuntimeException e) { toast("브라우저를 열 수 없습니다."); }
+        }));
+        layout.addView(header);
+        TextView help = text("왼쪽 고정 목록 · 원곡은 이 화면에서 별도로 추가", 11, false);
+        layout.addView(help);
+
+        WebView web = new WebView(this);
+        webStudioView = web;
+        WebSettings settings = web.getSettings();
+        settings.setJavaScriptEnabled(true); // only trusted HTTPS MARU site
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(true); // selected system file picker URI
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        settings.setSupportMultipleWindows(false);
+        settings.setMediaPlaybackRequiresUserGesture(true);
+        web.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(
+                    WebView view, WebResourceRequest request) {
+                if (!request.isForMainFrame()) return false;
+                Uri target = request.getUrl();
+                if (isTrustedStudioUrl(target)) return false;
+                if (target != null && ("https".equalsIgnoreCase(target.getScheme())
+                        || "http".equalsIgnoreCase(target.getScheme()))) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, target)); }
+                    catch (RuntimeException e) { toast("외부 링크를 열 수 없습니다."); }
+                } else {
+                    toast("허용되지 않는 스튜디오 연결 주소입니다.");
+                }
+                return true;
+            }
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (!isTrustedStudioUrl(Uri.parse(url))) return;
+                // Open the broadcast panel directly rather than requiring the
+                // user to scroll past the large music-composer landing page.
+                view.evaluateJavascript(
+                        "(function(){"
+                        + "if(typeof coreOpenPanel==='function')"
+                        + "coreOpenPanel('audioAnalyzer','broadcast');"
+                        + "var p=document.getElementById('broadcastPlayerCard');"
+                        + "if(p)p.classList.remove('collapsed');"
+                        + "setTimeout(function(){var e=document.getElementById("
+                        + "'maruBroadcastWorkspace');if(e)e.scrollIntoView({block:'start'});},350);"
+                        + "})();", null);
+            }
+            @Override public void onReceivedError(
+                    WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) help.setText(
+                        "스튜디오 연결 실패 · 인터넷 연결을 확인하세요.");
+            }
+        });
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view,
+                    ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (webStudioFileCallback != null) {
+                    webStudioFileCallback.onReceiveValue(null);
+                    webStudioFileCallback = null;
+                }
+                webStudioFileCallback = callback;
+                try {
+                    Intent picker = params.createIntent();
+                    picker.addCategory(Intent.CATEGORY_OPENABLE);
+                    webStudioFileLauncher.launch(picker);
+                    return true;
+                } catch (RuntimeException e) {
+                    webStudioFileCallback = null;
+                    callback.onReceiveValue(null);
+                    toast("노래·사진·영상 파일 선택을 열 수 없습니다.");
+                    return true;
+                }
+            }
+        });
+        layout.addView(web, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        setContentView(layout);
+        web.loadUrl(TRUSTED_STUDIO_URL);
+    }
+
+    private void closeEmbeddedWebStudio() {
+        webStudioMode = false;
+        if (webStudioFileCallback != null) {
+            webStudioFileCallback.onReceiveValue(null);
+            webStudioFileCallback = null;
+        }
+        if (webStudioView != null) {
+            WebView web = webStudioView;
+            webStudioView = null;
+            web.stopLoading();
+            web.loadUrl("about:blank");
+            web.destroy();
+        }
+        homePlayerMode = false;
+        miniPlayerMode = false;
+        showSystemBars();
         setContentView(appRoot);
     }
 
@@ -2765,6 +2922,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        if (webStudioFileCallback != null) {
+            webStudioFileCallback.onReceiveValue(null);
+            webStudioFileCallback = null;
+        }
+        if (webStudioView != null) {
+            WebView web = webStudioView;
+            webStudioView = null;
+            web.destroy();
+        }
+
         if (ownVoicePreview != null) {
             try { ownVoicePreview.stop(); } catch (RuntimeException ignored) {}
             ownVoicePreview.release();
