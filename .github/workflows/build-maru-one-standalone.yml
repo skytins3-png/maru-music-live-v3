@@ -3,12 +3,16 @@ name: Build MARU ONE standalone installer
 on:
   push:
     branches:
+      - main
       - feat/standalone-maru-one-install-20261031
       - feat/maru-one-my-voice-enhancer-20261031
+      - fix/maru-one-direct-github-apk-download-20261031
+    paths:
+      - '.github/workflows/build-maru-one-standalone.yml'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   standalone:
@@ -72,3 +76,43 @@ jobs:
             MARU-ONE-SUNO-AHWAN-V3.2.24.apk
             SHA256SUMS.txt
             SIGNER.txt
+
+  publish:
+    name: Publish public APK download (standalone only)
+    needs: standalone
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Retrieve exactly the verified standalone APK
+        uses: actions/download-artifact@v4
+        with:
+          name: MARU-ONE-SUNO-AHWAN-INSTALL
+      - name: Create side-by-side download release (not automatic app update)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s MARU-ONE-SUNO-AHWAN-V3.2.24.apk
+          sha256sum --check SHA256SUMS.txt
+          unzip -t MARU-ONE-SUNO-AHWAN-V3.2.24.apk > /dev/null
+          if gh release view v3.2.24-one --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Standalone release already published; never overwrite the verified APK."
+            exit 0
+          fi
+          cat > MARU-ONE-RELEASE.txt <<'EOF'
+          MARU 통합 라디오 ONE V3.2.24 (기존 앱 유지 / 별도 설치)
+
+          파일: MARU-ONE-SUNO-AHWAN-V3.2.24.apk
+          패키지: com.maru.musiclive.one
+          기존 V3.2.23 com.maru.musiclive.english 또는 com.maru.musiclive.ocr와 별개로 설치되며 기존 노래와 설정은 옮기지 않습니다.
+
+          포함: MARU 원곡 재생, Suno + 아환 영어 TTS 짧은 토크, 수동 형 목소리 녹음 파일 보정·미리듣기·WAV 내보내기·녹음된 음성 멘트 재생.
+          한계: Suno 재생 중 소리 겹침·중단 가능 / BIGO 실제 청취자 송출 미검증 / 사용자 목소리로 새 문장을 합성하는 AI 음성복제 기능은 포함되지 않음.
+
+          설치: 이 릴리스의 APK만 다운로드. 기존 앱은 절대 삭제하지 말 것. 기기에서 APK 설치를 사용자가 직접 승인.
+          EOF
+          gh release create v3.2.24-one             MARU-ONE-SUNO-AHWAN-V3.2.24.apk SHA256SUMS.txt SIGNER.txt             --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA"             --title "MARU 통합 라디오 ONE V3.2.24 · 별도 설치"             --notes-file MARU-ONE-RELEASE.txt             --prerelease
+          echo "DIRECT-DOWNLOAD: https://github.com/$GITHUB_REPOSITORY/releases/download/v3.2.24-one/MARU-ONE-SUNO-AHWAN-V3.2.24.apk"
