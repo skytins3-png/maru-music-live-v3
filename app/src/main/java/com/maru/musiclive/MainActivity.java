@@ -687,7 +687,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 AppStorage.setEnglishRadioEnabled(this, checked));
         column.addView(englishShow);
         CheckBox longGuestTalk = checkBox(
-                "Long guest talk · 40 natural conversational turns before music",
+                "Long Korean guest interview (English always 4 short replies)",
                 AppStorage.longGuestTalkEnabled(this));
         longGuestTalk.setOnCheckedChangeListener((v, checked) ->
                 AppStorage.setLongGuestTalkEnabled(this, checked));
