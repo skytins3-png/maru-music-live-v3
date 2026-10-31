@@ -51,6 +51,13 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
@@ -98,6 +105,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean localTestMode;
     private boolean homePlayerMode;
     private boolean miniPlayerMode;
+    private boolean webStudioMode;
+    private WebView webStudioView;
+    private ValueCallback<Uri[]> webStudioFileCallback;
+    private ActivityResultLauncher<Intent> webStudioFileLauncher;
     private TextView miniSongTitle;
     private Button miniPlayButton;
     private MediaPlayer ownVoicePreview;
@@ -257,7 +268,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         importSharedOriginals(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
-                if (miniPlayerMode) {
+                if (webStudioMode) {
+                    closeEmbeddedWebStudio();
+                } else if (miniPlayerMode) {
                     openSetupFromMini();
                 } else if (homePlayerMode) {
                     showHomePlayerMenu();
@@ -362,6 +375,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void registerLaunchers() {
+        webStudioFileLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    ValueCallback<Uri[]> callback = webStudioFileCallback;
+                    webStudioFileCallback = null;
+                    if (callback != null) {
+                        Uri[] selected = WebChromeClient.FileChooserParams.parseResult(
+                                result.getResultCode(), result.getData());
+                        callback.onReceiveValue(selected);
+                    }
+                });
         ownVoicePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenDocument(), uri -> {
                     if (uri == null) return;
@@ -579,6 +602,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         TextView hubTitle = text("통합 방송 · 음악과 아환 토크", 19, true);
         hubTitle.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
         column.addView(hubTitle);
+        column.addView(button("🖥 왼쪽 노래목록 · 곡별 사진/영상 스튜디오",
+                v -> openEmbeddedWebStudio()));
         column.addView(button("① 내 MP3 + 짧은 영어 토크", v -> {
             // Prevent two independent MARU TTS engines from speaking at once.
             stopSunoCompanion();
