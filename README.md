@@ -1,3 +1,15 @@
+## Suno + Ahwan integrated companion (development, not released to installed APK)
+
+- MARU's setup screen offers **① 내 MP3 + 짧은 영어 토크**, **② Suno 음악 + 아환 자동 토크**, **③ Suno 음악 + 아환 수동 토크**, **아환 짧은 토크 지금 말하기**, and **Suno 아환 토크 완전 종료**.
+- MARU's full-screen home menu and Samsung pop-up mini controller also expose the Suno companion.
+- Suno mode pauses MARU's *own* player before starting an **opt-in foreground TextToSpeech service**, then opens the official Android Suno app `com.suno.android` or Suno's HTTPS site. Suno itself remains the owner of its song playback, playlist, rights, and account.
+- Automatic mode speaks four short original Ahwan/guest turns **after an initial ~3 minutes and at approximately 6-minute intervals**. A notification button triggers a manual short exchange. Neither the companion nor the user should call this 'between songs': no Suno title, playlist, or playback timeline is read.
+- During a spoken exchange, the service requests only `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, and abandons focus as soon as it finishes. Android may reduce Suno's volume, interrupt playback, or reject focus, depending on the OS and third-party app; **continuous mixed audio is NOT guaranteed**.
+- The service needs no accessibility, notification listener, cross-app capture, overlay, Suno token, or network API. It does not read Suno data, control Suno buttons, capture Suno audio, mix audio for BIGO, or automatically start/stop BIGO's broadcast.
+- BIGO listener output must be checked separately using an actual second listening device; it is **not** proven by hearing both apps locally.
+- Important: the prior official V3.2.23 APK is signed by a different certificate from the development build; **do not uninstall the installed app** or install an incompatible APK. The release job is guarded against replacing V3.2.23 with a mismatched signer. A matching signing key or user-consented migration is required before any in-place update.
+- If Android audio focus prevents coexistence, use MARU's internally imported original MP3 radio mode, which does not rely on Suno playback, instead.
+
 ## V3.2.24 · 삼성 갤럭시 팝업 화면용 미니 조종창
 
 - MARU 앱의 '미니 조종창'에서 이전곡/재생·일시정지/다음곡/BIGO 열기를 작은 화면으로 조작합니다.
