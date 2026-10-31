@@ -525,30 +525,6 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
         column.addView(version);
 
-        TextView guide = text(
-                "오디오 LIVE를 누르면 MARU 원곡을 재생한 뒤 BIGO 앱을 엽니다. "
-                        + "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
-                        + "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
-                        + "음성은 휴대폰 TTS를 사용하며 성별은 고정하지 않고 곡 사이 안내에만 사용합니다. "
-                        + "BIGO 자체 입장·팔로우·선물 인사를 사용합니다. 댓글 자동 입력 대신 직접 입력하거나 복사한 답변을 붙여넣으세요.",
-                15,
-                true);
-        guide.setBackgroundColor(0x6651246B);
-        column.addView(guide);
-        column.addView(text(
-                "This English edition installs separately from older MARU MUSIC LIVE and MARU RADIO STATION apps. "
-                        + "Do not uninstall your existing apps. "
-                        + "Their songs and private settings remain in those apps. "
-                        + "Android does not automatically transfer private data between separate apps. "
-                        + "Re-select your own MP3/WAV files from Downloads in this app.",
-                13, true));
-        column.addView(button("Check for app updates", v -> checkAppUpdate(true)));
-        column.addView(text(
-                "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
-                        + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
-                13, false));
-
-
         // Single app hub: select MARU local songs or Suno as the music source.
         // Suno mode runs opt-in TTS from a foreground notification; MARU does not
         // capture or manipulate third-party audio or BIGO's broadcast controls.
@@ -581,6 +557,27 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 + "휴대폰에 따라 Suno 음악이 잠시 작아지거나 멈출 수 있습니다. "
                 + "BIGO 청취자 실제 송출은 보장되지 않습니다.",
                 12, false));
+
+        TextView guide = text(
+                "하나의 MARU 화면에서 원곡 라디오와 Suno + 아환 토크를 선택하세요. "
+                + "Suno 곡 재생은 Suno 앱에서 직접 시작합니다. "
+                + "BIGO 청취자 송출은 별도 검증이 필요합니다.",
+                12, false);
+        guide.setBackgroundColor(0x6651246B);
+        column.addView(guide);
+        column.addView(text(
+                "This English edition installs separately from older MARU MUSIC LIVE and MARU RADIO STATION apps. "
+                        + "Do not uninstall your existing apps. "
+                        + "Their songs and private settings remain in those apps. "
+                        + "Android does not automatically transfer private data between separate apps. "
+                        + "Re-select your own MP3/WAV files from Downloads in this app.",
+                13, true));
+        column.addView(button("Check for app updates", v -> checkAppUpdate(true)));
+        column.addView(text(
+                "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
+                        + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
+                13, false));
+
 
         Button openPlayer = button(
                 "전체화면 이미지 플레이어 열기",
@@ -1171,10 +1168,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }));
         column.addView(musicControls);
 
+        LinearLayout companionActions = new LinearLayout(this);
+        companionActions.setOrientation(LinearLayout.HORIZONTAL);
+        companionActions.addView(smallButton("Suno + 토크", v -> startSunoCompanion(true)));
+        companionActions.addView(smallButton("아환 멘트", v -> speakSunoCompanionNow()));
+        column.addView(companionActions);
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.addView(smallButton("Suno + 토크", v -> startSunoCompanion(true)));
-        actions.addView(smallButton("아환 멘트", v -> speakSunoCompanionNow()));
         actions.addView(smallButton("BIGO 열기", v -> openBigoChat()));
         actions.addView(smallButton("노래·설정", v -> openSetupFromMini()));
         column.addView(actions);
