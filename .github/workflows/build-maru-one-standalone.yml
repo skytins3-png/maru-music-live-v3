@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/standalone-maru-one-install-20261031
+      - feat/maru-one-my-voice-enhancer-20261031
   workflow_dispatch:
 
 permissions:
