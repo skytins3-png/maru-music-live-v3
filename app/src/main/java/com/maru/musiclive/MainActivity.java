@@ -532,6 +532,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         hubTitle.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
         column.addView(hubTitle);
         column.addView(button("① 내 MP3 + 짧은 영어 토크", v -> {
+            // Prevent two independent MARU TTS engines from speaking at once.
+            stopSunoCompanion();
             // The existing native PlaybackService introduces imported songs.
             AppStorage.setRadioConversationEnabled(this, true);
             AppStorage.setEnglishRadioEnabled(this, true);
@@ -1049,6 +1051,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void startCommunityLive(String liveMode) {
+        // Selecting MARU's own radio playback ends any Suno companion TTS.
+        stopSunoCompanion();
         Intent bigoLaunch = getPackageManager()
                 .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE);
         if (songs.isEmpty()) {
