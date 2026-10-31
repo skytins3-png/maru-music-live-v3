@@ -74,8 +74,9 @@ public final class SunoTalkCompanionService extends Service {
                 || ACTION_TALK_NOW.equals(action)
                 || ACTION_MANUAL.equals(action)) {
             androidx.core.content.ContextCompat.startForegroundService(context, intent);
-        } else {
-            context.startService(intent);
+        } else if (ACTION_STOP.equals(action)) {
+            // Do not recreate a stopped service just to issue a stop command.
+            context.stopService(intent);
         }
     }
 
