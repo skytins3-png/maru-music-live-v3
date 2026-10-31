@@ -23,6 +23,8 @@ import android.graphics.RenderEffect;
 import android.graphics.Shader;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.AudioAttributes;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
@@ -61,6 +63,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 import java.io.InputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -96,6 +100,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean miniPlayerMode;
     private TextView miniSongTitle;
     private Button miniPlayButton;
+    private MediaPlayer ownVoicePreview;
+    private TextView ownVoiceStatus;
     private boolean pendingAutoMusicStart;
     private boolean oneClickStarting;
     private boolean eventOverlayShowing;
@@ -126,6 +132,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private ListView songList;
 
     private ActivityResultLauncher<String[]> audioPickerLauncher;
+    private ActivityResultLauncher<String[]> ownVoicePickerLauncher;
+    private ActivityResultLauncher<String> ownVoiceExportLauncher;
     private ActivityResultLauncher<String[]> imagePickerLauncher;
     private ActivityResultLauncher<String[]> lyricsPickerLauncher;
     private ActivityResultLauncher<String[]> greetingAudioPickerLauncher;
@@ -354,6 +362,46 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void registerLaunchers() {
+        ownVoicePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(), uri -> {
+                    if (uri == null) return;
+                    if (ownVoiceStatus != null) ownVoiceStatus.setText("내 녹음 음성 보정 중...");
+                    musicScanExecutor.execute(() -> {
+                        try {
+                            final File output = MyVoiceFileProcessor.enhance(this, uri);
+                            runOnUiThread(() -> {
+                                if (ownVoiceStatus != null)
+                                    ownVoiceStatus.setText("보정 성공 · " + output.length() / 1024
+                                            + "KB · 기기 내부에 비공개 저장");
+                                toast("내 음성 보정 완료 · 미리듣기 또는 WAV 저장 가능");
+                            });
+                        } catch (IOException e) {
+                            runOnUiThread(() -> {
+                                if (ownVoiceStatus != null)
+                                    ownVoiceStatus.setText("보정 실패 · " + e.getMessage());
+                                toast("내 녹음 파일을 처리하지 못했습니다.");
+                            });
+                        }
+                    });
+                });
+        ownVoiceExportLauncher = registerForActivityResult(
+                new ActivityResultContracts.CreateDocument("audio/wav"), uri -> {
+                    if (uri == null) return;
+                    File wav = MyVoiceFileProcessor.output(this);
+                    if (!wav.isFile()) { toast("먼저 내 음성을 보정하세요."); return; }
+                    musicScanExecutor.execute(() -> {
+                        try (InputStream from = new java.io.FileInputStream(wav);
+                             OutputStream to = getContentResolver().openOutputStream(uri, "w")) {
+                            if (to == null) throw new IOException("저장 대상이 열리지 않습니다.");
+                            byte[] buffer = new byte[16_384];
+                            int n;
+                            while ((n = from.read(buffer)) != -1) to.write(buffer, 0, n);
+                            runOnUiThread(() -> toast("형의 보정 음성 WAV 저장 완료"));
+                        } catch (IOException e) {
+                            runOnUiThread(() -> toast("WAV 내보내기에 실패했습니다."));
+                        }
+                    });
+                });
         audioPickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenMultipleDocuments(),
                 uris -> {
@@ -549,6 +597,22 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 startSunoCompanion(true)));
         column.addView(button("③ Suno 음악 + 아환 수동 토크", v ->
                 startSunoCompanion(false)));
+        column.addView(button("녹음한 내 목소리 보정하기 (MP3/M4A/WAV)", v ->
+                new AlertDialog.Builder(this)
+                    .setTitle("내 목소리 음질 보정")
+                    .setMessage("내가 직접 녹음했거나 사용 권한이 있는 음성만 선택하세요. "
+                        + "90초 이하의 짧은 녹음 파일을 기기 안에서 보정하고 원본은 그대로 둡니다. "
+                        + "다른 방송인 목소리는 사용하지 마세요.")
+                    .setPositiveButton("내 녹음 파일 선택", (d,w) ->
+                        ownVoicePickerLauncher.launch(new String[]{"audio/*"}))
+                    .setNegativeButton("취소", null).show()));
+        ownVoiceStatus = text(MyVoiceFileProcessor.output(this).isFile()
+                ? "내 음성 보정본 준비됨 · 비공개" : "내 음성 보정본 없음", 12, false);
+        column.addView(ownVoiceStatus);
+        column.addView(button("형의 보정 목소리 미리듣기", v -> previewMyVoice()));
+        column.addView(button("형의 보정 WAV 휴대폰에 저장", v ->
+                ownVoiceExportLauncher.launch("MARU-형-보정목소리.wav")));
+        column.addView(button("Suno 음악 중 형의 보정 멘트 재생", v -> playMyVoiceOverSuno()));
         column.addView(button("아환 짧은 토크 지금 말하기", v ->
                 speakSunoCompanionNow()));
         column.addView(button("Suno 아환 토크 완전 종료", v -> stopSunoCompanion()));
@@ -1041,6 +1105,49 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
     }
 
+
+    private void previewMyVoice() {
+        File wav = MyVoiceFileProcessor.output(this);
+        if (!wav.isFile()) { toast("먼저 내 음성 녹음을 선택해서 보정하세요."); return; }
+        try {
+            if (ownVoicePreview != null) {
+                ownVoicePreview.stop();
+                ownVoicePreview.release();
+            }
+            ownVoicePreview = new MediaPlayer();
+            ownVoicePreview.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build());
+            ownVoicePreview.setDataSource(wav.getAbsolutePath());
+            ownVoicePreview.setOnCompletionListener(mp -> {
+                mp.release();
+                if (ownVoicePreview == mp) ownVoicePreview = null;
+            });
+            ownVoicePreview.prepare();
+            ownVoicePreview.start();
+        } catch (IOException | RuntimeException e) {
+            if (ownVoicePreview != null) {
+                ownVoicePreview.release();
+                ownVoicePreview = null;
+            }
+            toast("보정 WAV 미리듣기에 실패했습니다.");
+        }
+    }
+
+    private void playMyVoiceOverSuno() {
+        if (!MyVoiceFileProcessor.output(this).isFile()) {
+            toast("보정 음성 파일을 먼저 준비하세요.");
+            return;
+        }
+        try {
+            SunoTalkCompanionService.command(this,
+                    SunoTalkCompanionService.ACTION_PLAY_MY_VOICE);
+        } catch (RuntimeException e) {
+            toast("보정 목소리 재생에 실패했습니다.");
+        }
+    }
+
     private void stopSunoCompanion() {
         try {
             SunoTalkCompanionService.command(this, SunoTalkCompanionService.ACTION_STOP);
@@ -1112,6 +1219,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 "BIGO와 함께 보기 · 미니 조종창",
                 "Suno 음악 + 아환 자동 토크",
                 "아환 짧은 멘트 바로 말하기",
+                "형의 보정 음성 멘트 재생",
                 "Suno 아환 토크 종료",
                 "노래·이미지·설정 열기",
                 "새 버전 확인 · 업데이트",
@@ -1124,9 +1232,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     else if (which == 1) showMiniController();
                     else if (which == 2) startSunoCompanion(true);
                     else if (which == 3) speakSunoCompanionNow();
-                    else if (which == 4) stopSunoCompanion();
-                    else if (which == 5) openSetupFromPlayer();
-                    else if (which == 6) checkAppUpdate(true);
+                    else if (which == 4) playMyVoiceOverSuno();
+                    else if (which == 5) stopSunoCompanion();
+                    else if (which == 6) openSetupFromPlayer();
+                    else if (which == 7) checkAppUpdate(true);
                     else stopAllBroadcastNow();
                 })
                 .setNegativeButton("취소", null)
@@ -1186,6 +1295,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         companionActions.setOrientation(LinearLayout.HORIZONTAL);
         companionActions.addView(smallButton("Suno + 토크", v -> startSunoCompanion(true)));
         companionActions.addView(smallButton("아환 멘트", v -> speakSunoCompanionNow()));
+        companionActions.addView(smallButton("형 멘트", v -> playMyVoiceOverSuno()));
         column.addView(companionActions);
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -2655,6 +2765,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        if (ownVoicePreview != null) {
+            try { ownVoicePreview.stop(); } catch (RuntimeException ignored) {}
+            ownVoicePreview.release();
+            ownVoicePreview = null;
+        }
         appUpdateExecutor.shutdownNow();
         musicScanExecutor.shutdownNow();
         handler.removeCallbacksAndMessages(null);

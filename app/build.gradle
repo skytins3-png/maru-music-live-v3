@@ -8,6 +8,16 @@ android {
 
     defaultConfig {
         applicationId 'com.maru.musiclive.english'
+        // Optional standalone MARU ONE build, safe to install beside an already
+        // signed V3.2.23 MARU RADIO EN app. No private data is copied.
+        if (project.hasProperty('maruStandalone')) {
+            applicationId 'com.maru.musiclive.one'
+        }
+        manifestPlaceholders = [
+            maruAppLabel: project.hasProperty('maruStandalone')
+                ? 'MARU 통합 라디오'
+                : 'MARU RADIO EN'
+        ]
         minSdk 26
         targetSdk 36
         // Galaxy S26 Ultra and current 64-bit Android devices.
