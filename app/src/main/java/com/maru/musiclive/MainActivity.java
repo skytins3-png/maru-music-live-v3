@@ -563,6 +563,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 + "Suno 곡 재생은 Suno 앱에서 직접 시작합니다. "
                 + "BIGO 청취자 송출은 별도 검증이 필요합니다.",
                 12, false);
+        column.addView(button("BIGO 이용·개인정보 안내", v ->
+                new AlertDialog.Builder(this)
+                        .setTitle("BIGO 방송 조작은 사용자가 직접")
+                        .setMessage("오디오 LIVE를 누르면 MARU 원곡을 재생한 뒤 BIGO 앱을 엽니다. "
+                                + "개인정보 보호를 위해 다른 앱 화면 자동 조작과 접근성 권한 요청 기능은 제거했습니다. "
+                                + "BIGO 화면에서 방송 종류를 선택하고 실제 방송 시작 버튼은 직접 누릅니다. "
+                                + "MARU나 Suno의 음악·TTS가 BIGO 청취자에게 송출된다고 보장하지 않습니다.")
+                        .setPositiveButton("확인", null).show()));
         guide.setBackgroundColor(0x6651246B);
         column.addView(guide);
         column.addView(text(
