@@ -24,6 +24,10 @@ public class TrustedWebStudioTest {
         assertFalse(TrustedWebStudio.mayNavigateInside(
                 "https://skytins3-png.github.io/maru-ai-song-studio/../../outside"));
         assertFalse(TrustedWebStudio.mayNavigateInside(
+                "https://skytins3-png.github.io/maru-ai-song-studio/%2e%2e/other"));
+        assertFalse(TrustedWebStudio.mayNavigateInside(
+                "https://skytins3-png.github.io/maru-ai-song-studio/%2Fprivate"));
+        assertFalse(TrustedWebStudio.mayNavigateInside(
                 "https://skytins3-png.github.io:1337/maru-ai-song-studio/"));
         assertFalse(TrustedWebStudio.mayNavigateInside(
                 "https://unknown@skytins3-png.github.io/maru-ai-song-studio/"));
