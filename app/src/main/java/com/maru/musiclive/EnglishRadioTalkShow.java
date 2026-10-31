@@ -28,6 +28,28 @@ public final class EnglishRadioTalkShow {
         "trying something new after sixty",
         "why a good apology matters"
     };
+    private static final String[][] SHORT_SCENES = {
+        {"I waved at somebody who wasn't waving at me.", "Oh no. What did you do?", "Pretended I was stretching.", "That is a very confident stretch."},
+        {"I made coffee and forgot where I put it.", "In the fridge, by any chance?", "Exactly. Right beside the milk.", "At least your coffee stayed fresh."},
+        {"I met an old school friend yesterday.", "Same smile after all those years?", "Same laugh. We talked for an hour.", "That's what good friends do."},
+        {"I tried making dinner without a recipe.", "Brave. How'd it go?", "The smoke alarm joined the conversation.", "Loudest dinner guest ever."},
+        {"I missed the bus by three seconds.", "Three seconds? That's painful.", "The driver even waved goodbye.", "Such polite heartbreak."},
+        {"I sang in the car this morning.", "Did anybody hear you?", "The next car rolled up its windows.", "Tough crowd. Keep singing."},
+        {"Found something in my coat pocket.", "Please tell me it was money.", "A shopping list from last winter.", "Vintage groceries. Lovely."},
+        {"My neighbor's dog greets everybody.", "Better social life than mine.", "He's basically our street's mayor.", "And nobody minds his speeches."},
+        {"I danced while washing the dishes.", "With the plates?", "Yes. The floor nearly won.", "Next time let the dishes lead."},
+        {"A song reminded me of last summer.", "Music can do that, can't it?", "I even remembered the sea air.", "That's a memory worth keeping."},
+        {"Sent a lunch photo to the wrong person.", "At least it looked tasty?", "They asked me for the recipe.", "Well, a new friend then."},
+        {"My alarm went off, so I negotiated.", "How much sleep did you win?", "Six glorious minutes.", "You drive a hard bargain."},
+        {"Bought a birthday card, forgot the gift.", "You remembered the important bit.", "So I wrote a long letter.", "Better than another mug."},
+        {"Walked out just as it started raining.", "Didn't bring an umbrella?", "I left it open at home.", "Your furniture stayed dry."},
+        {"I went for a walk to clear my head.", "Did that work?", "Yes, until I found a bakery.", "A delicious detour."},
+        {"I tried to take a serious photo.", "And someone laughed?", "The wind gave me a new haircut.", "Free styling. Can't beat that."},
+        {"My friend is always ten minutes late.", "Always exactly ten?", "At least he's consistent.", "Some call that reliability."},
+        {"I spent ten minutes looking for glasses.", "Where were they?", "On top of my head.", "A classic hiding place."},
+        {"I heard a child singing in the park.", "Did they know the words?", "Not one. But they meant every note.", "That's musical confidence."},
+        {"My phone died before an important call.", "What happened next?", "I looked up and saw the sunset.", "Best interruption of the day."}
+    };
     private static final String[] GUEST_NAMES = {
         "Alex", "Sam", "Jordan", "Taylor", "Morgan", "Riley", "Casey", "Jamie",
         "Avery", "Charlie", "Robin", "Drew", "Frankie", "Quinn", "Sky", "Lee"
@@ -131,14 +153,24 @@ public final class EnglishRadioTalkShow {
         guest(lines, artist, "Thanks for spending this time with us. Enjoy the song, and we'll catch up again soon.");
         return lines.toArray(new RadioConversationScript.Line[0]);
     }
+    /** Four natural mini-scene turns plus one song cue, never a long intro. */
     public static RadioConversationScript.Line[] shortBeforeSong(
             String title, int episode, LocalDate date, int artistId) {
-        RadioConversationScript.Line[] full = beforeSong(
-                title, episode, date, artistId, "", "", "", false);
+        if (date == null) throw new IllegalArgumentException("date required");
+        int guestIdx = Math.floorMod(date.toEpochDay() + episode, GUEST_NAMES.length);
+        VirtualArtistCatalog.Artist artist = artistId > 0
+                && artistId <= VirtualArtistCatalog.all().size()
+                ? VirtualArtistCatalog.at(artistId - 1)
+                : VirtualArtistCatalog.at(guestIdx);
+        String[] scene = SHORT_SCENES[Math.floorMod(
+                date.toEpochDay() * 7L + episode, SHORT_SCENES.length)];
         return new RadioConversationScript.Line[]{
-                full[0], full[1], full[2], full[3], full[4],
-                full[full.length - 3], full[full.length - 2],
-                full[full.length - 1]
+                new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN, scene[0]),
+                new RadioConversationScript.Line(RadioConversationScript.Speaker.GUEST, scene[1], artist),
+                new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN, scene[2]),
+                new RadioConversationScript.Line(RadioConversationScript.Speaker.GUEST, scene[3], artist),
+                new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN,
+                        "And now, " + safeTitle(title) + ".")
         };
     }
 
