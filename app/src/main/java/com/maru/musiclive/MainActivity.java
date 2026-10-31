@@ -681,7 +681,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         });
         column.addView(dailyRadio);
         CheckBox englishShow = checkBox(
-                "English conversation · warm, funny, one guest per show",
+                "English conversation · four quick replies, then music",
                 AppStorage.englishRadioEnabled(this));
         englishShow.setOnCheckedChangeListener((v, checked) ->
                 AppStorage.setEnglishRadioEnabled(this, checked));
