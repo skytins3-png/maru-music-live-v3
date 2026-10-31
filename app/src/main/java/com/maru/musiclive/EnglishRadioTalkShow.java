@@ -162,7 +162,36 @@ public final class EnglishRadioTalkShow {
                 && artistId <= VirtualArtistCatalog.all().size()
                 ? VirtualArtistCatalog.at(artistId - 1)
                 : VirtualArtistCatalog.at(guestIdx);
+        return shortBeforeSong(title, episode, date, artistId, "", "");
+    }
+
+    /** Approved listener stories remain short and require producer approval. */
+    public static RadioConversationScript.Line[] shortBeforeSong(
+            String title, int episode, LocalDate date, int artistId,
+            String nickname, String approvedStory) {
+        if (date == null) throw new IllegalArgumentException("date required");
+        int guestIdx = Math.floorMod(date.toEpochDay() + episode, GUEST_NAMES.length);
+        VirtualArtistCatalog.Artist artist = artistId > 0
+                && artistId <= VirtualArtistCatalog.all().size()
+                ? VirtualArtistCatalog.at(artistId - 1)
+                : VirtualArtistCatalog.at(guestIdx);
         String[] scene = SHORT_SCENES[Math.floorMod(
+                date.toEpochDay() * 7L + episode, SHORT_SCENES.length)];
+        String cleanStory = RadioAudienceStore.clean(approvedStory, 130);
+        if (!cleanStory.isEmpty()) {
+            return new RadioConversationScript.Line[]{
+                    new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN,
+                            "One quick listener story from " + safeName(nickname) + "."),
+                    new RadioConversationScript.Line(RadioConversationScript.Speaker.GUEST,
+                            "Oh, tell me."),
+                    new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN,
+                            "They wrote: " + cleanStory),
+                    new RadioConversationScript.Line(RadioConversationScript.Speaker.GUEST, 
+                            "Thanks for sharing that with us."),
+                    new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN,
+                            "And now, " + safeTitle(title) + ".")
+            };
+        }        String[] scene = SHORT_SCENES[Math.floorMod(
                 date.toEpochDay() * 7L + episode, SHORT_SCENES.length)];
         return new RadioConversationScript.Line[]{
                 new RadioConversationScript.Line(RadioConversationScript.Speaker.AHWAN, scene[0]),
