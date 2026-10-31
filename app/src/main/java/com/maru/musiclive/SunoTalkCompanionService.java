@@ -10,6 +10,9 @@ import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
+import java.io.File;
+import java.io.IOException;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -35,6 +38,7 @@ public final class SunoTalkCompanionService extends Service {
     public static final String ACTION_TALK_NOW = "com.maru.musiclive.suno.TALK_NOW";
     public static final String ACTION_STOP = "com.maru.musiclive.suno.STOP";
     public static final String ACTION_MANUAL = "com.maru.musiclive.suno.MANUAL";
+    public static final String ACTION_PLAY_MY_VOICE = "com.maru.musiclive.suno.PLAY_MY_VOICE";
     private static final String CHANNEL = "maru_suno_companion";
     private static final int NOTICE_ID = 2957;
     private static final long FIRST_TALK_MS = 3L * 60L * 1000L;
@@ -51,6 +55,7 @@ public final class SunoTalkCompanionService extends Service {
     private boolean autoMode;
     private boolean speaking;
     private boolean pendingTalk;
+    private MediaPlayer recordedVoicePlayer;
     private int episode;
     private int lineIndex;
     private String currentId = "";
@@ -58,7 +63,7 @@ public final class SunoTalkCompanionService extends Service {
 
     private final Runnable timer = () -> {
         if (!enabled || !autoMode) return;
-        if (speaking) { schedule(TALK_INTERVAL_MS); return; }
+        if (speaking || recordedVoicePlayer != null) { schedule(TALK_INTERVAL_MS); return; }
         talk();
     };
     private final Runnable watchdog = () -> {
@@ -72,7 +77,8 @@ public final class SunoTalkCompanionService extends Service {
                 .setAction(action);
         if (ACTION_START_AUTO.equals(action)
                 || ACTION_TALK_NOW.equals(action)
-                || ACTION_MANUAL.equals(action)) {
+                || ACTION_MANUAL.equals(action)
+                || ACTION_PLAY_MY_VOICE.equals(action)) {
             androidx.core.content.ContextCompat.startForegroundService(context, intent);
         } else if (ACTION_STOP.equals(action)) {
             // Do not recreate a stopped service just to issue a stop command.
@@ -125,7 +131,9 @@ public final class SunoTalkCompanionService extends Service {
             enabled = true;
             startForeground(NOTICE_ID, notification("Suno 음악 + 아환 토크 준비"));
         }
-        if (ACTION_START_AUTO.equals(action)) {
+        if (ACTION_PLAY_MY_VOICE.equals(action)) {
+            playMyRecordedVoice();
+        } else if (ACTION_START_AUTO.equals(action)) {
             autoMode = true;
             pendingTalk = false;
             schedule(FIRST_TALK_MS);
@@ -144,6 +152,63 @@ public final class SunoTalkCompanionService extends Service {
             }
         }
         return START_NOT_STICKY;
+    }
+
+
+    /** A user's separately enhanced, personally selected recording, not synthetic TTS. */
+    private void playMyRecordedVoice() {
+        File file = MyVoiceFileProcessor.output(this);
+        if (!file.isFile() || file.length() < 44) {
+            updateNotice("형의 보정 WAV 파일이 없습니다 · 먼저 내 목소리를 보정하세요.");
+            return;
+        }
+        if (speaking) {
+            if (tts != null) tts.stop();
+            finishTalk();
+        }
+        stopRecordedVoice();
+        if (!focusForSpeech()) {
+            updateNotice("음악 오디오 우선권 사용 중 · 내 멘트를 실행하지 못함");
+            return;
+        }
+        try {
+            MediaPlayer player = new MediaPlayer();
+            recordedVoicePlayer = player;
+            player.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            player.setDataSource(file.getAbsolutePath());
+            player.setOnPreparedListener(mp -> {
+                if (recordedVoicePlayer == mp && enabled) {
+                    updateNotice("형이 녹음한 보정 목소리 재생 중");
+                    mp.start();
+                }
+            });
+            player.setOnCompletionListener(mp -> stopRecordedVoice());
+            player.setOnErrorListener((mp, what, extra) -> {
+                stopRecordedVoice();
+                updateNotice("형 보정 목소리를 재생할 수 없습니다.");
+                return true;
+            });
+            player.prepareAsync();
+            main.removeCallbacks(timer);
+        } catch (IOException | RuntimeException error) {
+            stopRecordedVoice();
+            updateNotice("보정 WAV 멘트 오류 · 다른 음악은 계속 유지");
+        }
+    }
+
+    private void stopRecordedVoice() {
+        if (recordedVoicePlayer == null) return;
+        MediaPlayer current = recordedVoicePlayer;
+        recordedVoicePlayer = null;
+        try { current.stop(); } catch (IllegalStateException ignored) {}
+        current.release();
+        abandonFocus();
+        if (enabled) {
+            updateNotice(autoMode ? "내 멘트 종료 · 자동 토크 대기" : "형 멘트 재생 완료");
+            schedule(TALK_INTERVAL_MS);
+        }
     }
 
     private void schedule(long delayMs) {
@@ -165,6 +230,7 @@ public final class SunoTalkCompanionService extends Service {
                                 || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
                             main.post(() -> {
                                 if (tts != null) tts.stop();
+                                stopRecordedVoice();
                                 finishTalk();
                             });
                         }
@@ -176,7 +242,7 @@ public final class SunoTalkCompanionService extends Service {
         legacyFocus = change -> {
             if (change == AudioManager.AUDIOFOCUS_LOSS
                     || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
-                main.post(this::finishTalk);
+                main.post(() -> { stopRecordedVoice(); finishTalk(); });
             }
         };
         return audio.requestAudioFocus(legacyFocus, AudioManager.STREAM_MUSIC,
@@ -196,7 +262,7 @@ public final class SunoTalkCompanionService extends Service {
     }
 
     private void talk() {
-        if (!enabled || speaking) return;
+        if (!enabled || speaking || recordedVoicePlayer != null) return;
         if (!initialized || tts == null) {
             pendingTalk = true;
             return;
@@ -277,6 +343,9 @@ public final class SunoTalkCompanionService extends Service {
                         android.R.drawable.ic_media_play, "짧은 토크",
                         action(ACTION_TALK_NOW, 94)).build())
                 .addAction(new Notification.Action.Builder(
+                        android.R.drawable.ic_btn_speak_now, "형의 보정 목소리",
+                        action(ACTION_PLAY_MY_VOICE, 96)).build())
+                .addAction(new Notification.Action.Builder(
                         android.R.drawable.ic_menu_close_clear_cancel, "토크 종료",
                         action(ACTION_STOP, 95)).build())
                 .build();
@@ -297,6 +366,7 @@ public final class SunoTalkCompanionService extends Service {
         main.removeCallbacks(timer);
         main.removeCallbacks(watchdog);
         if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }
+        stopRecordedVoice();
         abandonFocus();
         super.onDestroy();
     }
