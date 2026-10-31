@@ -871,15 +871,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
      * bridge: the web song list remains browser-origin storage, separate from
      * MARU's native library. No BIGO broadcast automation is introduced.
      */
-    private static final String TRUSTED_STUDIO_URL =
-            "https://skytins3-png.github.io/maru-ai-song-studio/";
+    private static final String TRUSTED_STUDIO_URL = TrustedWebStudio.URL;
 
     private boolean isTrustedStudioUrl(Uri url) {
-        return url != null && "https".equalsIgnoreCase(url.getScheme())
-                && "skytins3-png.github.io".equalsIgnoreCase(url.getHost())
-                && url.getPath() != null
-                && (url.getPath().equals("/maru-ai-song-studio")
-                || url.getPath().startsWith("/maru-ai-song-studio/"));
+        return url != null && TrustedWebStudio.mayNavigateInside(url.toString());
     }
 
     private void openEmbeddedWebStudio() {
@@ -926,8 +921,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 if (!request.isForMainFrame()) return false;
                 Uri target = request.getUrl();
                 if (isTrustedStudioUrl(target)) return false;
-                try { startActivity(new Intent(Intent.ACTION_VIEW, target)); }
-                catch (RuntimeException e) { toast("외부 링크를 열 수 없습니다."); }
+                if (target != null && ("https".equalsIgnoreCase(target.getScheme())
+                        || "http".equalsIgnoreCase(target.getScheme()))) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, target)); }
+                    catch (RuntimeException e) { toast("외부 링크를 열 수 없습니다."); }
+                } else {
+                    toast("허용되지 않는 스튜디오 연결 주소입니다.");
+                }
                 return true;
             }
             @Override public void onReceivedError(
