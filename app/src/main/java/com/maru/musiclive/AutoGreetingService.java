@@ -378,9 +378,13 @@ public final class AutoGreetingService extends Service {
         if (request.kind == AnnouncementRequest.KIND_RADIO) {
             if (englishRadioDialogue) {
                 // English is ALWAYS short regardless of older saved long-talk settings.
+                RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
+                if (story != null) activeStoryId = story.id;
                 activeDialogue = EnglishRadioTalkShow.shortBeforeSong(
                         request.value, request.episodeIndex,
-                        java.time.LocalDate.now(), request.artistId);
+                        java.time.LocalDate.now(), request.artistId,
+                        story == null ? "" : story.name,
+                        story == null ? "" : story.text);
             } else if (AppStorage.longGuestTalkEnabled(this)) {
                 RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
                 if (story != null) activeStoryId = story.id;
