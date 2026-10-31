@@ -243,6 +243,17 @@ jobs:
           sha256sum MARU-RADIO.apk > SHA256SUMS.txt
           SIGNER=$(cat MARU-SIGNER-SHA256.txt)
           [[ "$SIGNER" =~ ^[0-9a-f]{64}$ ]]
+
+          # Android cannot upgrade an installed app if its signer differs.
+          # Never publish an automatic update unless the preceding installed
+          # v3.2.23 release is signed with exactly the same certificate.
+          OLD_BODY=$(gh release view "v3.2.23" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
+          OLD_SIGNER=$(printf '%s\n' "$OLD_BODY" | sed -n 's/^SIGNER_SHA256=//p' | head -1 | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')
+          if [[ ! "$OLD_SIGNER" =~ ^[0-9a-f]{64}$ || "$OLD_SIGNER" != "$SIGNER" ]]; then
+            echo "::warning::V3.2.24 APK signer differs from installed v3.2.23: do NOT publish as an in-place update."
+            echo "::warning::Keep previous installed app/data; secure matching signing or a migration plan is required."
+            exit 0
+          fi
           printf 'MARU RADIO V3.2.24 검증 배포판. Android 설치 승인은 사용자 선택입니다.\n\nSIGNER_SHA256=%s\n' "$SIGNER" > RELEASE_NOTES.txt
           if gh release view "v3.2.24" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release v3.2.24 already exists; do not overwrite its APK."
