@@ -93,6 +93,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private boolean broadcastVisible;
     private boolean localTestMode;
     private boolean homePlayerMode;
+    private boolean miniPlayerMode;
+    private TextView miniSongTitle;
+    private Button miniPlayButton;
     private boolean pendingAutoMusicStart;
     private boolean oneClickStarting;
     private boolean eventOverlayShowing;
@@ -219,7 +222,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        // Allow Samsung system pop-up/freeform mode; the full image player still
+        // locks its own broadcast layout when explicitly opened.
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         allowAudioCapture();
         // V3.1.1: V3.1.0에서 강제로 꺼진 대화형 AI를 안전한 화면 답변 모드로 1회 복원한다.
@@ -244,7 +249,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         importSharedOriginals(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
-                if (homePlayerMode) {
+                if (miniPlayerMode) {
+                    openSetupFromMini();
+                } else if (homePlayerMode) {
                     showHomePlayerMenu();
                 } else if (broadcastVisible) {
                     showBroadcastEndMenu();
@@ -512,7 +519,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.23 · Daily English Weather & News Radio",
+                "V3.2.24 · Daily English Weather & News Radio",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -546,6 +553,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 v -> showHomePlayer());
         openPlayer.setTextSize(20f);
         column.addView(openPlayer);
+        column.addView(button("미니 조종창 · BIGO와 한 화면으로 보기", v -> showMiniController()));
 
         Button regularLive = button(
                 "BIGO 오디오 LIVE 시작",
@@ -986,6 +994,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void showHomePlayer() {
+        miniPlayerMode = false;
+        miniSongTitle = null;
+        miniPlayButton = null;
         homePlayerMode = true;
         localTestMode = false;
         selectedMode = BroadcastMode.PORTRAIT_9_16;
@@ -1001,6 +1012,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private void showHomePlayerMenu() {
         String[] items = {
                 "BIGO 오디오 LIVE 시작",
+                "BIGO와 함께 보기 · 미니 조종창",
                 "노래·이미지·설정 열기",
                 "새 버전 확인 · 업데이트",
                 "완전 종료"
@@ -1011,8 +1023,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     if (which == 0) {
                         startCommunityLive("오디오 LIVE");
                     } else if (which == 1) {
-                        openSetupFromPlayer();
+                        showMiniController();
                     } else if (which == 2) {
+                        openSetupFromPlayer();
+                    } else if (which == 3) {
                         checkAppUpdate(true);
                     } else {
                         stopAllBroadcastNow();
@@ -1020,6 +1034,80 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 })
                 .setNegativeButton("취소", null)
                 .show();
+    }
+
+    /** Compact controller intended for Samsung's user-initiated pop-up view.
+     * It is this app's own Activity, never a SYSTEM_ALERT_WINDOW overlay
+     * and never any control injected into BIGO. */
+    private void showMiniController() {
+        if (broadcastVisible) {
+            leavePlayerScreen(false); // keep the existing PlaybackService running
+        }
+        miniPlayerMode = true;
+        homePlayerMode = false;
+        localTestMode = false;
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        showSystemBars();
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(ContextCompat.getColor(this, R.color.maru_bg));
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setPadding(dp(10), dp(8), dp(10), dp(8));
+        scroll.addView(column);
+
+        TextView label = text("MARU · 미니 조종창", 17, true);
+        label.setGravity(Gravity.CENTER);
+        label.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
+        column.addView(label);
+
+        miniSongTitle = text(currentTitle(), 14, true);
+        miniSongTitle.setGravity(Gravity.CENTER);
+        miniSongTitle.setSingleLine(true);
+        miniSongTitle.setEllipsize(TextUtils.TruncateAt.END);
+        column.addView(miniSongTitle);
+
+        LinearLayout musicControls = new LinearLayout(this);
+        musicControls.setOrientation(LinearLayout.HORIZONTAL);
+        musicControls.setGravity(Gravity.CENTER);
+        musicControls.addView(smallButton("이전", v -> {
+            if (playback != null) playback.previous();
+        }));
+        miniPlayButton = smallButton("재생", v -> {
+            if (playback != null) playback.toggle();
+        });
+        musicControls.addView(miniPlayButton);
+        musicControls.addView(smallButton("다음", v -> {
+            if (playback != null) playback.next();
+        }));
+        column.addView(musicControls);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.addView(smallButton("BIGO 열기", v -> openBigoChat()));
+        actions.addView(smallButton("노래·설정", v -> openSetupFromMini()));
+        column.addView(actions);
+
+        TextView hint = text(
+            "BIGO와 함께 보기: 갤럭시 최근 앱 → MARU 아이콘 → "
+            + "'팝업 화면으로 열기'. 창 크기·위치는 갤럭시에서 조절하세요. "
+            + "실제 BIGO 청취자 송출은 별도로 확인해야 합니다.", 11, false);
+        column.addView(hint);
+        setContentView(scroll);
+        syncPlayButtonState();
+    }
+
+    private void openSetupFromMini() {
+        miniPlayerMode = false;
+        miniSongTitle = null;
+        miniPlayButton = null;
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        showSystemBars();
+        setContentView(appRoot);
     }
 
     private void leavePlayerScreen(boolean pauseMusic) {
@@ -1357,6 +1445,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }));
 
         if (homePlayerMode) {
+            controls.addView(smallButton("미니", v -> showMiniController()));
             controls.addView(smallButton("오디오 LIVE", v ->
                     startCommunityLive("오디오 LIVE")));
             controls.addView(smallButton("설정", v ->
@@ -2367,6 +2456,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void syncPlayButtonState() {
         boolean playing = playback != null && playback.isPlaying();
+        if (miniPlayerMode && miniPlayButton != null) {
+            miniPlayButton.setText(playing ? "일시정지" : "재생");
+            miniPlayButton.setContentDescription(playing ? "음악 일시정지" : "음악 재생");
+        }
         if (playButton != null) {
             playButton.setText(playing ? "일시정지" : "재생");
             playButton.setContentDescription(playing ? "음악 일시정지" : "음악 재생");
@@ -2375,6 +2468,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     @Override public void onTrackChanged(int index) {
         runOnUiThread(() -> {
+            if (miniPlayerMode && miniSongTitle != null) miniSongTitle.setText(currentTitle());
             if (titleView != null) {
                 titleView.setText(
                         localTestMode

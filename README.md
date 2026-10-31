@@ -1,6 +1,15 @@
-# MARU RADIO EN V3.2.23 · English Weather & News first install
+## V3.2.24 · 삼성 갤럭시 팝업 화면용 미니 조종창
 
-**If you have never installed MARU**, use the single v3.2.23 APK from the signed official GitHub Release. This is Android package `com.maru.musiclive.english` and home-screen name `MARU RADIO EN`; no previous versions need to be installed. Download only `MARU-RADIO.apk` under the v3.2.23 Release Assets; source ZIP is not an installer.
+- MARU 앱의 '미니 조종창'에서 이전곡/재생·일시정지/다음곡/BIGO 열기를 작은 화면으로 조작합니다.
+- 갤럭시 **최근 앱 → MARU 아이콘 → 팝업 화면으로 열기**는 사용자가 직접 실행합니다. 방송 화면 위에 시스템 팝업으로 올리는 방식입니다.
+- 시스템 팝업 모드는 기기/One UI/BIGO 호환 여부에 따라 표시되지 않을 수 있습니다. 표시되지 않으면 '분할 화면으로 열기'를 대신 사용하세요.
+- SYSTEM_ALERT_WINDOW(다른 앱 위에 표시), 접근성 권한, BIGO 자동 터치를 새로 추가하지 않았습니다.
+- 기존 V3.2.23과 Android 서명 인증서가 다른 경우 덮어쓰기 설치를 할 수 없으며, 기존 설치 앱을 삭제하면 앱 내부 목록/설정이 사라질 수 있으므로 삭제하지 마세요.
+- 미니 창 표시만으로 BIGO 청취자에게 MARU 음악/TTS가 송출되는 것은 아닙니다. BIGO 내부 오디오 입력과 별도 청취 단말로 검증해야 합니다.
+
+# MARU RADIO EN V3.2.24 · English Weather & News first install
+
+**If you have never installed MARU**, use the single v3.2.24 APK from the signed official GitHub Release. This is Android package `com.maru.musiclive.english` and home-screen name `MARU RADIO EN`; no previous versions need to be installed. Download only `MARU-RADIO.apk` under the v3.2.24 Release Assets; source ZIP is not an installer.
 
 - The top **Daily Weather & News Radio · Start English Show** button opens the verified MARU RADIO web page, which runs Ahwan's fictional English DJ/guest banter, producer-approved listener stories, optional local MP3/WAV, cited Open-Meteo weather for user-selectable cities and timestamped BBC headline updates.
 - Automatic upstream retrieval is done by the independent `maru-ai-song-studio` GitHub Actions scheduled job (~every 4 hours). A new APK is NOT needed for each news/weather refresh. Data may lag; if stale or unavailable, the show continues without claiming fake live facts.
