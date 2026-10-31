@@ -681,13 +681,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         });
         column.addView(dailyRadio);
         CheckBox englishShow = checkBox(
-                "English conversation · warm, funny, one guest per show",
+                "English conversation · four quick replies, then music",
                 AppStorage.englishRadioEnabled(this));
         englishShow.setOnCheckedChangeListener((v, checked) ->
                 AppStorage.setEnglishRadioEnabled(this, checked));
         column.addView(englishShow);
         CheckBox longGuestTalk = checkBox(
-                "Long guest talk · 40 natural conversational turns before music",
+                "Long Korean guest interview (English always 4 short replies)",
                 AppStorage.longGuestTalkEnabled(this));
         longGuestTalk.setOnCheckedChangeListener((v, checked) ->
                 AppStorage.setLongGuestTalkEnabled(this, checked));

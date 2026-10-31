@@ -109,7 +109,7 @@ public final class AppStorage {
     }
 
     public static boolean longGuestTalkEnabled(Context c) {
-        return prefs(c).getBoolean(KEY_LONG_GUEST_TALK, true);
+        return prefs(c).getBoolean(KEY_LONG_GUEST_TALK, false);
     }
 
     public static void setLongGuestTalkEnabled(Context c, boolean value) {

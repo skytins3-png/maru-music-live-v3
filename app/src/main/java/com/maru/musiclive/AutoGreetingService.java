@@ -376,31 +376,29 @@ public final class AutoGreetingService extends Service {
                 && AppStorage.englishRadioEnabled(this);
         activeStoryId = "";
         if (request.kind == AnnouncementRequest.KIND_RADIO) {
-            if (AppStorage.longGuestTalkEnabled(this)) {
+            if (englishRadioDialogue) {
+                // English is ALWAYS short regardless of older saved long-talk settings.
                 RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
                 if (story != null) activeStoryId = story.id;
-                activeDialogue = englishRadioDialogue
-                        ? EnglishRadioTalkShow.beforeSong(
-                            request.value, request.episodeIndex, java.time.LocalDate.now(),
-                            request.artistId, story == null ? "" : story.name,
-                            story == null ? "" : story.text,
-                            RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
-                            request.listenerRequested)
-                        : GuestTalkShow.beforeSong(
-                            request.value, request.episodeIndex, java.time.LocalDate.now(),
-                            request.artistId, story == null ? "" : story.name,
-                            story == null ? "" : story.text,
-                            RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
-                            request.listenerRequested);
+                activeDialogue = EnglishRadioTalkShow.shortBeforeSong(
+                        request.value, request.episodeIndex,
+                        java.time.LocalDate.now(), request.artistId,
+                        story == null ? "" : story.name,
+                        story == null ? "" : story.text);
+            } else if (AppStorage.longGuestTalkEnabled(this)) {
+                RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
+                if (story != null) activeStoryId = story.id;
+                activeDialogue = GuestTalkShow.beforeSong(
+                        request.value, request.episodeIndex, java.time.LocalDate.now(),
+                        request.artistId, story == null ? "" : story.name,
+                        story == null ? "" : story.text,
+                        RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
+                        request.listenerRequested);
             } else {
-                activeDialogue = englishRadioDialogue
-                        ? EnglishRadioTalkShow.shortBeforeSong(
-                            request.value, request.episodeIndex,
-                            java.time.LocalDate.now(), request.artistId)
-                        : MultiArtistRadioProgram.beforeSong(
-                            request.value, request.episodeIndex, java.time.LocalDate.now(),
-                            AppStorage.dailyRadioEnabled(this),
-                            request.giftNames, request.followNames, request.artistId);
+                activeDialogue = MultiArtistRadioProgram.beforeSong(
+                        request.value, request.episodeIndex, java.time.LocalDate.now(),
+                        AppStorage.dailyRadioEnabled(this), request.giftNames,
+                        request.followNames, request.artistId);
             }
         } else {
             activeDialogue = null;
