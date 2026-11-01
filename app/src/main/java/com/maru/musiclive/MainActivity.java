@@ -93,6 +93,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private final ExecutorService musicScanExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService appUpdateExecutor = Executors.newSingleThreadExecutor();
     private boolean maruOneUpdateBusy;
+    private File pendingVerifiedMaruUpdate;
     private TextView maruOneUpdateStatus;
     private final List<String> songs = new ArrayList<>();
     private final List<String> images = new ArrayList<>();
@@ -364,6 +365,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         syncPlayButtonState();
         handler.postDelayed(this::syncPlayButtonState, 250L);
         checkAppUpdate(false);
+        if (pendingVerifiedMaruUpdate != null &&
+                android.os.Build.VERSION.SDK_INT >= 26 &&
+                getPackageManager().canRequestPackageInstalls()) {
+            File candidate = pendingVerifiedMaruUpdate;
+            pendingVerifiedMaruUpdate = null;
+            try { MaruOneUpdateInstaller.requestInstall(this,candidate); }
+            catch (RuntimeException e) { toast("APK 설치 화면을 열 수 없습니다."); }
+        }
     }
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
@@ -3005,7 +3014,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     if (maruOneUpdateStatus != null)
                         maruOneUpdateStatus.setText("✅ 파일·서명·버전 검사 완료. Android 설치 승인이 필요합니다.");
                     try {
-                        MaruOneUpdateInstaller.requestInstall(this,verified);
+                        if (!MaruOneUpdateInstaller.requestInstall(this,verified))
+                            pendingVerifiedMaruUpdate = verified;
                     } catch (RuntimeException e) {
                         toast("Android 설치 화면을 열 수 없습니다. 기기 보안 설정을 확인하세요.");
                     }
