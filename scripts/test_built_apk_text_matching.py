@@ -43,6 +43,17 @@ for _ in range(1000):
             + " | ".join(missing)
         )
 
+# The displayed header is "V" + package version + a constant suffix.
+# Only the suffix exists as a standalone DEX string; the build verifies
+# the full package version separately through the manifest.
+title_suffix = " · Daily English Weather & News Radio"
+if title_suffix not in checker.REQUIRED_EXACT_DEX_STRINGS:
+    raise AssertionError("runtime version suffix must be checked in APK DEX")
+no_title_suffix = set(base_strings)
+no_title_suffix.remove(title_suffix)
+if title_suffix not in checker.missing_required_dex_texts(no_title_suffix):
+    raise AssertionError("missing dynamic header suffix was not detected")
+
 missing_button = set(base_strings)
 missing_button.remove("완전 종료")
 if "완전 종료" not in checker.missing_required_dex_texts(missing_button):
