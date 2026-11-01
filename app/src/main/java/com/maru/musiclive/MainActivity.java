@@ -671,15 +671,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             AppStorage.saveSongs(this, songs);
         }
 
-        if (images.isEmpty()) {
-            images.add(
-                    resourceUri(
-                            R.drawable.actual_image_01));
-            images.add(
-                    resourceUri(
-                            R.drawable.actual_image_02));
-            AppStorage.saveImages(this, images);
-        }
+        // Keep an intentionally empty common-image library empty after deletion.
+        // Built-in fallback artwork remains in drawable and is not user media.
 
         // Remove the old built-in timed instructions. They were the
         // permanent BIGO warning text seen in previous versions.
@@ -1601,18 +1594,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         miniMediaActions.setGravity(Gravity.CENTER);
         miniMediaActions.setOrientation(LinearLayout.HORIZONTAL);
         miniMediaActions.setBackgroundColor(0xCC101018);
-        miniMediaActions.addView(smallButton("사진·영상 선택", v -> {
+        miniMediaActions.addView(smallButton("교체", v -> {
             if (miniMediaPickerLauncher != null)
                 miniMediaPickerLauncher.launch(new String[]{"image/*", "video/*"});
         }));
-        miniMediaActions.addView(smallButton("화면 해제", v -> {
+        miniMediaActions.addView(smallButton("해제", v -> {
             AppStorage.setPopupMediaUri(this, "");
             miniShownUri = "";
             showSavedMiniMedia();
             showMiniMediaActions();
             toast("팝업 사진·영상 지정 해제");
         }));
-        miniMediaActions.addView(smallButton("음악 재생/정지", v -> {
+        miniMediaActions.addView(smallButton("재생/정지", v -> {
             if (playback != null) playback.toggle();
         }));
         miniMediaActions.addView(smallButton("설정", v -> openSetupFromMini()));
