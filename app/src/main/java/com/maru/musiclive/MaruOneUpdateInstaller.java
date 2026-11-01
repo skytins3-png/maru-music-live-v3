@@ -91,12 +91,11 @@ public final class MaruOneUpdateInstaller {
                     throw new SecurityException("APK 구성 파일 오류");
             }
             PackageInfo candidate=activity.getPackageManager().getPackageArchiveInfo(
-                    temporary.getAbsolutePath(),PackageManager.GET_SIGNING_CERTIFICATES);
+                    temporary.getAbsolutePath(),MaruOneUpdateChecker.signerFlags());
             if(candidate==null||!MaruOneUpdateChecker.PACKAGE.equals(candidate.packageName)
-                    ||candidate.getLongVersionCode()!=release.versionCode)
+                    ||MaruOneUpdateChecker.versionCode(candidate)!=release.versionCode)
                 throw new SecurityException("APK 앱 식별자 또는 버전이 다릅니다.");
-            Signature[] certs=candidate.signingInfo==null?null:
-                    candidate.signingInfo.getApkContentsSigners();
+            Signature[] certs=MaruOneUpdateChecker.archiveSigners(candidate);
             if(certs==null||certs.length!=1||!MaruOneUpdateChecker.signatureSha256(certs[0])
                     .equalsIgnoreCase(release.signerSha256))
                 throw new SecurityException("APK의 실제 서명 인증서가 일치하지 않습니다.");
