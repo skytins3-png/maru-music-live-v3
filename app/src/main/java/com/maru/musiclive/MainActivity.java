@@ -727,6 +727,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 v -> startLocalRadioPreview()));
         column.addView(button("Suno playlist · open & import MP3 files",
                 v -> showSunoPlaylistGuide()));
+        column.addView(button("MARU 방송 운영 센터 · 곡 등록 / 사연 예약 / 미디어 검토",
+                v -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                                "https://skytins3-png.github.io/maru-ai-song-studio/music-share/broadcast-center.html")));
+                    } catch (RuntimeException error) {
+                        toast("MARU 방송 운영 센터를 열 수 없습니다.");
+                    }
+                }));
         column.addView(button("MUSIC SHARE · Upload / Download / Stories",
                 v -> {
                     try {
