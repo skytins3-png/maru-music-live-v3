@@ -1,0 +1,71 @@
+name: MARU library preview - separate installable APK
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/build.gradle'
+      - '.github/workflows/library-preview-apk.yml'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/build.gradle'
+      - '.github/workflows/library-preview-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify app resources and Android unit tests
+        run: |
+          python3 scripts/check_required_media.py
+          gradle --no-daemon :app:testDebugUnitTest
+      - name: Build unique side-by-side preview package
+        run: gradle --no-daemon :app:assembleRelease -PmaruLibraryPreview=1
+      - name: Validate APK, signer, and no sensitive service
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" > /tmp/maru-badging
+          grep -F "name='com.maru.musiclive.librarypreview'" /tmp/maru-badging
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/maru-manifest
+          if grep -E 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS' /tmp/maru-manifest; then
+            echo "Unsupported sensitive service/permission"; exit 1
+          fi
+          cp "$APK" MARU-MUSIC-LIBRARY-PREVIEW.apk
+          sha256sum MARU-MUSIC-LIBRARY-PREVIEW.apk > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > SIGNER.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-MUSIC-LIBRARY-PREVIEW-APK
+          if-no-files-found: error
+          path: |
+            MARU-MUSIC-LIBRARY-PREVIEW.apk
+            SHA256SUMS.txt
+            SIGNER.txt
