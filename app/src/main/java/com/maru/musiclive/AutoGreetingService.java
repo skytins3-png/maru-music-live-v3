@@ -49,6 +49,9 @@ public final class AutoGreetingService extends Service {
             "com.maru.musiclive.BROADCAST_CLOSED";
     public static final String ACTION_STORY_VISUAL =
             "com.maru.musiclive.STORY_VISUAL";
+    public static final String ACTION_HOST_VISUAL =
+            "com.maru.musiclive.HOST_VISUAL";
+    public static final String EXTRA_HOST_MODE = "host_visual_mode";
     public static final String EXTRA_STORY_VISUAL_ID = "approved_story_id";
     private static final String ACTION_CANCEL =
             "com.maru.musiclive.TTS_CANCEL";
@@ -408,15 +411,24 @@ public final class AutoGreetingService extends Service {
         }
 
         if (isRadioRequest()) {
+            announceHostVisual(BroadcastMediaSelector.TALK);
             // Notify only our own app: never disclose story text or touch BIGO.
             sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
                     .putExtra(EXTRA_STORY_VISUAL_ID, activeStoryId));
             speakCurrentDialogue();
         } else if (isMultiLanguageRequest()) {
+            // Greetings and farewell announcements use Ahwan's greeting clip.
+            announceHostVisual(BroadcastMediaSelector.GREETING);
             speakCurrentLanguage();
         } else {
             speakSingleLanguage(request, request.language);
         }
+    }
+
+    private void announceHostVisual(String mode) {
+        sendBroadcast(new Intent().setAction(ACTION_HOST_VISUAL)
+                .setPackage(getPackageName())
+                .putExtra(EXTRA_HOST_MODE, mode == null ? "" : mode));
     }
 
     /** Each line completes before the next speaker starts; no song overlap. */
@@ -679,6 +691,8 @@ public final class AutoGreetingService extends Service {
             sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
                     .putExtra(EXTRA_STORY_VISUAL_ID, ""));
         }
+        // No stale host movie when dialogue/TTS ends or fails.
+        announceHostVisual("");
         activeStoryId = "";
         speaking = false;
         activeUtteranceId = "";
@@ -754,6 +768,10 @@ public final class AutoGreetingService extends Service {
     }
 
     private void cancelAll() {
+        announceHostVisual("");
+        sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL)
+                .setPackage(getPackageName())
+                .putExtra(EXTRA_STORY_VISUAL_ID, ""));
         main.removeCallbacks(speakTimeout);
         synchronized (queue) {
             queue.clear();
