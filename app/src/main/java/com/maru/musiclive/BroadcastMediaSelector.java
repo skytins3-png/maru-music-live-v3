@@ -6,10 +6,15 @@ package com.maru.musiclive;
 public final class BroadcastMediaSelector {
     private BroadcastMediaSelector() {}
     public static String choose(String storyId,String storyMedia,String songMedia,String fallbackVideo){
-        if(storyId!=null&&!storyId.isEmpty()&&
-                SingleMediaPreviewPolicy.isLocalUri(storyMedia))return storyMedia;
+        if(storyId!=null&&!storyId.isEmpty()){
+            // An unmapped story must NEVER display the unrelated next song's picture.
+            return SingleMediaPreviewPolicy.isLocalUri(storyMedia)
+                    ? storyMedia : safeFallback(fallbackVideo);
+        }
         if(SingleMediaPreviewPolicy.isLocalUri(songMedia))return songMedia;
-        if(SingleMediaPreviewPolicy.isLocalUri(fallbackVideo))return fallbackVideo;
-        return "";
+        return safeFallback(fallbackVideo);
+    }
+    private static String safeFallback(String video){
+        return SingleMediaPreviewPolicy.isLocalUri(video)?video:"";
     }
 }
