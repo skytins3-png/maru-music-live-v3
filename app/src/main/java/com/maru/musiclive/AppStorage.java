@@ -30,6 +30,7 @@ public final class AppStorage {
     private static final String KEY_RANDOM_HISTORY = "random_history_v1";
     private static final String KEY_RANDOM_CYCLE = "random_cycle_v1";
     private static final String KEY_FILL_BROADCAST_IMAGE = "fill_broadcast_image";
+    private static final String KEY_POPUP_SINGLE_MEDIA = "popup_single_media_uri_v1";
 
     private AppStorage() {}
 
@@ -57,6 +58,16 @@ public final class AppStorage {
     public static void saveSongs(Context c, List<String> v) { prefs(c).edit().putString(KEY_SONGS, encode(v)).apply(); }
     public static void saveImages(Context c, List<String> v) { prefs(c).edit().putString(KEY_IMAGES, encode(v)).apply(); }
     public static void saveLyrics(Context c, List<String> v) { prefs(c).edit().putString(KEY_LYRICS, encode(v)).apply(); }
+
+    /** Only the user's explicitly selected Storage Access Framework URI is retained. */
+    public static String popupMediaUri(Context c) {
+        return prefs(c).getString(KEY_POPUP_SINGLE_MEDIA, "");
+    }
+
+    public static void setPopupMediaUri(Context c, String uri) {
+        String safe = SingleMediaPreviewPolicy.isLocalUri(uri) ? uri : "";
+        prefs(c).edit().putString(KEY_POPUP_SINGLE_MEDIA, safe).apply();
+    }
 
     public static boolean repeatAll(Context c) { return prefs(c).getBoolean(KEY_REPEAT, true); }
     public static boolean random(Context c) { return prefs(c).getBoolean(KEY_RANDOM, false); }
