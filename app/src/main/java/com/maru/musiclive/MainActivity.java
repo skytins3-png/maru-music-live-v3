@@ -128,6 +128,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private String pendingSongMediaUri = "";
     private String pendingStoryVisualId = "";
     private String activeStoryVisualId = "";
+    private String activeHostVisualMode = "";
     private String miniShownUri = "";
     private EventType pendingEventVisualType = EventType.UNKNOWN;
     private BroadcastMode selectedMode = BroadcastMode.PORTRAIT_9_16;
@@ -153,6 +154,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private ActivityResultLauncher<String[]> imagePickerLauncher;
     private ActivityResultLauncher<String[]> miniMediaPickerLauncher;
     private ActivityResultLauncher<String[]> defaultVideoPickerLauncher;
+    private ActivityResultLauncher<String[]> greetingVideoPickerLauncher;
+    private ActivityResultLauncher<String[]> talkVideoPickerLauncher;
     private ActivityResultLauncher<String[]> storyVisualPickerLauncher;
     private ActivityResultLauncher<String[]> lyricsPickerLauncher;
     private ActivityResultLauncher<String[]> greetingAudioPickerLauncher;
@@ -214,19 +217,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 activeStoryVisualId = intent.getStringExtra(
                         AutoGreetingService.EXTRA_STORY_VISUAL_ID);
                 if (activeStoryVisualId == null) activeStoryVisualId = "";
-                if (miniPlayerMode) showSavedMiniMedia();
-                if (broadcastVisible) {
-                    String storyVisual = StoryMediaStore.load(MainActivity.this,
-                            activeStoryVisualId);
-                    if (!activeStoryVisualId.isEmpty()
-                            && isValidLocalVisual(storyVisual)) {
-                        showMediaUri(storyVisual, true);
-                    } else if (!activeStoryVisualId.isEmpty()) {
-                        showMediaUri(resourceUri(R.raw.default_broadcast), true);
-                    } else {
-                        showActiveSongMedia();
-                    }
-                }
+                refreshVisibleBroadcastMedia();
+                return;
+            }
+            if (AutoGreetingService.ACTION_HOST_VISUAL.equals(action)) {
+                String mode = intent.getStringExtra(AutoGreetingService.EXTRA_HOST_MODE);
+                activeHostVisualMode = BroadcastMediaSelector.GREETING.equals(mode)
+                        || BroadcastMediaSelector.TALK.equals(mode) ? mode : "";
+                refreshVisibleBroadcastMedia();
                 return;
             }
             if (AutoGreetingService.ACTION_BROADCAST_CLOSED.equals(action)) {
@@ -283,6 +281,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         liveFilter.addAction(LiveOverlayController.ACTION_SHOW);
         liveFilter.addAction(AutoGreetingService.ACTION_BROADCAST_CLOSED);
         liveFilter.addAction(AutoGreetingService.ACTION_STORY_VISUAL);
+        liveFilter.addAction(AutoGreetingService.ACTION_HOST_VISUAL);
         ContextCompat.registerReceiver(
                 this,
                 liveEventReceiver,
@@ -486,6 +485,35 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         miniMediaPreview.show(uri, type);
                         showMiniMediaActions();
                     }
+                });
+
+        greetingVideoPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    if (uri == null) return;
+                    String mime = safeMime(uri.toString());
+                    if (!SingleMediaPreviewPolicy.isVideo(mime, uri.toString())) {
+                        toast("아환 인사영상은 MP4 등 영상 파일만 선택하세요.");
+                        return;
+                    }
+                    persist(uri);
+                    AppStorage.setAhwanGreetingVideo(this, uri.toString());
+                    refreshVisibleBroadcastMedia();
+                    toast("아환 인사영상 등록 완료");
+                });
+        talkVideoPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    if (uri == null) return;
+                    String mime = safeMime(uri.toString());
+                    if (!SingleMediaPreviewPolicy.isVideo(mime, uri.toString())) {
+                        toast("토크 영상은 MP4 등 영상 파일만 선택하세요.");
+                        return;
+                    }
+                    persist(uri);
+                    AppStorage.setRadioTalkVideo(this, uri.toString());
+                    refreshVisibleBroadcastMedia();
+                    toast("토크 영상 등록 완료");
                 });
 
         defaultVideoPickerLauncher = registerForActivityResult(
@@ -736,6 +764,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(button("Suno 음악 중 형의 보정 멘트 재생", v -> playMyVoiceOverSuno()));
         column.addView(button("아환 짧은 토크 지금 말하기", v ->
                 speakSunoCompanionNow()));
+        column.addView(button("아환 환영 인사 · 인사영상 지금 실행", v ->
+                SunoTalkCompanionService.command(this,
+                        SunoTalkCompanionService.ACTION_GREETING_NOW)));
         column.addView(button("Suno 아환 토크 완전 종료", v -> stopSunoCompanion()));
         column.addView(text(
                 "Suno 노래를 다운로드하지 않아도 아환 멘트를 재생할 수 있습니다. "
@@ -878,6 +909,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 showSongMediaPickerDialog()));
         column.addView(button("사연별 사진·영상 하나씩 연결", v ->
                 showStoryMediaPickerDialog()));
+        column.addView(button("아환 인사 멘트 영상 연결", v ->
+                greetingVideoPickerLauncher.launch(new String[]{"video/*"})));
+        column.addView(button("DJ 진행자 토크 영상 연결", v ->
+                talkVideoPickerLauncher.launch(new String[]{"video/*"})));
+        column.addView(text("인사·토크 영상은 소리 없이 화면만 반복하고, "
+                + "아환 음성은 기존 방송 멘트/TTS가 별도로 재생합니다. "
+                + "입모양 동기화는 제공하지 않습니다.", 12, false));
         column.addView(button("자료 없을 때 재생할 기본 영상 선택", v ->
                 defaultVideoPickerLauncher.launch(new String[]{"video/*"})));
         column.addView(button("노래 전체 삭제", v -> confirmDeleteAllSongs()));
@@ -1578,8 +1616,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         String fallback = AppStorage.defaultBroadcastVideo(this);
         if (!SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback))
             fallback = resourceUri(R.raw.default_broadcast);
-        String value = BroadcastMediaSelector.choose(
-                activeStoryVisualId, story, song, fallback);
+        String hostMedia = BroadcastMediaSelector.GREETING.equals(activeHostVisualMode)
+                ? AppStorage.ahwanGreetingVideo(this)
+                : BroadcastMediaSelector.TALK.equals(activeHostVisualMode)
+                    ? AppStorage.radioTalkVideo(this) : "";
+        if (!SingleMediaPreviewPolicy.isVideo(safeMime(hostMedia), hostMedia))
+            hostMedia = "";
+        String value = BroadcastMediaSelector.chooseForScene(
+                activeStoryVisualId, story, activeHostVisualMode,
+                hostMedia, song, fallback);
         if (value.equals(miniShownUri)) return; // never restart the same video on every refresh
         miniShownUri = value;
         if (value.isEmpty()) {
@@ -1587,6 +1632,39 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             return;
         }
         miniMediaPreview.show(Uri.parse(value), safeMime(value));
+    }
+
+    private String selectedHostVideo() {
+        String chosen = BroadcastMediaSelector.GREETING.equals(activeHostVisualMode)
+                ? AppStorage.ahwanGreetingVideo(this)
+                : BroadcastMediaSelector.TALK.equals(activeHostVisualMode)
+                    ? AppStorage.radioTalkVideo(this) : "";
+        return SingleMediaPreviewPolicy.isVideo(safeMime(chosen), chosen) ? chosen : "";
+    }
+
+    /** A single visual on screen: approved story > greeting/talk > song > default. */
+    private void refreshVisibleBroadcastMedia() {
+        if (miniPlayerMode) showSavedMiniMedia();
+        if (!broadcastVisible) return;
+        if (!activeStoryVisualId.isEmpty()) {
+            String visual = StoryMediaStore.load(this, activeStoryVisualId);
+            if (!isValidLocalVisual(visual))
+                visual = defaultVisualVideoUri();
+            showMediaUri(visual, true);
+            return;
+        }
+        if (!activeHostVisualMode.isEmpty()) {
+            String host = selectedHostVideo();
+            showMediaUri(host.isEmpty() ? defaultVisualVideoUri() : host, true);
+            return;
+        }
+        showActiveSongMedia();
+    }
+
+    private String defaultVisualVideoUri() {
+        String fallback = AppStorage.defaultBroadcastVideo(this);
+        return SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback)
+                ? fallback : resourceUri(R.raw.default_broadcast);
     }
 
     private String safeMime(String uriText) {
@@ -2412,7 +2490,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             testOverlayView.animate().cancel();
             testOverlayView.setText("");
             testOverlayView.setVisibility(View.GONE);
-            showActiveSongMedia();
+            refreshVisibleBroadcastMedia();
             return;
         }
 
@@ -2428,7 +2506,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         testOverlayView.animate().alpha(1f).setDuration(160L).start();
 
         String media = EventVisualStore.mediaUri(this, message.type);
-        if (!media.isEmpty()) showMediaUri(media, true);
+        // Greeting/stories/talk own the picture until the voice ends.
+        if (activeStoryVisualId.isEmpty() && activeHostVisualMode.isEmpty()
+                && isValidLocalVisual(media)) showMediaUri(media, true);
 
         long fadeStart = Math.max(1_000L, message.durationMs - 220L);
         handler.postDelayed(() -> {
@@ -2444,7 +2524,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         activeEventPriority = 0;
                         activeEventUntil = 0L;
                         eventOverlayShowing = false;
-                        showActiveSongMedia();
+                        refreshVisibleBroadcastMedia();
                         showNextEventOverlay();
                     })
                     .start();
@@ -3045,7 +3125,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     @Override public void onTrackChanged(int index) {
         runOnUiThread(() -> {
-            if (miniPlayerMode && activeStoryVisualId.isEmpty()) showSavedMiniMedia();
+            if (miniPlayerMode && activeStoryVisualId.isEmpty()
+                    && activeHostVisualMode.isEmpty()) showSavedMiniMedia();
             if (miniPlayerMode && miniSongTitle != null) miniSongTitle.setText(currentTitle());
             if (titleView != null) {
                 titleView.setText(
@@ -3056,7 +3137,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             loadLyricsForCurrentSong();
             loadActiveSongMedia();
             if (broadcastVisible
-                    && System.currentTimeMillis() >= activeEventUntil) {
+                    && System.currentTimeMillis() >= activeEventUntil
+                    && activeStoryVisualId.isEmpty()
+                    && activeHostVisualMode.isEmpty()) {
                 showActiveSongMedia();
             }
         });

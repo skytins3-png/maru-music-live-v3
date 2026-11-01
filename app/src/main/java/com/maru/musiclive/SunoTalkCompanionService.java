@@ -36,6 +36,7 @@ import java.util.Locale;
 public final class SunoTalkCompanionService extends Service {
     public static final String ACTION_START_AUTO = "com.maru.musiclive.suno.START_AUTO";
     public static final String ACTION_TALK_NOW = "com.maru.musiclive.suno.TALK_NOW";
+    public static final String ACTION_GREETING_NOW = "com.maru.musiclive.suno.GREETING_NOW";
     public static final String ACTION_STOP = "com.maru.musiclive.suno.STOP";
     public static final String ACTION_MANUAL = "com.maru.musiclive.suno.MANUAL";
     public static final String ACTION_PLAY_MY_VOICE = "com.maru.musiclive.suno.PLAY_MY_VOICE";
@@ -55,6 +56,8 @@ public final class SunoTalkCompanionService extends Service {
     private boolean autoMode;
     private boolean speaking;
     private boolean pendingTalk;
+    private boolean pendingGreeting;
+    private boolean greetingSpeaking;
     private MediaPlayer recordedVoicePlayer;
     private int episode;
     private int lineIndex;
@@ -77,6 +80,7 @@ public final class SunoTalkCompanionService extends Service {
                 .setAction(action);
         if (ACTION_START_AUTO.equals(action)
                 || ACTION_TALK_NOW.equals(action)
+                || ACTION_GREETING_NOW.equals(action)
                 || ACTION_MANUAL.equals(action)
                 || ACTION_PLAY_MY_VOICE.equals(action)) {
             androidx.core.content.ContextCompat.startForegroundService(context, intent);
@@ -115,7 +119,8 @@ public final class SunoTalkCompanionService extends Service {
                 @Override public void onError(String id) { main.post(() -> nextLine(id)); }
             });
             initialized = true;
-            if (pendingTalk) { pendingTalk = false; talk(); }
+            if (pendingGreeting) { pendingGreeting = false; greetNow(); }
+            else if (pendingTalk) { pendingTalk = false; talk(); }
             else updateNotice("Suno 음악을 재생하세요 · 토크 준비 완료");
         }));
     }
@@ -143,6 +148,11 @@ public final class SunoTalkCompanionService extends Service {
             pendingTalk = false;
             main.removeCallbacks(timer);
             updateNotice("수동 토크 · 알림의 '짧은 토크'를 누르세요");
+        } else if (ACTION_GREETING_NOW.equals(action)) {
+            if (!initialized) {
+                pendingGreeting = true;
+                updateNotice("아환 인사 음성 준비 중");
+            } else greetNow();
         } else if (ACTION_TALK_NOW.equals(action)) {
             if (!initialized) {
                 pendingTalk = true;
@@ -261,6 +271,41 @@ public final class SunoTalkCompanionService extends Service {
         }
     }
 
+    private void announceHostVisual(String mode) {
+        sendBroadcast(new Intent().setAction(AutoGreetingService.ACTION_HOST_VISUAL)
+                .setPackage(getPackageName())
+                .putExtra(AutoGreetingService.EXTRA_HOST_MODE, mode == null ? "" : mode));
+    }
+
+    /** One short original Ahwan greeting, not lipsynced to the selected silent clip. */
+    private void greetNow() {
+        if (!enabled || speaking || recordedVoicePlayer != null) return;
+        if (!initialized || tts == null) { pendingGreeting = true; return; }
+        if (!focusForSpeech()) {
+            updateNotice("오디오 사용 중 · 아환 인사를 실행하지 못함");
+            return;
+        }
+        tts.setPitch(0.95f);
+        speaking = true;
+        greetingSpeaking = true;
+        currentId = "suno-greet-" + System.nanoTime();
+        script = null;
+        main.removeCallbacks(timer);
+        main.removeCallbacks(watchdog);
+        main.postDelayed(watchdog, SPEECH_TIMEOUT_MS);
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
+        int result = tts.speak("Welcome to MARU Radio! I'm Ahwan, your host. "
+                + "Thank you for joining our music and stories. Enjoy your time with us!",
+                TextToSpeech.QUEUE_FLUSH, params, currentId);
+        if (result == TextToSpeech.ERROR) {
+            finishTalk();
+        } else {
+            announceHostVisual(BroadcastMediaSelector.GREETING);
+            updateNotice("아환 환영 인사와 인사영상 재생 중");
+        }
+    }
+
     private void talk() {
         if (!enabled || speaking || recordedVoicePlayer != null) return;
         if (!initialized || tts == null) {
@@ -279,7 +324,9 @@ public final class SunoTalkCompanionService extends Service {
                 episodeLines[0], episodeLines[1], episodeLines[2], episodeLines[3]};
         lineIndex = 0;
         speaking = true;
+        greetingSpeaking = false;
         main.removeCallbacks(timer);
+        announceHostVisual(BroadcastMediaSelector.TALK);
         updateNotice("아환과 게스트의 짧은 토크 · Suno 재생 상태는 별도");
         sayLine();
     }
@@ -305,6 +352,7 @@ public final class SunoTalkCompanionService extends Service {
     private void nextLine(String id) {
         if (!speaking || !id.equals(currentId)) return;
         main.removeCallbacks(watchdog);
+        if (greetingSpeaking) { finishTalk(); return; }
         lineIndex++;
         main.postDelayed(this::sayLine, 180L);
     }
@@ -312,6 +360,8 @@ public final class SunoTalkCompanionService extends Service {
     private void finishTalk() {
         if (!speaking) return;
         speaking = false;
+        greetingSpeaking = false;
+        announceHostVisual("");
         currentId = "";
         script = null;
         main.removeCallbacks(watchdog);
@@ -363,6 +413,8 @@ public final class SunoTalkCompanionService extends Service {
         enabled = false;
         autoMode = false;
         pendingTalk = false;
+        pendingGreeting = false;
+        announceHostVisual("");
         main.removeCallbacks(timer);
         main.removeCallbacks(watchdog);
         if (tts != null) { tts.stop(); tts.shutdown(); tts = null; }

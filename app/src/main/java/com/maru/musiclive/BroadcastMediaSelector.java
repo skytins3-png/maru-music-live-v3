@@ -1,20 +1,30 @@
 package com.maru.musiclive;
 
-/** Visible priority: approved story being read > current song > default video.
- * Manual pop-up previews are never treated as broadcast approval.
+/** Exactly one visible visual: approved story > host greeting/talk > current song > default.
+ * Unassigned stories or host segments use the default video, never a different song's media.
  */
 public final class BroadcastMediaSelector {
+    public static final String GREETING = "greeting";
+    public static final String TALK = "talk";
     private BroadcastMediaSelector() {}
-    public static String choose(String storyId,String storyMedia,String songMedia,String fallbackVideo){
-        if(storyId!=null&&!storyId.isEmpty()){
-            // An unmapped story must NEVER display the unrelated next song's picture.
-            return SingleMediaPreviewPolicy.isLocalUri(storyMedia)
-                    ? storyMedia : safeFallback(fallbackVideo);
-        }
-        if(SingleMediaPreviewPolicy.isLocalUri(songMedia))return songMedia;
-        return safeFallback(fallbackVideo);
+
+    public static String choose(String storyId, String storyMedia, String songMedia,
+                                String fallbackVideo) {
+        return chooseForScene(storyId, storyMedia, "", "", songMedia, fallbackVideo);
     }
-    private static String safeFallback(String video){
-        return SingleMediaPreviewPolicy.isLocalUri(video)?video:"";
+
+    public static String chooseForScene(String storyId, String storyMedia,
+                                       String hostScene, String hostMedia,
+                                       String songMedia, String fallbackVideo) {
+        if (storyId != null && !storyId.isEmpty())
+            return safe(storyMedia, fallbackVideo);
+        if (GREETING.equals(hostScene) || TALK.equals(hostScene))
+            return safe(hostMedia, fallbackVideo);
+        return safe(songMedia, fallbackVideo);
+    }
+
+    private static String safe(String media, String fallback) {
+        if (SingleMediaPreviewPolicy.isLocalUri(media)) return media;
+        return SingleMediaPreviewPolicy.isLocalUri(fallback) ? fallback : "";
     }
 }

@@ -32,6 +32,8 @@ public final class AppStorage {
     private static final String KEY_FILL_BROADCAST_IMAGE = "fill_broadcast_image";
     private static final String KEY_POPUP_SINGLE_MEDIA = "popup_single_media_uri_v1";
     private static final String KEY_DEFAULT_BROADCAST_VIDEO = "default_broadcast_video_uri_v1";
+    private static final String KEY_AHWAN_GREETING_VISUAL = "ahwan_greeting_video_uri_v1";
+    private static final String KEY_RADIO_TALK_VISUAL = "radio_talk_video_uri_v1";
 
     private AppStorage() {}
 
@@ -77,6 +79,22 @@ public final class AppStorage {
     public static void setDefaultBroadcastVideo(Context c,String uri) {
         String safe=SingleMediaPreviewPolicy.isLocalUri(uri)?uri:"";
         prefs(c).edit().putString(KEY_DEFAULT_BROADCAST_VIDEO,safe).apply();
+    }
+
+    /** Operator-selected local videos; only the image/video is shown, TTS is independent. */
+    public static String ahwanGreetingVideo(Context c) {
+        return prefs(c).getString(KEY_AHWAN_GREETING_VISUAL, "");
+    }
+    public static void setAhwanGreetingVideo(Context c, String uri) {
+        prefs(c).edit().putString(KEY_AHWAN_GREETING_VISUAL,
+                SingleMediaPreviewPolicy.isLocalUri(uri) ? uri : "").apply();
+    }
+    public static String radioTalkVideo(Context c) {
+        return prefs(c).getString(KEY_RADIO_TALK_VISUAL, "");
+    }
+    public static void setRadioTalkVideo(Context c, String uri) {
+        prefs(c).edit().putString(KEY_RADIO_TALK_VISUAL,
+                SingleMediaPreviewPolicy.isLocalUri(uri) ? uri : "").apply();
     }
 
     public static boolean repeatAll(Context c) { return prefs(c).getBoolean(KEY_REPEAT, true); }

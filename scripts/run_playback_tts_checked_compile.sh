@@ -211,6 +211,8 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/MultiArtistRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/GuestTalkShow.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/EnglishRadioTalkShow.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/SingleMediaPreviewPolicy.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/BroadcastMediaSelector.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/AutoGreetingService.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackService.java"
 
