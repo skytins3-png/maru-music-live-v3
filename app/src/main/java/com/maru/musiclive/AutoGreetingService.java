@@ -488,7 +488,12 @@ public final class AutoGreetingService extends Service {
             advanceRadioIntro(false);
             return;
         }
-        chooseSteadyLocalVoice(segment.language);
+        if (!chooseSteadyLocalVoice(segment.language)) {
+            AutoGreetingStore.setStatus(this, "DJ 음성 미선택 · MARU 설정에서 " +
+                    GreetingLanguage.koreanLabel(segment.language) + " 목소리를 선택하세요.");
+            advanceRadioIntro(false);
+            return;
+        }
         // Slightly restrained conversational timing: no exaggerated synthetic pitch.
         tts.setPitch(1.0f);
         tts.setSpeechRate(0.95f);
@@ -509,24 +514,24 @@ public final class AutoGreetingService extends Service {
         main.postDelayed(speakTimeout, SPEAK_TIMEOUT_MS);
     }
 
-    /** Prefer one consistent installed voice per language, never random speakers. */
-    private void chooseSteadyLocalVoice(String language) {
+    /** Never guess the gender from Android's opaque voice ID.
+     * Use only the voice the operator auditioned; skip otherwise. */
+    private boolean chooseSteadyLocalVoice(String language) {
+        String selected = AppStorage.selectedDjVoice(this, language);
+        if (selected.isEmpty()) return false;
         try {
             Set<Voice> voices = tts.getVoices();
-            if (voices == null) return;
-            Voice best = null;
-            String target = GreetingLanguage.locale(language).getLanguage();
-            for (Voice candidate : voices) {
-                if (candidate == null || candidate.getLocale() == null
-                        || candidate.isNetworkConnectionRequired()
-                        || !target.equals(candidate.getLocale().getLanguage())) continue;
-                if (best == null || candidate.getName().compareTo(best.getName()) < 0)
-                    best = candidate;
+            if (voices == null) return false;
+            String langCode = GreetingLanguage.locale(language).getLanguage();
+            for (Voice voice : voices) {
+                if (voice == null || voice.getLocale() == null
+                        || voice.isNetworkConnectionRequired()
+                        || !langCode.equals(voice.getLocale().getLanguage())) continue;
+                if (selected.equals(voice.getName()))
+                    return tts.setVoice(voice) == TextToSpeech.SUCCESS;
             }
-            if (best != null) tts.setVoice(best);
-        } catch (RuntimeException ignored) {
-            // Android will use its chosen installed language voice.
-        }
+        } catch (RuntimeException ignored) {}
+        return false;
     }
 
     private void advanceRadioIntro(boolean success) {
@@ -574,6 +579,11 @@ public final class AutoGreetingService extends Service {
         }
 
         RadioConversationScript.Line line = activeDialogue[activeDialogueIndex];
+        if (!chooseSteadyLocalVoice(dialogLanguage)) {
+            AutoGreetingStore.setStatus(this, "DJ 목소리를 먼저 선택하세요 · 노래 재생으로 이동");
+            finishCurrent(false);
+            return;
+        }
         applyFictionalVoice(line);
         String speakerName = line.artist != null ? line.artist.name
                 : line.speaker == RadioConversationScript.Speaker.AHWAN ? "아환" : "윤솔";
@@ -628,22 +638,10 @@ public final class AutoGreetingService extends Service {
     }
 
     private void applyFictionalVoice(RadioConversationScript.Line line) {
-        VirtualArtistCatalog.Artist artist = line.artist;
-        int voiceSlot = artist == null ? 0 : artist.voiceSlot;
-        List<Voice> voices = englishRadioDialogue
-                ? availableEnglishVoices : availableKoreanVoices;
-        if (!voices.isEmpty()) {
-            try {
-                Voice chosen = voices.get(
-                        Math.floorMod(voiceSlot, voices.size()));
-                tts.setVoice(chosen);
-            } catch (RuntimeException ignored) {
-                // Fall back to phone's existing Korean voice.
-            }
-        }
-        tts.setPitch(artist != null ? artist.pitch :
-                line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.92f : 1.09f);
-        tts.setSpeechRate(artist != null ? artist.pace : BroadcastVoicePolicy.SPEECH_RATE);
+        // For the station DJ use the operator-selected voice, not a randomly
+        // indexed guest voice that could be a woman. Dialogue text still varies.
+        tts.setPitch(1.0f);
+        tts.setSpeechRate(0.94f);
     }
 
     private void speakCurrentLanguage() {
@@ -690,6 +688,13 @@ public final class AutoGreetingService extends Service {
             } else {
                 finishCurrent(false);
             }
+            return;
+        }
+
+        if (!chooseSteadyLocalVoice(language)) {
+            AutoGreetingStore.setStatus(this, "해당 언어 DJ 음성이 선택되지 않았습니다.");
+            if (isMultiLanguageRequest()) advanceLanguage(false);
+            else finishCurrent(false);
             return;
         }
 
