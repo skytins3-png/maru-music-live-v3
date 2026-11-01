@@ -520,9 +520,8 @@ public final class AutoGreetingService extends Service {
                 if (candidate == null || candidate.getLocale() == null
                         || candidate.isNetworkConnectionRequired()
                         || !target.equals(candidate.getLocale().getLanguage())) continue;
-                if (best == null || candidate.getQuality() > best.getQuality()
-                        || candidate.getQuality() == best.getQuality()
-                        && candidate.getName().compareTo(best.getName()) < 0) best = candidate;
+                if (best == null || candidate.getName().compareTo(best.getName()) < 0)
+                    best = candidate;
             }
             if (best != null) tts.setVoice(best);
         } catch (RuntimeException ignored) {
