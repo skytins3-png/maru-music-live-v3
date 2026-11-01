@@ -7,6 +7,9 @@ on:
       - 'app/**'
       - '.github/workflows/maru-one-update-smoke.yml'
   workflow_dispatch:
+  # Runs on GitHub's servers even when ChatGPT or the phone is closed.
+  schedule:
+    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
