@@ -57,14 +57,14 @@ jobs:
           unzip -t "$APK" > /dev/null
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/maru-one-badging.txt
-          grep -F "name='com.maru.musiclive.one' versionCode='3043' versionName='3.2.24'" /tmp/maru-one-badging.txt
+          grep -F "name='com.maru.musiclive.one' versionCode='3044' versionName='3.2.25'" /tmp/maru-one-badging.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/maru-one-manifest.txt
           if grep -E 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS|android.accessibilityservice.AccessibilityService' /tmp/maru-one-manifest.txt; then
             echo "::error::Unexpected sensitive permission or accessibility service"
             exit 1
           fi
-          cp "$APK" MARU-ONE-SUNO-AHWAN-V3.2.24.apk
-          sha256sum MARU-ONE-SUNO-AHWAN-V3.2.24.apk > SHA256SUMS.txt
+          cp "$APK" MARU-ONE-SUNO-AHWAN-V3.2.25.apk
+          sha256sum MARU-ONE-SUNO-AHWAN-V3.2.25.apk > SHA256SUMS.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > SIGNER.txt
           echo "Standalone APK validated. Installed original MARU remains untouched."
       - name: Upload verified standalone install file
@@ -73,7 +73,7 @@ jobs:
           name: MARU-ONE-SUNO-AHWAN-INSTALL
           if-no-files-found: error
           path: |
-            MARU-ONE-SUNO-AHWAN-V3.2.24.apk
+            MARU-ONE-SUNO-AHWAN-V3.2.25.apk
             SHA256SUMS.txt
             SIGNER.txt
 
@@ -95,17 +95,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -s MARU-ONE-SUNO-AHWAN-V3.2.24.apk
+          test -s MARU-ONE-SUNO-AHWAN-V3.2.25.apk
           sha256sum --check SHA256SUMS.txt
-          unzip -t MARU-ONE-SUNO-AHWAN-V3.2.24.apk > /dev/null
-          if gh release view v3.2.24-one --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          unzip -t MARU-ONE-SUNO-AHWAN-V3.2.25.apk > /dev/null
+          if gh release view v3.2.25-one --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Standalone release already published; never overwrite the verified APK."
             exit 0
           fi
           cat > MARU-ONE-RELEASE.txt <<'EOF'
-          MARU 통합 라디오 ONE V3.2.24 (기존 앱 유지 / 별도 설치)
+          MARU 통합 라디오 ONE V3.2.25 (기존 앱 유지 / 별도 설치)
 
-          파일: MARU-ONE-SUNO-AHWAN-V3.2.24.apk
+          파일: MARU-ONE-SUNO-AHWAN-V3.2.25.apk
           패키지: com.maru.musiclive.one
           기존 V3.2.23 com.maru.musiclive.english 또는 com.maru.musiclive.ocr와 별개로 설치되며 기존 노래와 설정은 옮기지 않습니다.
 
@@ -114,5 +114,5 @@ jobs:
 
           설치: 이 릴리스의 APK만 다운로드. 기존 앱은 절대 삭제하지 말 것. 기기에서 APK 설치를 사용자가 직접 승인.
           EOF
-          gh release create v3.2.24-one             MARU-ONE-SUNO-AHWAN-V3.2.24.apk SHA256SUMS.txt SIGNER.txt             --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA"             --title "MARU 통합 라디오 ONE V3.2.24 · 별도 설치"             --notes-file MARU-ONE-RELEASE.txt             --prerelease
-          echo "DIRECT-DOWNLOAD: https://github.com/$GITHUB_REPOSITORY/releases/download/v3.2.24-one/MARU-ONE-SUNO-AHWAN-V3.2.24.apk"
+          gh release create v3.2.25-one             MARU-ONE-SUNO-AHWAN-V3.2.25.apk SHA256SUMS.txt SIGNER.txt             --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA"             --title "MARU 통합 라디오 ONE V3.2.25 · 별도 설치"             --notes-file MARU-ONE-RELEASE.txt             --prerelease
+          echo "DIRECT-DOWNLOAD: https://github.com/$GITHUB_REPOSITORY/releases/download/v3.2.25-one/MARU-ONE-SUNO-AHWAN-V3.2.25.apk"
