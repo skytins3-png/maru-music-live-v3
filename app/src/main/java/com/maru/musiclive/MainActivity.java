@@ -707,7 +707,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.24 · Daily English Weather & News Radio",
+                "V3.2.25 · English/Korean/Chinese Radio",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
