@@ -13,12 +13,20 @@ android {
         if (project.hasProperty('maruStandalone')) {
             applicationId 'com.maru.musiclive.one'
         }
+        // Safety fallback for Android INSTALL_FAILED_UPDATE_INCOMPATIBLE:
+        // new unique package, no overwrite and no private-data migration.
+        // Cannot upgrade differently signed existing MARU apps.
+        if (project.hasProperty('maruInstallRepair')) {
+            applicationId 'com.maru.musiclive.trilang.safe20261101'
+        }
         // Preview installs beside the previous MARU apps, never overwrites their data.
         if (project.hasProperty('maruLibraryPreview')) {
             applicationId 'com.maru.musiclive.librarypreview'
         }
         manifestPlaceholders = [
-            maruAppLabel: project.hasProperty('maruLibraryPreview')
+            maruAppLabel: project.hasProperty('maruInstallRepair')
+                ? 'MARU 3언어 새설치'
+                : project.hasProperty('maruLibraryPreview')
                 ? 'MARU 노래 보관함 시험판'
                 : project.hasProperty('maruStandalone')
                 ? 'MARU 통합 라디오'

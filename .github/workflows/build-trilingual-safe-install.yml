@@ -1,0 +1,78 @@
+name: Build MARU 3LANG safe parallel install APK
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/build.gradle'
+      - '.github/workflows/build-trilingual-safe-install.yml'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/build.gradle'
+      - '.github/workflows/build-trilingual-safe-install.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  install-repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: SDK 36 and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Validate original audio, source, permissions and Java unit tests
+        run: |
+          python3 scripts/check_required_media.py
+          python3 scripts/check_voice_policy.py
+          python3 scripts/check_maru_clean.py
+          gradle --no-daemon :app:testDebugUnitTest
+      - name: Build unique side-by-side APK
+        run: gradle --no-daemon :app:assembleRelease -PmaruInstallRepair=1
+      - name: Validate APK, package, signer and forbidden permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/maru-safe-badging.txt
+          grep -F "name='com.maru.musiclive.trilang.safe20261101' versionCode='3044' versionName='3.2.25'" /tmp/maru-safe-badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/maru-safe-manifest.txt
+          if grep -E 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS|android.accessibilityservice.AccessibilityService' /tmp/maru-safe-manifest.txt; then
+            echo "::error::Sensitive permission or accessibility service detected"
+            exit 1
+          fi
+          cp "$APK" MARU-3LANG-SAFE-INSTALL-V3.2.25.apk
+          sha256sum MARU-3LANG-SAFE-INSTALL-V3.2.25.apk > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > SIGNER.txt
+          echo "Verification complete. This is a NEW app, not an in-place update."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-3LANG-SAFE-PARALLEL-APK
+          if-no-files-found: error
+          path: |
+            MARU-3LANG-SAFE-INSTALL-V3.2.25.apk
+            SHA256SUMS.txt
+            SIGNER.txt
