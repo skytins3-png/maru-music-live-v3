@@ -195,6 +195,11 @@ public final class PlaybackService extends Service {
         }
     }
 
+    /** Current file URI from the actual playlist, not a potentially filtered UI index. */
+    public synchronized String currentUri() {
+        return currentIndex>=0&&currentIndex<queue.size()?queue.get(currentIndex):"";
+    }
+
     public synchronized void setRepeatAll(boolean value) {
         repeatAll = value;
     }

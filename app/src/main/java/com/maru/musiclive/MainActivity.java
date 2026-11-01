@@ -147,6 +147,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private LinearLayout controls;
     private Button playButton;
     private ListView songList;
+    private String activeMusicCollection = MusicCollection.ALL;
 
     private ActivityResultLauncher<String[]> audioPickerLauncher;
     private ActivityResultLauncher<String[]> ownVoicePickerLauncher;
@@ -242,7 +243,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         @Override public void onServiceConnected(ComponentName name, IBinder service) {
             playback = ((PlaybackService.LocalBinder) service).service();
             playback.addListener(MainActivity.this);
-            playback.setQueue(songs);
+            playback.setQueue(queueForMusicCollection());
             playback.setRepeatAll(AppStorage.repeatAll(MainActivity.this));
             playback.setRandomMode(AppStorage.random(MainActivity.this));
             bound = true;
@@ -893,6 +894,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(autoGreetingStatusView);
 
         column.addView(space(12));
+        Button libraryButton = button("📚 노래 보관함 · 국가별 / 장르별 / 출처별 모음",
+                v -> showMusicCollectionChooser());
+        libraryButton.setTextSize(20f);
+        column.addView(libraryButton);
+        column.addView(button("MARU 플랫폼 공개 원곡 가져오기",
+                v -> showPublicCatalogImport()));
         column.addView(button(
                 "휴대폰 전체 노래 자동 불러오기",
                 v -> scanDeviceMusic(true)));
@@ -996,7 +1003,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         songList = new ListView(this);
         songList.setDividerHeight(1);
         songList.setOnItemClickListener((parent, view, position, id) -> {
-            if (playback != null) playback.play(position);
+            // Full library list indexes are NOT indexes inside a genre-only queue.
+            activeMusicCollection = MusicCollection.ALL;
+            if (playback != null) {
+                playback.stopPlayback();
+                playback.setQueue(songs);
+                playback.play(position);
+            }
         });
         songList.setOnItemLongClickListener((parent, view, position, id) -> {
             showSongManageActions(position);
@@ -2441,10 +2454,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private String currentSongUri() {
-        if (songs.isEmpty()) return "";
-        int index = playback == null ? 0 : playback.currentIndex();
-        if (index < 0 || index >= songs.size()) index = 0;
-        return songs.get(index);
+        String live = playback == null ? "" : playback.currentUri();
+        if (!live.isEmpty()) return live;
+        return songs.isEmpty() ? "" : songs.get(0);
     }
 
     private void handleLiveEventOverlay(Intent intent) {
@@ -2550,6 +2562,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void loadLyricsForCurrentSong() {
         lyrics.clear();
+        // LRC files were ordered against the full song list; do not bind a
+        // different song's lyrics when a region/style subset is playing.
+        if (!MusicCollection.ALL.equals(activeMusicCollection)) {
+            hideLyricView();
+            return;
+        }
 
         if (lyricDocs.isEmpty()) {
             hideLyricView();
@@ -2637,7 +2655,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         try {
             if (isBigoAudioCoexistenceMode(AutoGreetingStore.runningMode(this)))
                 playback.setBigoCoexistenceMode(true);
-            playback.setQueue(songs);
+            playback.setQueue(queueForMusicCollection());
             playback.prepareForBroadcast();
         } catch (RuntimeException error) {
             pendingAutoMusicStart = false;
@@ -2666,18 +2684,215 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
+    /** One saved master library; region/style/source views never delete its songs. */
+    private List<String> queueForMusicCollection() {
+        if (MusicCollection.ALL.equals(activeMusicCollection))return new ArrayList<>(songs);
+        List<String> regions=new ArrayList<>(),styles=new ArrayList<>(),sources=new ArrayList<>();
+        for(String uri:songs){
+            String name=displayName(Uri.parse(uri));
+            regions.add(MusicCollectionStore.region(this,uri,name));
+            styles.add(MusicCollectionStore.style(this,uri,name));
+            sources.add(MusicCollectionStore.source(this,uri));
+        }
+        return MusicCollection.filtered(songs,regions,styles,sources,activeMusicCollection);
+    }
+
+    private void showMusicCollectionChooser() {
+        String[] labels=new String[MusicCollection.GROUPS.length];
+        String current=activeMusicCollection;
+        for(int i=0;i<labels.length;i++){
+            activeMusicCollection=MusicCollection.GROUPS[i];
+            labels[i]=MusicCollection.label(activeMusicCollection)
+                    +" · "+queueForMusicCollection().size()+"곡";
+        }
+        activeMusicCollection=current;
+        new AlertDialog.Builder(this)
+                .setTitle("📚 노래 보관함 · 국가 / 장르 / 출처")
+                .setItems(labels,(dialog,which) ->
+                        showMusicCollectionSongs(MusicCollection.GROUPS[which]))
+                .setNegativeButton("닫기",null).show();
+    }
+
+    private void playMusicCollection(String category,List<String> selection,int index){
+        if(selection.isEmpty()){toast("이 모음에는 재생할 곡이 없습니다.");return;}
+        activeMusicCollection=category;
+        if(playback==null){toast("음악 재생기를 준비 중입니다.");return;}
+        // Changing a queue mid-track without a stop can mismatch lyrics and covers.
+        playback.stopPlayback();
+        playback.setQueue(selection);
+        playback.play(Math.min(Math.max(index,0),selection.size()-1));
+        toast(MusicCollection.label(category)+" · 연속 재생");
+    }
+
+    private void showMusicCollectionSongs(String category){
+        String old=activeMusicCollection;
+        activeMusicCollection=category;
+        List<String> subset=queueForMusicCollection();
+        activeMusicCollection=old;
+        if(subset.isEmpty()){
+            new AlertDialog.Builder(this).setTitle(MusicCollection.label(category))
+                    .setMessage("아직 이 모음에 해당하는 노래가 없습니다. "
+                            +"노래를 길게 눌러 국가/장르를 지정할 수 있습니다.")
+                    .setPositiveButton("확인",null).show();
+            return;
+        }
+        String[] labels=new String[subset.size()];
+        for(int i=0;i<subset.size();i++)
+            labels[i]=(i+1)+". "+displayName(Uri.parse(subset.get(i)));
+        new AlertDialog.Builder(this)
+                .setTitle(MusicCollection.label(category)+" · "+subset.size()+"곡")
+                .setItems(labels,(dialog,index)->
+                        playMusicCollection(category,subset,index))
+                .setPositiveButton("▶ 이 모음 전체 연속재생",(dialog,which)->
+                        playMusicCollection(category,subset,0))
+                .setNegativeButton("닫기",null).show();
+    }
+
+    private void showTrackCollectionEditor(int index,boolean region) {
+        if(index<0||index>=songs.size())return;
+        String uri=songs.get(index);
+        String[] options=region?MusicCollection.REGIONS:MusicCollection.STYLES;
+        String[] labels=new String[options.length];
+        for(int i=0;i<options.length;i++)labels[i]=MusicCollection.label(options[i]);
+        new AlertDialog.Builder(this)
+                .setTitle(region?"국가별 모음에 넣기":"장르별 모음에 넣기")
+                .setSingleChoiceItems(labels,-1,(dialog,which)->{
+                    if(region)MusicCollectionStore.setRegion(this,uri,options[which]);
+                    else MusicCollectionStore.setStyle(this,uri,options[which]);
+                    refreshSongList();
+                    if(!MusicCollection.ALL.equals(activeMusicCollection)&&playback!=null){
+                        playback.stopPlayback();
+                        playback.setQueue(queueForMusicCollection());
+                    }
+                    dialog.dismiss();
+                    toast("보관함 분류 저장 · 원곡 파일 유지");
+                })
+                .setNegativeButton("취소",null).show();
+    }
+
+    private void showTrackSourceEditor(int index) {
+        if(index<0||index>=songs.size())return;
+        String uri=songs.get(index);
+        String[] labels={"Suno 원곡 · 다운로드 후 직접 가져온 파일",
+                "모바일 저장소 · 내 음악","MARU 플랫폼 공개곡",
+                "청취자 승인곡 · 실제 보안·저작권 검토 후만"};
+        new AlertDialog.Builder(this)
+            .setTitle("노래 출처 분류 (자동 저작권 인증 아님)")
+            .setItems(labels,(dialog,which)->{
+                if(which==3){
+                    new AlertDialog.Builder(this)
+                    .setTitle("청취자 음원 승인 확인")
+                    .setMessage("실제 파일의 악성코드 검사, 저작권·방송 이용권과 "
+                            +"운영자 승인을 별도로 확인했나요? "
+                            +"이 버튼은 인증이나 보안 검사를 수행하지 않습니다.")
+                    .setPositiveButton("검토 확인 후 분류",(d,w)->{
+                        MusicCollectionStore.setSource(this,uri,MusicCollection.LISTENER);
+                        refreshSongList();
+                        toast("청취자 승인곡 보관함에 분류했습니다.");
+                    })
+                    .setNegativeButton("취소",null).show();
+                    return;
+                }
+                MusicCollectionStore.setSource(this,uri,MusicCollection.SOURCES[which]);
+                refreshSongList();
+                toast("출처 분류만 변경 · 원곡 유지");
+            }).setNegativeButton("닫기",null).show();
+    }
+
+    private void showPublicCatalogImport() {
+        toast("MARU 플랫폼의 공개 승인곡을 확인 중입니다.");
+        musicScanExecutor.execute(()->{
+            try{
+                List<PublicCatalogImporter.Entry> available=PublicCatalogImporter.fetch();
+                handler.post(()->{
+                    if(isFinishing()||isDestroyed())return;
+                    if(available.isEmpty()){
+                        new AlertDialog.Builder(this).setTitle("MARU 공개 음악")
+                          .setMessage("공개 승인된 곡이 아직 0곡입니다. "
+                              +"형의 플랫폼에서 원곡을 등록하면 여기서 불러올 수 있습니다.")
+                          .setPositiveButton("확인",null).show();
+                        return;
+                    }
+                    showPublicSongChoices(available);
+                });
+            }catch(Exception ex){
+                handler.post(()->toast("MARU 공개 목록을 읽지 못했습니다. 인터넷을 확인하세요."));
+            }
+        });
+    }
+
+    private void showPublicSongChoices(List<PublicCatalogImporter.Entry> catalog) {
+        int limit=Math.min(catalog.size(),100);
+        String[] labels=new String[limit];
+        boolean[] selected=new boolean[limit];
+        for(int i=0;i<limit;i++){
+            PublicCatalogImporter.Entry e=catalog.get(i);
+            labels[i]=e.title+" · "+MusicCollection.label(e.region)
+                    +" · "+MusicCollection.label(e.style);
+        }
+        new AlertDialog.Builder(this).setTitle("공개 원곡 선택 · 최대 20곡씩")
+            .setMultiChoiceItems(labels,selected,(d,which,checked)->selected[which]=checked)
+            .setPositiveButton("선택곡 원본 가져오기",(d,w)->{
+                List<PublicCatalogImporter.Entry> chosen=new ArrayList<>();
+                for(int i=0;i<limit;i++)if(selected[i])chosen.add(catalog.get(i));
+                if(chosen.isEmpty()){toast("가져올 공개곡을 선택하세요.");return;}
+                if(chosen.size()>20){
+                    toast("한 번에 20곡까지만 가져올 수 있습니다.");
+                    return;
+                }
+                importSelectedPublicSongs(chosen);
+            }).setNegativeButton("취소",null).show();
+    }
+
+    private void importSelectedPublicSongs(List<PublicCatalogImporter.Entry> chosen) {
+        toast("선택한 공개 원곡을 변환 없이 저장 중입니다.");
+        musicScanExecutor.execute(()->{
+            List<String> imported=new ArrayList<>();
+            int failed=0;
+            for(PublicCatalogImporter.Entry e:chosen) {
+                try{
+                    String uri=PublicCatalogImporter.download(getApplicationContext(),e);
+                    if(!imported.contains(uri))imported.add(uri);
+                    MusicCollectionStore.setRegion(this,uri,e.region);
+                    MusicCollectionStore.setStyle(this,uri,e.style);
+                    MusicCollectionStore.setSource(this,uri,e.source);
+                }catch(Exception ex){failed++;}
+            }
+            final int failures=failed;
+            handler.post(()->{
+                if(isFinishing()||isDestroyed())return;
+                int added=0;
+                for(String uri:imported)if(!songs.contains(uri)){songs.add(uri);added++;}
+                if(added>0){
+                    AppStorage.saveSongs(this,songs);
+                    refreshSongList();
+                    if(playback!=null&&!playback.isPlaying())
+                        playback.setQueue(queueForMusicCollection());
+                }
+                toast("공개 원곡 "+added+"곡 추가 · 실패 "+failures
+                        +"곡 · 원본 음질 유지");
+            });
+        });
+    }
+
     /** Attribution is opt-in; importing a file never fabricates a singer. */
     private void showSongManageActions(int position) {
         if (position < 0 || position >= songs.size()) return;
         new AlertDialog.Builder(this)
                 .setTitle(displayName(Uri.parse(songs.get(position))))
                 .setItems(new String[]{
+                        "국가/지역 모음 지정",
+                        "장르 모음 지정",
+                        "출처 확인·분류",
                         "이 노래의 AI 가수 배정",
                         "가수 배정 해제",
                         "노래 삭제"
                 }, (dialog, selected) -> {
-                    if (selected == 0) showSongSingerPicker(position);
-                    else if (selected == 1) {
+                    if (selected == 0) showTrackCollectionEditor(position, true);
+                    else if (selected == 1) showTrackCollectionEditor(position, false);
+                    else if (selected == 2) showTrackSourceEditor(position);
+                    else if (selected == 3) showSongSingerPicker(position);
+                    else if (selected == 4) {
                         AppStorage.setArtistForSong(this, songs.get(position), 0);
                         refreshSongList();
                         toast("이 곡의 가수 배정을 지웠습니다.");
@@ -2715,6 +2930,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         AppStorage.setArtistForSong(this, songs.get(position), 0);
+        MusicCollectionStore.clear(this, songs.get(position));
         songs.remove(position);
         if (lyricDocs.size() > position
                 && lyricDocs.size() == songs.size() + 1) {
@@ -2725,7 +2941,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         AppStorage.saveSongs(this, songs);
         refreshSongList();
         if (playback != null) {
-            playback.setQueue(songs);
+            playback.setQueue(queueForMusicCollection());
         }
         loadLyricsForCurrentSong();
         toast("노래를 삭제했습니다.");
@@ -2941,11 +3157,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private String currentTitle() {
-        if (playback == null || playback.currentIndex() < 0 ||
-                playback.currentIndex() >= songs.size()) {
-            return songs.isEmpty() ? "MARU MUSIC LIVE" : displayName(Uri.parse(songs.get(0)));
-        }
-        return displayName(Uri.parse(songs.get(playback.currentIndex())));
+        String uri = currentSongUri();
+        return uri.isEmpty() ? "MARU MUSIC LIVE" : displayName(Uri.parse(uri));
     }
 
     private String musicReadPermission() {
@@ -3020,10 +3233,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         for (String song : songs) {
             int singerId = AppStorage.artistForSong(this, song);
             String title = displayName(Uri.parse(song));
-            if (singerId > 0) {
-                title += " · " + VirtualArtistCatalog.at(singerId - 1).name;
-            }
-            names.add(title);
+            String region = MusicCollectionStore.region(this, song, title);
+            String style = MusicCollectionStore.style(this, song, title);
+            names.add(title + " · " + MusicCollection.label(region)
+                    + (MusicCollection.OTHER.equals(style) ? ""
+                        : " · " + MusicCollection.label(style))
+                    + (singerId > 0
+                        ? " · " + VirtualArtistCatalog.at(singerId - 1).name : ""));
         }
         songList.setAdapter(new ArrayAdapter<>(
                 this, android.R.layout.simple_list_item_1, names));
