@@ -26,8 +26,22 @@ android {
         ndk {
             abiFilters 'arm64-v8a'
         }
-        versionCode 3043
-        versionName '3.2.24'
+        // The installed MARU ONE and the English edition are DIFFERENT app IDs.
+        // Only MARU ONE receives the next update version. Never downgrade either.
+        versionCode project.hasProperty('maruStandalone') ? 3044 : 3043
+        versionName project.hasProperty('maruStandalone') ? '3.2.25' : '3.2.24'
+    }
+
+    signingConfigs {
+        persistentMaruOne {
+            // Release signing secrets belong to GitHub Actions secrets, never source.
+            if (System.getenv('MARU_ONE_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('MARU_ONE_KEYSTORE_PATH'))
+                storePassword System.getenv('MARU_ONE_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('MARU_ONE_KEY_ALIAS')
+                keyPassword System.getenv('MARU_ONE_KEY_PASSWORD')
+            }
+        }
     }
 
     buildTypes {
@@ -36,7 +50,11 @@ android {
             versionNameSuffix '-ultra26-debug'
         }
         release {
-            signingConfig signingConfigs.debug
+            // Untrusted local/CI test output uses an ephemeral debug key.
+            // Public automatic updates REQUIRE the persistent GitHub-secret key.
+            signingConfig (project.hasProperty('maruStandalone') &&
+                    System.getenv('MARU_ONE_KEYSTORE_PATH'))
+                    ? signingConfigs.persistentMaruOne : signingConfigs.debug
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
