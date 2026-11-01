@@ -109,15 +109,15 @@ public final class MaruOneUpdateInstaller {
     }
 
     /** User-initiated action; the OS installer requires a separate approval. */
-    public static void requestInstall(Activity activity,File file) {
+    public static boolean requestInstall(Activity activity,File file) {
         if(Build.VERSION.SDK_INT>=26
                 && !activity.getPackageManager().canRequestPackageInstalls()){
             Intent permission=new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:"+activity.getPackageName()));
             activity.startActivity(permission);
             android.widget.Toast.makeText(activity,
-                    "이 출처의 설치 허용 후 MARU 업데이트를 다시 눌러 주세요.",1).show();
-            return;
+                    "이 출처의 설치를 허용하면 MARU 설치 화면이 자동으로 열립니다.",1).show();
+            return false;
         }
         Uri content=FileProvider.getUriForFile(activity,
                 activity.getPackageName()+".maru-updates",file);
@@ -126,5 +126,6 @@ public final class MaruOneUpdateInstaller {
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         activity.startActivity(intent);
+        return true;
     }
 }
