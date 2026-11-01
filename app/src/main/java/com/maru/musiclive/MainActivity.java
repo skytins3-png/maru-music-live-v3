@@ -3375,6 +3375,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void checkAppUpdate(boolean manual) {
+        // Library preview is intentionally a different package. Its update flow
+        // must never offer an incompatible MARU ONE / RADIO APK as an upgrade.
+        if ("com.maru.musiclive.librarypreview".equals(getPackageName())) {
+            if (manual) toast("노래 보관함 시험판 · 기존 MARU 앱과 별도 설치입니다.");
+            return;
+        }
         android.content.SharedPreferences preferences =
                 getSharedPreferences("maru_update_check", Context.MODE_PRIVATE);
         long now = System.currentTimeMillis();
