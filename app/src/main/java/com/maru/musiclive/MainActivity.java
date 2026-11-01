@@ -147,6 +147,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private LinearLayout controls;
     private Button playButton;
     private ListView songList;
+    private String activeMusicCollection = MusicCollection.ALL;
 
     private ActivityResultLauncher<String[]> audioPickerLauncher;
     private ActivityResultLauncher<String[]> ownVoicePickerLauncher;
@@ -242,7 +243,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         @Override public void onServiceConnected(ComponentName name, IBinder service) {
             playback = ((PlaybackService.LocalBinder) service).service();
             playback.addListener(MainActivity.this);
-            playback.setQueue(songs);
+            playback.setQueue(queueForMusicCollection());
             playback.setRepeatAll(AppStorage.repeatAll(MainActivity.this));
             playback.setRandomMode(AppStorage.random(MainActivity.this));
             bound = true;
@@ -893,6 +894,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(autoGreetingStatusView);
 
         column.addView(space(12));
+        Button libraryButton = button("📚 노래 보관함 · 국가별 / 장르별 / 출처별 모음",
+                v -> showMusicCollectionChooser());
+        libraryButton.setTextSize(20f);
+        column.addView(libraryButton);
+        column.addView(button("MARU 플랫폼 공개 원곡 가져오기",
+                v -> showPublicCatalogImport()));
         column.addView(button(
                 "휴대폰 전체 노래 자동 불러오기",
                 v -> scanDeviceMusic(true)));
@@ -996,7 +1003,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         songList = new ListView(this);
         songList.setDividerHeight(1);
         songList.setOnItemClickListener((parent, view, position, id) -> {
-            if (playback != null) playback.play(position);
+            // Full library list indexes are NOT indexes inside a genre-only queue.
+            activeMusicCollection = MusicCollection.ALL;
+            if (playback != null) {
+                playback.stopPlayback();
+                playback.setQueue(songs);
+                playback.play(position);
+            }
         });
         songList.setOnItemLongClickListener((parent, view, position, id) -> {
             showSongManageActions(position);
@@ -2441,10 +2454,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private String currentSongUri() {
-        if (songs.isEmpty()) return "";
-        int index = playback == null ? 0 : playback.currentIndex();
-        if (index < 0 || index >= songs.size()) index = 0;
-        return songs.get(index);
+        String live = playback == null ? "" : playback.currentUri();
+        if (!live.isEmpty()) return live;
+        return songs.isEmpty() ? "" : songs.get(0);
     }
 
     private void handleLiveEventOverlay(Intent intent) {
@@ -2550,6 +2562,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void loadLyricsForCurrentSong() {
         lyrics.clear();
+        // LRC files were ordered against the full song list; do not bind a
+        // different song's lyrics when a region/style subset is playing.
+        if (!MusicCollection.ALL.equals(activeMusicCollection)) {
+            hideLyricView();
+            return;
+        }
 
         if (lyricDocs.isEmpty()) {
             hideLyricView();
@@ -2637,7 +2655,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         try {
             if (isBigoAudioCoexistenceMode(AutoGreetingStore.runningMode(this)))
                 playback.setBigoCoexistenceMode(true);
-            playback.setQueue(songs);
+            playback.setQueue(queueForMusicCollection());
             playback.prepareForBroadcast();
         } catch (RuntimeException error) {
             pendingAutoMusicStart = false;
@@ -2672,12 +2690,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         new AlertDialog.Builder(this)
                 .setTitle(displayName(Uri.parse(songs.get(position))))
                 .setItems(new String[]{
+                        "국가/지역 모음 지정",
+                        "장르 모음 지정",
+                        "출처 확인·분류",
                         "이 노래의 AI 가수 배정",
                         "가수 배정 해제",
                         "노래 삭제"
                 }, (dialog, selected) -> {
-                    if (selected == 0) showSongSingerPicker(position);
-                    else if (selected == 1) {
+                    if (selected == 0) showTrackCollectionEditor(position, true);
+                    else if (selected == 1) showTrackCollectionEditor(position, false);
+                    else if (selected == 2) showTrackSourceEditor(position);
+                    else if (selected == 3) showSongSingerPicker(position);
+                    else if (selected == 4) {
                         AppStorage.setArtistForSong(this, songs.get(position), 0);
                         refreshSongList();
                         toast("이 곡의 가수 배정을 지웠습니다.");
@@ -2715,6 +2739,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }
 
         AppStorage.setArtistForSong(this, songs.get(position), 0);
+        MusicCollectionStore.clear(this, songs.get(position));
         songs.remove(position);
         if (lyricDocs.size() > position
                 && lyricDocs.size() == songs.size() + 1) {
@@ -2725,7 +2750,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         AppStorage.saveSongs(this, songs);
         refreshSongList();
         if (playback != null) {
-            playback.setQueue(songs);
+            playback.setQueue(queueForMusicCollection());
         }
         loadLyricsForCurrentSong();
         toast("노래를 삭제했습니다.");
@@ -2941,11 +2966,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private String currentTitle() {
-        if (playback == null || playback.currentIndex() < 0 ||
-                playback.currentIndex() >= songs.size()) {
-            return songs.isEmpty() ? "MARU MUSIC LIVE" : displayName(Uri.parse(songs.get(0)));
-        }
-        return displayName(Uri.parse(songs.get(playback.currentIndex())));
+        String uri = currentSongUri();
+        return uri.isEmpty() ? "MARU MUSIC LIVE" : displayName(Uri.parse(uri));
     }
 
     private String musicReadPermission() {
@@ -3020,10 +3042,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         for (String song : songs) {
             int singerId = AppStorage.artistForSong(this, song);
             String title = displayName(Uri.parse(song));
-            if (singerId > 0) {
-                title += " · " + VirtualArtistCatalog.at(singerId - 1).name;
-            }
-            names.add(title);
+            String region = MusicCollectionStore.region(this, song, title);
+            String style = MusicCollectionStore.style(this, song, title);
+            names.add(title + " · " + MusicCollection.label(region)
+                    + (MusicCollection.OTHER.equals(style) ? ""
+                        : " · " + MusicCollection.label(style))
+                    + (singerId > 0
+                        ? " · " + VirtualArtistCatalog.at(singerId - 1).name : ""));
         }
         songList.setAdapter(new ArrayAdapter<>(
                 this, android.R.layout.simple_list_item_1, names));
