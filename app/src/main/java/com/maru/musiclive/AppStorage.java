@@ -26,6 +26,7 @@ public final class AppStorage {
     private static final String KEY_LONG_GUEST_TALK = "radio_long_guest_talk_v1";
     private static final String KEY_ENGLISH_TALK = "english_human_talk_v1";
     private static final String KEY_TRI_INTRO = "trilingual_song_story_intros_v1";
+    private static final String KEY_DJ_TTS_VOICE = "dj_tts_selected_voice_";
     private static final String KEY_SUNO_PLAYLIST = "suno_playlist_url_v1";
     private static final String KEY_TRACK_ARTIST = "song_artist_v1_";
     private static final String KEY_RANDOM_HISTORY = "random_history_v1";
@@ -148,6 +149,18 @@ public final class AppStorage {
 
     public static void setSunoPlaylistUrl(Context c, String url) {
         prefs(c).edit().putString(KEY_SUNO_PLAYLIST, url == null ? "" : url).apply();
+    }
+
+    /** Explicitly auditioned and confirmed TTS voice by ISO language code.
+     * Android Voice exposes no reliable gender field; never infer gender. */
+    public static String selectedDjVoice(Context c, String language) {
+        String code = GreetingLanguage.normalize(language);
+        return prefs(c).getString(KEY_DJ_TTS_VOICE + code, "");
+    }
+    public static void setSelectedDjVoice(Context c, String language, String voiceName) {
+        String code = GreetingLanguage.normalize(language);
+        String clean = voiceName == null ? "" : voiceName.trim();
+        prefs(c).edit().putString(KEY_DJ_TTS_VOICE + code, clean).apply();
     }
 
     /** User-configured English -> Korean -> Mandarin intros; enabled by default. */
