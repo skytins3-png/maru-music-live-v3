@@ -33,8 +33,10 @@ android {
             abiFilters 'arm64-v8a'
         }
         versionCode 3043
-        versionName project.hasProperty('maruLibraryPreview')
-            ? '3.2.24-library-preview' : '3.2.24'
+        versionName '3.2.24'
+        if (project.hasProperty('maruLibraryPreview')) {
+            versionName '3.2.24-library-preview'
+        }
     }
 
     buildTypes {
