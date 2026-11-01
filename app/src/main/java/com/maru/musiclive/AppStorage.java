@@ -31,6 +31,7 @@ public final class AppStorage {
     private static final String KEY_RANDOM_CYCLE = "random_cycle_v1";
     private static final String KEY_FILL_BROADCAST_IMAGE = "fill_broadcast_image";
     private static final String KEY_POPUP_SINGLE_MEDIA = "popup_single_media_uri_v1";
+    private static final String KEY_DEFAULT_BROADCAST_VIDEO = "default_broadcast_video_uri_v1";
 
     private AppStorage() {}
 
@@ -67,6 +68,15 @@ public final class AppStorage {
     public static void setPopupMediaUri(Context c, String uri) {
         String safe = SingleMediaPreviewPolicy.isLocalUri(uri) ? uri : "";
         prefs(c).edit().putString(KEY_POPUP_SINGLE_MEDIA, safe).apply();
+    }
+
+    /** User-selected default clip used only when no approved story/song visual exists. */
+    public static String defaultBroadcastVideo(Context c) {
+        return prefs(c).getString(KEY_DEFAULT_BROADCAST_VIDEO,"");
+    }
+    public static void setDefaultBroadcastVideo(Context c,String uri) {
+        String safe=SingleMediaPreviewPolicy.isLocalUri(uri)?uri:"";
+        prefs(c).edit().putString(KEY_DEFAULT_BROADCAST_VIDEO,safe).apply();
     }
 
     public static boolean repeatAll(Context c) { return prefs(c).getBoolean(KEY_REPEAT, true); }
