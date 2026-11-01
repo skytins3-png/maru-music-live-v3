@@ -34,6 +34,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.text.TextUtils;
 import android.database.Cursor;
 import android.view.Gravity;
@@ -79,6 +81,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Comparator;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -114,6 +118,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private SingleMediaPreviewView miniMediaPreview;
     private LinearLayout miniMediaActions;
     private MediaPlayer ownVoicePreview;
+    private TextToSpeech djVoicePreview;
+    private int djVoicePreviewGeneration;
     private TextView ownVoiceStatus;
     private boolean pendingAutoMusicStart;
     private boolean oneClickStarting;
@@ -989,7 +995,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         column.addView(button("AI 가수 32명 · 고유 음색·창법 제작표", v ->
                 showSunoArtistRoster()));
-        column.addView(button("휴대폰 TTS 음성 설정", v -> openTtsSettings()));
+        column.addView(button("아환 방송 목소리 직접 선택 · 영어·한국어·중국어", v -> showDjVoiceLanguages()));
+        column.addView(button("휴대폰 TTS 음성 데이터 설치·설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
                 requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
         column.addView(button("입장 감사 화면", v -> showEventVisualSettings()));
@@ -1859,6 +1866,121 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
 
+
+    /** Android TTS voices have no reliable male/female metadata. The operator
+     * listens to each installed offline voice and explicitly saves their choice. */
+    private void showDjVoiceLanguages() {
+        String[] codes = {GreetingLanguage.ENGLISH, GreetingLanguage.KOREAN,
+                GreetingLanguage.CHINESE};
+        String[] labels = new String[codes.length];
+        for (int i = 0; i < codes.length; i++) {
+            String chosen = AppStorage.selectedDjVoice(this, codes[i]);
+            labels[i] = GreetingLanguage.koreanLabel(codes[i]) +
+                    (chosen.isEmpty() ? " · 아직 선택하지 않음" : " · 선택 완료");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("아환 DJ 목소리 선택")
+                .setMessage("영어·한국어·중국어 음성을 직접 듣고 선택하세요. "
+                        + "안드로이드는 음성의 성별을 확실하게 알려주지 않습니다.")
+                .setItems(labels, (d, which) -> openDjVoicePicker(codes[which]))
+                .setNeutralButton("휴대폰 음성 설치", (d, which) -> openTtsSettings())
+                .setNegativeButton("닫기", null).show();
+    }
+
+    private void closeDjVoicePreview() {
+        ++djVoicePreviewGeneration;
+        if (djVoicePreview != null) {
+            try { djVoicePreview.stop(); } catch (RuntimeException ignored) {}
+            try { djVoicePreview.shutdown(); } catch (RuntimeException ignored) {}
+            djVoicePreview = null;
+        }
+    }
+
+    private void openDjVoicePicker(String language) {
+        closeDjVoicePreview();
+        final int generation = djVoicePreviewGeneration;
+        final String code = GreetingLanguage.normalize(language);
+        toast("설치된 " + GreetingLanguage.koreanLabel(code) + " 목록 불러오는 중");
+        djVoicePreview = new TextToSpeech(this, status -> handler.post(() -> {
+            if (generation != djVoicePreviewGeneration || isFinishing() || isDestroyed()) return;
+            if (status != TextToSpeech.SUCCESS || djVoicePreview == null) {
+                toast("음성 엔진을 시작하지 못했습니다.");
+                closeDjVoicePreview();
+                return;
+            }
+            Locale locale = GreetingLanguage.locale(code);
+            int available = djVoicePreview.setLanguage(locale);
+            if (available == TextToSpeech.LANG_MISSING_DATA
+                    || available == TextToSpeech.LANG_NOT_SUPPORTED) {
+                toast("해당 언어 TTS 데이터가 없습니다. 휴대폰 음성 설정에서 설치하세요.");
+                closeDjVoicePreview();
+                return;
+            }
+            Set<Voice> installed = djVoicePreview.getVoices();
+            List<Voice> choices = new ArrayList<>();
+            if (installed != null) for (Voice voice : installed) {
+                if (voice != null && voice.getLocale() != null
+                        && !voice.isNetworkConnectionRequired()
+                        && voice.getLocale().getLanguage().equals(locale.getLanguage()))
+                    choices.add(voice);
+            }
+            choices.sort(Comparator.comparing(Voice::getName));
+            if (choices.isEmpty()) {
+                toast("설치된 오프라인 음성이 없습니다. 휴대폰 TTS 설정을 확인하세요.");
+                closeDjVoicePreview();
+                return;
+            }
+            showDjVoiceChoices(code, choices);
+        }));
+    }
+
+    private void showDjVoiceChoices(String code, List<Voice> choices) {
+        if (djVoicePreview == null || isFinishing()) return;
+        String chosen = AppStorage.selectedDjVoice(this, code);
+        String[] labels = new String[choices.size()];
+        for (int i = 0; i < choices.size(); i++) {
+            labels[i] = (i + 1) + ". " + choices.get(i).getName()
+                    + (choices.get(i).getName().equals(chosen) ? " ✓" : "");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(GreetingLanguage.koreanLabel(code) + " · 미리듣기")
+                .setMessage("음성을 눌러 샘플을 들은 다음, 마음에 드는 남성 목소리면 저장하세요.")
+                .setItems(labels, (dialog, index) -> {
+                    Voice voice = choices.get(index);
+                    try {
+                        djVoicePreview.setLanguage(GreetingLanguage.locale(code));
+                        djVoicePreview.setVoice(voice);
+                        djVoicePreview.setPitch(1.0f);
+                        djVoicePreview.setSpeechRate(0.94f);
+                        String sample = GreetingLanguage.KOREAN.equals(code)
+                                ? "반갑습니다. 아환 라디오입니다. 좋은 음악과 함께 편안한 시간 보내세요."
+                                : GreetingLanguage.CHINESE.equals(code)
+                                ? "大家好，这里是阿焕音乐电台。欢迎收听，祝大家今天愉快。"
+                                : "Hello, I'm Ahwan. Welcome to my radio show. Enjoy the music.";
+                        djVoicePreview.speak(sample, TextToSpeech.QUEUE_FLUSH, null,
+                                "maru-dj-voice-preview");
+                    } catch (RuntimeException error) {
+                        toast("목소리 미리듣기에 실패했습니다.");
+                        showDjVoiceChoices(code, choices);
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("이 목소리로 방송할까요?")
+                            .setMessage("방금 들은 음성: " + voice.getName()
+                                    + "\n확인하면 이 언어의 곡·사연 소개와 안내에 사용합니다.")
+                            .setPositiveButton("이 목소리 저장", (d, which) -> {
+                                AppStorage.setSelectedDjVoice(this, code, voice.getName());
+                                toast("방송 목소리 저장 완료 · " + GreetingLanguage.koreanLabel(code));
+                                closeDjVoicePreview();
+                                showDjVoiceLanguages();
+                            })
+                            .setNegativeButton("다른 음성 듣기", (d, which) ->
+                                    showDjVoiceChoices(code, choices))
+                            .show();
+                })
+                .setNegativeButton("닫기", (d, which) -> closeDjVoicePreview())
+                .show();
+    }
 
     private void openTtsSettings() {
         Intent intent =
@@ -3521,6 +3643,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        closeDjVoicePreview();
         releaseMiniMedia();
         if (webStudioFileCallback != null) {
             webStudioFileCallback.onReceiveValue(null);
