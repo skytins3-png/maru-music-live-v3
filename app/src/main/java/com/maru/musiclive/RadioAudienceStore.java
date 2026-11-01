@@ -78,6 +78,21 @@ public final class RadioAudienceStore {
                 clean(first.optString("text"), 350));
     }
 
+    /** Local, already-approved stories only; used by the operator to select a visual. */
+    public static java.util.List<Story> pendingStories(Context c) {
+        java.util.List<Story> out = new java.util.ArrayList<>();
+        JSONArray data=load(c,STORIES);
+        for(int i=0;i<data.length();i++){
+            JSONObject row=data.optJSONObject(i);
+            if(row==null)continue;
+            String id=row.optString("id","");
+            if(id.isEmpty())continue;
+            out.add(new Story(id,clean(row.optString("name"),24),
+                    clean(row.optString("text"),350)));
+        }
+        return out;
+    }
+
     /** Never silently remove a different story that arrived during playback. */
     public static void markStoryRead(Context c, String expectedId) {
         if (expectedId == null || expectedId.isEmpty()) return;
