@@ -28,10 +28,13 @@ android {
         }
         // The installed MARU ONE and the English edition are DIFFERENT app IDs.
         // Only MARU ONE receives the next update version. Never downgrade either.
-        versionCode project.hasProperty('maruStandalone')
-                ? (project.findProperty('maruOneVersionCode') ?: '3044').toInteger() : 3043
-        versionName project.hasProperty('maruStandalone')
-                ? (project.findProperty('maruOneVersionName') ?: '3.2.25') : '3.2.24'
+        // Preserve original EN package contract and its CI version checks.
+        versionCode 3043
+        versionName '3.2.24'
+        if (project.hasProperty('maruStandalone')) {
+            versionCode (project.findProperty('maruOneVersionCode') ?: '3044').toInteger()
+            versionName (project.findProperty('maruOneVersionName') ?: '3.2.25')
+        }
     }
 
     signingConfigs {
