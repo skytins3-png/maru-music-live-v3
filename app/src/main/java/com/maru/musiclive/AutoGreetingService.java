@@ -409,7 +409,7 @@ public final class AutoGreetingService extends Service {
 
         if (isRadioRequest()) {
             // Notify only our own app: never disclose story text or touch BIGO.
-            sendBroadcast(new Intent(ACTION_STORY_VISUAL).setPackage(getPackageName())
+            sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
                     .putExtra(EXTRA_STORY_VISUAL_ID, activeStoryId));
             speakCurrentDialogue();
         } else if (isMultiLanguageRequest()) {
@@ -676,7 +676,7 @@ public final class AutoGreetingService extends Service {
                 && !activeStoryId.isEmpty())
             RadioAudienceStore.markStoryRead(this, activeStoryId);
         if (finishedKind == AnnouncementRequest.KIND_RADIO) {
-            sendBroadcast(new Intent(ACTION_STORY_VISUAL).setPackage(getPackageName())
+            sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
                     .putExtra(EXTRA_STORY_VISUAL_ID, ""));
         }
         activeStoryId = "";
