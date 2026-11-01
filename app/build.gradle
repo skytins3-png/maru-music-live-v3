@@ -57,9 +57,13 @@ android {
         release {
             // Untrusted local/CI test output uses an ephemeral debug key.
             // Public automatic updates REQUIRE the persistent GitHub-secret key.
-            signingConfig (project.hasProperty('maruStandalone') &&
-                    System.getenv('MARU_ONE_KEYSTORE_PATH'))
-                    ? signingConfigs.persistentMaruOne : signingConfigs.debug
+            signingConfig signingConfigs.debug
+            // Matching-signer releases override the CI test key with
+            // GitHub secret-backed persistent signing material.
+            if (project.hasProperty('maruStandalone') &&
+                    System.getenv('MARU_ONE_KEYSTORE_PATH')) {
+                signingConfig signingConfigs.persistentMaruOne
+            }
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
