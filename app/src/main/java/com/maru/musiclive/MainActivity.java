@@ -2490,7 +2490,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             testOverlayView.animate().cancel();
             testOverlayView.setText("");
             testOverlayView.setVisibility(View.GONE);
-            showActiveSongMedia();
+            refreshVisibleBroadcastMedia();
             return;
         }
 
@@ -2506,7 +2506,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         testOverlayView.animate().alpha(1f).setDuration(160L).start();
 
         String media = EventVisualStore.mediaUri(this, message.type);
-        if (!media.isEmpty()) showMediaUri(media, true);
+        // Greeting/stories/talk own the picture until the voice ends.
+        if (activeStoryVisualId.isEmpty() && activeHostVisualMode.isEmpty()
+                && isValidLocalVisual(media)) showMediaUri(media, true);
 
         long fadeStart = Math.max(1_000L, message.durationMs - 220L);
         handler.postDelayed(() -> {
@@ -2522,7 +2524,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         activeEventPriority = 0;
                         activeEventUntil = 0L;
                         eventOverlayShowing = false;
-                        showActiveSongMedia();
+                        refreshVisibleBroadcastMedia();
                         showNextEventOverlay();
                     })
                     .start();
