@@ -5,7 +5,6 @@ import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -138,6 +137,7 @@ public final class PublicCatalogImporter {
         return s.isEmpty()?"MARU":s.substring(0,Math.min(55,s.length()));
     }
     static boolean validMagic(String path,byte[] b){
+        path = path == null ? "" : path.toLowerCase(Locale.ROOT);
         if(path.endsWith(".mp3"))return eq(b,0,"ID3")||(b[0]&255)==255&&((b[1]&224)==224);
         if(path.endsWith(".wav"))return eq(b,0,"RIFF")&&eq(b,8,"WAVE");
         if(path.endsWith(".flac"))return eq(b,0,"fLaC");
