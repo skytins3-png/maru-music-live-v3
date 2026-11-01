@@ -25,6 +25,7 @@ public final class AppStorage {
     private static final String KEY_DAILY_RADIO = "daily_radio_v1";
     private static final String KEY_LONG_GUEST_TALK = "radio_long_guest_talk_v1";
     private static final String KEY_ENGLISH_TALK = "english_human_talk_v1";
+    private static final String KEY_TRI_INTRO = "trilingual_song_story_intros_v1";
     private static final String KEY_SUNO_PLAYLIST = "suno_playlist_url_v1";
     private static final String KEY_TRACK_ARTIST = "song_artist_v1_";
     private static final String KEY_RANDOM_HISTORY = "random_history_v1";
@@ -147,6 +148,14 @@ public final class AppStorage {
 
     public static void setSunoPlaylistUrl(Context c, String url) {
         prefs(c).edit().putString(KEY_SUNO_PLAYLIST, url == null ? "" : url).apply();
+    }
+
+    /** User-configured English -> Korean -> Mandarin intros; enabled by default. */
+    public static boolean trilingualIntroEnabled(Context c) {
+        return prefs(c).getBoolean(KEY_TRI_INTRO, true);
+    }
+    public static void setTrilingualIntroEnabled(Context c, boolean enabled) {
+        prefs(c).edit().putBoolean(KEY_TRI_INTRO, enabled).apply();
     }
 
     public static boolean englishRadioEnabled(Context c) {
