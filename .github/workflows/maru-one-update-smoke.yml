@@ -1,0 +1,49 @@
+name: Validate MARU ONE auto-update APK (test only)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/maru-one-update-smoke.yml'
+  workflow_dispatch:
+  # Runs on GitHub's servers even when ChatGPT or the phone is closed.
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  build-check-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify MARU ONE Java and assemble test-only APK
+        run: |
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_voice_policy.py
+          gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease -PmaruStandalone=1
+      - name: Verify exact package and next version
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "name='com.maru.musiclive.one' versionCode='3044' versionName='3.2.25'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml | grep -F 'FileProvider' > /dev/null
+          echo "This smoke test uses an ephemeral test key. Do NOT publish it as a compatible update."

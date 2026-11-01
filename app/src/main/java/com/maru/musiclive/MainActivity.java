@@ -92,6 +92,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService musicScanExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService appUpdateExecutor = Executors.newSingleThreadExecutor();
+    private boolean maruOneUpdateBusy;
+    private File pendingVerifiedMaruUpdate;
+    private TextView maruOneUpdateStatus;
     private final List<String> songs = new ArrayList<>();
     private final List<String> images = new ArrayList<>();
     private final List<String> lyricDocs = new ArrayList<>();
@@ -362,6 +365,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         syncPlayButtonState();
         handler.postDelayed(this::syncPlayButtonState, 250L);
         checkAppUpdate(false);
+        if (pendingVerifiedMaruUpdate != null &&
+                android.os.Build.VERSION.SDK_INT >= 26 &&
+                getPackageManager().canRequestPackageInstalls()) {
+            File candidate = pendingVerifiedMaruUpdate;
+            pendingVerifiedMaruUpdate = null;
+            try { MaruOneUpdateInstaller.requestInstall(this,candidate); }
+            catch (RuntimeException e) { toast("APK 설치 화면을 열 수 없습니다."); }
+        }
     }
 
     @Override public void onWindowFocusChanged(boolean hasFocus) {
@@ -589,8 +600,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         heading.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
         column.addView(heading);
 
+        String displayedVersion = "3.2.24";
+        try {
+            String installedVersion = getPackageManager().getPackageInfo(
+                    getPackageName(),0).versionName;
+            if (installedVersion != null) displayedVersion = installedVersion;
+        } catch (PackageManager.NameNotFoundException ignored) {}
         TextView version = text(
-                "V3.2.24 · Daily English Weather & News Radio",
+                "V" + displayedVersion + " · Daily English Weather & News Radio",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -673,11 +690,25 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         + "Android does not automatically transfer private data between separate apps. "
                         + "Re-select your own MP3/WAV files from Downloads in this app.",
                 13, true));
-        column.addView(button("Check for app updates", v -> checkAppUpdate(true)));
-        column.addView(text(
-                "하루 한 번 새 버전을 자동 확인합니다. 업데이트가 나오면 직접 다운로드를 선택하세요. "
-                        + "설치에는 Android의 사용자 승인이 필요합니다. 기존 노래와 설정을 보호하려면 앱을 삭제하지 마세요.",
-                13, false));
+        if (MaruOneUpdateChecker.PACKAGE.equals(getPackageName())) {
+            column.addView(button("🔄 MARU 자동 업데이트 · 지금 확인", v -> checkAppUpdate(true)));
+            CheckBox automaticUpdates = checkBox("매일 새 업데이트 자동 확인 · 알림", 
+                    getSharedPreferences("maru_update_check", Context.MODE_PRIVATE)
+                            .getBoolean("automatic_enabled", true));
+            automaticUpdates.setOnCheckedChangeListener((view,checked) ->
+                    getSharedPreferences("maru_update_check", Context.MODE_PRIVATE)
+                            .edit().putBoolean("automatic_enabled",checked).apply());
+            column.addView(automaticUpdates);
+            maruOneUpdateStatus = text(
+                    "앱 안에서 새 버전 확인 → 검증된 APK 다운로드 → Android 설치 확인. "
+                    + "앱 삭제는 필요하지 않습니다. 단, 기존 앱과 서명이 다르면 안전하게 설치를 중단합니다.",12,false);
+            column.addView(maruOneUpdateStatus);
+        } else {
+            column.addView(button("업데이트 확인", v -> checkAppUpdate(true)));
+            column.addView(text(
+                    "이 앱의 업데이트는 설치 식별자·서명이 같아야 합니다. "
+                    + "다른 MARU 통합 라디오 APK로 덮어쓰지 마세요.",13,false));
+        }
 
 
         Button openPlayer = button(
@@ -2869,6 +2900,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void checkAppUpdate(boolean manual) {
+        if (MaruOneUpdateChecker.PACKAGE.equals(getPackageName())) {
+            checkMaruOneUpdate(manual);
+            return;
+        }
         android.content.SharedPreferences preferences =
                 getSharedPreferences("maru_update_check", Context.MODE_PRIVATE);
         long now = System.currentTimeMillis();
@@ -2918,6 +2953,85 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                             .show();
                 }
             });
+        });
+    }
+
+    /** Daily background check is opt-in enabled; APK installation is never silent. */
+    private void checkMaruOneUpdate(boolean manual) {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("maru_update_check", Context.MODE_PRIVATE);
+        if (!manual && !prefs.getBoolean("automatic_enabled", true)) return;
+        long now = System.currentTimeMillis();
+        if (!manual) {
+            long last = prefs.getLong("last_checked_ms",0L);
+            if (last > 0 && now >= last && now - last < 24L*60*60*1000L) return;
+        }
+        if (maruOneUpdateBusy) {
+            if (manual) toast("이미 업데이트를 확인하고 있습니다.");
+            return;
+        }
+        prefs.edit().putLong("last_checked_ms",now).apply();
+        maruOneUpdateBusy = true;
+        if (maruOneUpdateStatus != null)
+            maruOneUpdateStatus.setText("🔎 MARU 업데이트 확인 중…");
+        appUpdateExecutor.execute(() -> {
+            MaruOneUpdateChecker.Result result = MaruOneUpdateChecker.check(getApplicationContext());
+            handler.post(() -> {
+                maruOneUpdateBusy = false;
+                if (isFinishing() || isDestroyed()) return;
+                if (maruOneUpdateStatus != null)
+                    maruOneUpdateStatus.setText(result.message + " · 현재 V" + result.installedVersion);
+                if (result.available()) {
+                    new AlertDialog.Builder(this)
+                        .setTitle("MARU V" + result.latestVersion + " 자동 업데이트")
+                        .setMessage("현재 V" + result.installedVersion + " → V" + result.latestVersion
+                            + "\n\n앱 안에서 파일을 다운로드한 뒤 SHA256, 패키지명, "
+                            + "버전 번호와 서명을 검사합니다. "
+                            + "설치는 Android 승인창에서 직접 허용해 주세요. "
+                            + "기존 앱을 삭제하지 않습니다.")
+                        .setPositiveButton("검사 후 설치", (d,w) -> downloadMaruOneUpdate(result))
+                        .setNegativeButton("나중에",null).show();
+                } else if (manual || result.message.contains("서명")) {
+                    new AlertDialog.Builder(this).setTitle("MARU 업데이트 상태")
+                        .setMessage(result.message)
+                        .setPositiveButton("확인",null).show();
+                }
+            });
+        });
+    }
+
+    private void downloadMaruOneUpdate(MaruOneUpdateChecker.Result release) {
+        if (maruOneUpdateBusy) return;
+        maruOneUpdateBusy = true;
+        if (maruOneUpdateStatus != null)
+            maruOneUpdateStatus.setText("⬇ APK 다운로드·SHA256·앱 서명 검사 중…");
+        appUpdateExecutor.execute(() -> {
+            try {
+                File verified = MaruOneUpdateInstaller.downloadAndVerify(this,release);
+                handler.post(() -> {
+                    maruOneUpdateBusy = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    if (maruOneUpdateStatus != null)
+                        maruOneUpdateStatus.setText("✅ 파일·서명·버전 검사 완료. Android 설치 승인이 필요합니다.");
+                    try {
+                        if (!MaruOneUpdateInstaller.requestInstall(this,verified))
+                            pendingVerifiedMaruUpdate = verified;
+                    } catch (RuntimeException e) {
+                        toast("Android 설치 화면을 열 수 없습니다. 기기 보안 설정을 확인하세요.");
+                    }
+                });
+            } catch (Exception error) {
+                handler.post(() -> {
+                    maruOneUpdateBusy = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    String message = "업데이트 보호: " + error.getMessage();
+                    if (maruOneUpdateStatus != null) maruOneUpdateStatus.setText(message);
+                    new AlertDialog.Builder(this).setTitle("업데이트 설치 중단")
+                        .setMessage(message + "\n\n기존 MARU 앱과 음원은 그대로 유지됩니다. "
+                                + "앱을 삭제하지 마세요.")
+                        .setPositiveButton("확인",null).show();
+                });
+            }
         });
     }
 
