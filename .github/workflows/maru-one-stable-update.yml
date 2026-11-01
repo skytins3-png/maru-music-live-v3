@@ -29,6 +29,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Assign increasing same-app version for this workflow run
+        shell: bash
+        run: |
+          echo "MARU_VERSION=3.2.$((24 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "MARU_CODE=$((3043 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
       - name: Require PERSISTENT original signing key
         shell: bash
         env:
@@ -55,7 +60,8 @@ jobs:
           python3 scripts/check_maru_clean.py
           python3 scripts/check_voice_policy.py
           python3 scripts/check_required_media.py
-          gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease -PmaruStandalone=1
+          gradle --no-daemon :app:testDebugUnitTest :app:assembleRelease -PmaruStandalone=1 \
+            -PmaruOneVersionCode="$MARU_CODE" -PmaruOneVersionName="$MARU_VERSION"
       - name: Verify old installed cert, version, package and APK bytes
         shell: bash
         run: |
@@ -71,17 +77,17 @@ jobs:
             echo "::error::Signer mismatch with installed v3.2.24-one. Refusing to publish an uninstall/reinstall trap."
             exit 1
           }
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "name='com.maru.musiclive.one' versionCode='3044' versionName='3.2.25'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "name='com.maru.musiclive.one' versionCode='$MARU_CODE' versionName='$MARU_VERSION'"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > manifest.txt
           if grep -Ei 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS' manifest.txt; then
             echo "::error::Unexpected sensitive permission"
             exit 1
           fi
-          cp "$APK" MARU-ONE-v3.2.25.apk
-          sha256sum MARU-ONE-v3.2.25.apk > SHA256SUMS.txt
+          cp "$APK" "MARU-ONE-v$MARU_VERSION.apk"
+          sha256sum "MARU-ONE-v$MARU_VERSION.apk" > SHA256SUMS.txt
           {
             echo "PACKAGE=com.maru.musiclive.one"
-            echo "VERSION_CODE=3044"
+            echo "VERSION_CODE=$MARU_CODE"
             echo "SIGNER_SHA256=$EXPECTED"
             echo "APK_SHA256=$(cut -d' ' -f1 SHA256SUMS.txt)"
             echo
@@ -95,12 +101,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v3.2.25-one
+          TAG="v$MARU_VERSION-one"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Release already exists: no overwrite of signed APK."
             exit 0
           fi
-          gh release create "$TAG" MARU-ONE-v3.2.25.apk SHA256SUMS.txt signer.txt \
+          gh release create "$TAG" "MARU-ONE-v$MARU_VERSION.apk" SHA256SUMS.txt signer.txt \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "MARU ONE 3.2.25 Verified Same-App Update" \
+            --title "MARU ONE $MARU_VERSION Verified Same-App Update" \
             --notes-file RELEASE-NOTES.txt --prerelease
