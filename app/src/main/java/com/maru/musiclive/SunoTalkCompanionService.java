@@ -19,6 +19,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.speech.tts.UtteranceProgressListener;
 
 import java.time.LocalDate;
@@ -277,6 +278,29 @@ public final class SunoTalkCompanionService extends Service {
                 .putExtra(AutoGreetingService.EXTRA_HOST_MODE, mode == null ? "" : mode));
     }
 
+    /** Respect only the English voice approved in MARU settings. */
+    private boolean useChosenAhwanVoice() {
+        String preferred = AppStorage.selectedDjVoice(this, GreetingLanguage.ENGLISH);
+        if (preferred.isEmpty() || tts == null) {
+            updateNotice("아환 영어 DJ 목소리 미설정 · 설정에서 직접 선택해 주세요.");
+            return false;
+        }
+        try {
+            java.util.Set<Voice> voices = tts.getVoices();
+            if (voices == null) return false;
+            for (Voice voice : voices) {
+                if (voice != null && voice.getLocale() != null
+                        && "en".equals(voice.getLocale().getLanguage())
+                        && !voice.isNetworkConnectionRequired()
+                        && preferred.equals(voice.getName())) {
+                    return tts.setVoice(voice) == TextToSpeech.SUCCESS;
+                }
+            }
+        } catch (RuntimeException ignored) {}
+        updateNotice("선택한 영어 음성이 없어 음성 재생을 생략했습니다.");
+        return false;
+    }
+
     /** One short original Ahwan greeting, not lipsynced to the selected silent clip. */
     private void greetNow() {
         if (!enabled || speaking || recordedVoicePlayer != null) return;
@@ -285,7 +309,12 @@ public final class SunoTalkCompanionService extends Service {
             updateNotice("오디오 사용 중 · 아환 인사를 실행하지 못함");
             return;
         }
-        tts.setPitch(0.95f);
+        if (!useChosenAhwanVoice()) {
+            abandonFocus();
+            return;
+        }
+        tts.setPitch(1.0f);
+        tts.setSpeechRate(0.94f);
         speaking = true;
         greetingSpeaking = true;
         currentId = "suno-greet-" + System.nanoTime();
@@ -317,6 +346,11 @@ public final class SunoTalkCompanionService extends Service {
             schedule(TALK_INTERVAL_MS);
             return;
         }
+        if (!useChosenAhwanVoice()) {
+            abandonFocus();
+            schedule(TALK_INTERVAL_MS);
+            return;
+        }
         // No fake title or 'next song' statement: this service cannot inspect Suno.
         RadioConversationScript.Line[] episodeLines =
                 EnglishRadioTalkShow.shortBeforeSong("", episode++, LocalDate.now(), 1);
@@ -338,7 +372,7 @@ public final class SunoTalkCompanionService extends Service {
         }
         RadioConversationScript.Line line = script[lineIndex];
         // Device-dependent pitch difference; distinct recorded voices are not available.
-        tts.setPitch(line.speaker == RadioConversationScript.Speaker.AHWAN ? 0.95f : 1.08f);
+        tts.setPitch(1.0f); // User-selected DJ voice stays constant across speakers.
         String id = "suno-talk-" + episode + "-" + lineIndex;
         currentId = id;
         Bundle params = new Bundle();
