@@ -482,6 +482,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     persist(uri);
                     AppStorage.setPopupMediaUri(this, uri.toString());
                     if (miniPlayerMode && miniMediaPreview != null) {
+                        miniShownUri = uri.toString();
                         miniMediaPreview.show(uri, type);
                         showMiniMediaActions();
                     }
