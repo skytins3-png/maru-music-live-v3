@@ -1605,6 +1605,13 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             if (miniMediaPickerLauncher != null)
                 miniMediaPickerLauncher.launch(new String[]{"image/*", "video/*"});
         }));
+        miniMediaActions.addView(smallButton("화면 해제", v -> {
+            AppStorage.setPopupMediaUri(this, "");
+            miniShownUri = "";
+            showSavedMiniMedia();
+            showMiniMediaActions();
+            toast("팝업 사진·영상 지정 해제");
+        }));
         miniMediaActions.addView(smallButton("음악 재생/정지", v -> {
             if (playback != null) playback.toggle();
         }));
@@ -1638,7 +1645,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         if (!isValidLocalVisual(story)) story = "";
         if (!isValidLocalVisual(song)) song = "";
         String fallback = AppStorage.defaultBroadcastVideo(this);
-        if (!SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback))
+        if (!isValidLocalVisual(fallback))
             fallback = resourceUri(R.raw.default_broadcast);
         String hostMedia = BroadcastMediaSelector.GREETING.equals(activeHostVisualMode)
                 ? AppStorage.ahwanGreetingVideo(this)
@@ -1646,6 +1653,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     ? AppStorage.radioTalkVideo(this) : "";
         if (!SingleMediaPreviewPolicy.isVideo(safeMime(hostMedia), hostMedia))
             hostMedia = "";
+        String popup = AppStorage.popupMediaUri(this);
+        if (activeStoryVisualId.isEmpty() && activeHostVisualMode.isEmpty()
+                && isValidLocalVisual(popup)) song = popup;
         String value = BroadcastMediaSelector.chooseForScene(
                 activeStoryVisualId, story, activeHostVisualMode,
                 hostMedia, song, fallback);
@@ -1687,7 +1697,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private String defaultVisualVideoUri() {
         String fallback = AppStorage.defaultBroadcastVideo(this);
-        return SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback)
+        return isValidLocalVisual(fallback)
                 ? fallback : resourceUri(R.raw.default_broadcast);
     }
 
@@ -2233,6 +2243,71 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
+    /** Unlink local media without deleting any original phone files. */
+    private void showDefaultVisualManager() {
+        String current = AppStorage.defaultBroadcastVideo(this);
+        new AlertDialog.Builder(this)
+                .setTitle("기본 배경 사진·영상")
+                .setMessage(current.isEmpty()
+                        ? "개인 배경 미지정 · 앱 내장 기본 영상 사용 중"
+                        : "개인 배경 등록됨 · 사진과 MP4 모두 교체 가능")
+                .setItems(new String[]{"사진·영상 선택 또는 교체", "개인 기본 배경 해제"}, (dialog, which) -> {
+                    if (which == 0) {
+                        defaultVideoPickerLauncher.launch(new String[]{"image/*", "video/*"});
+                    } else {
+                        AppStorage.setDefaultBroadcastVideo(this, "");
+                        miniShownUri = "";
+                        refreshVisibleBroadcastMedia();
+                        toast("개인 기본 배경 해제 · 앱 내장 영상으로 복귀");
+                    }
+                }).setNegativeButton("닫기", null).show();
+    }
+
+    private void showHostVideoManager(boolean greeting) {
+        String current = greeting ? AppStorage.ahwanGreetingVideo(this)
+                : AppStorage.radioTalkVideo(this);
+        new AlertDialog.Builder(this)
+                .setTitle(greeting ? "아환 인사영상 관리" : "DJ 토크영상 관리")
+                .setMessage(current.isEmpty() ? "영상 미등록" : "영상 등록됨 · 교체 또는 해제 가능")
+                .setItems(new String[]{"영상 선택 또는 교체", "영상 지정 해제"}, (dialog, which) -> {
+                    if (which == 0) {
+                        if (greeting) greetingVideoPickerLauncher.launch(new String[]{"video/*"});
+                        else talkVideoPickerLauncher.launch(new String[]{"video/*"});
+                    } else {
+                        if (greeting) AppStorage.setAhwanGreetingVideo(this, "");
+                        else AppStorage.setRadioTalkVideo(this, "");
+                        refreshVisibleBroadcastMedia();
+                        toast("영상 지정 해제 · 휴대폰 원본 파일은 그대로");
+                    }
+                }).setNegativeButton("닫기", null).show();
+    }
+
+    private void showCommonImageManager() {
+        if (images.isEmpty()) {
+            toast("등록된 공통 이미지가 없습니다.");
+            return;
+        }
+        String[] labels = new String[images.size()];
+        for (int i = 0; i < images.size(); i++) {
+            labels[i] = (i + 1) + ". " + displayName(Uri.parse(images.get(i)));
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("공통 이미지 목록 · 삭제할 항목 선택")
+                .setItems(labels, (dialog, which) -> {
+                    String selected = images.get(which);
+                    new AlertDialog.Builder(this)
+                            .setTitle("이미지 등록 해제")
+                            .setMessage("MARU 목록에서만 삭제합니다. 휴대폰 원본 사진은 삭제되지 않습니다.")
+                            .setPositiveButton("등록 해제", (d,w) -> {
+                                images.remove(selected);
+                                AppStorage.saveImages(this, images);
+                                toast("이미지 등록 해제 완료");
+                                if (!images.isEmpty()) showCommonImageManager();
+                            })
+                            .setNegativeButton("취소", null).show();
+                }).setNegativeButton("닫기", null).show();
+    }
+
     private void showStoryMediaPickerDialog() {
         java.util.List<RadioAudienceStore.Story> list =
                 RadioAudienceStore.pendingStories(this);
@@ -2260,11 +2335,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                             new String[]{"image/*", "video/*"});
                                 } else {
                                     StoryMediaStore.clear(this, pendingStoryVisualId);
-                                    if (miniPlayerMode) showSavedMiniMedia();
-                                    if (broadcastVisible
-                                            && pendingStoryVisualId.equals(activeStoryVisualId))
-                                        showMediaUri(resourceUri(R.raw.default_broadcast), true);
-                                    toast("사연 전용 화면 해제 · 기본 영상으로 복귀");
+                                    refreshVisibleBroadcastMedia();
+                                    toast("사연 전용 화면 해제 · 현재 기본 화면으로 복귀");
                                 }
                             }).setNegativeButton("닫기", null).show();
                 }).setNegativeButton("닫기", null).show();
@@ -2294,8 +2366,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                                     new String[]{"image/*", "video/*"});
                                         } else {
                                             SongMediaStore.clear(this, pendingSongMediaUri);
-                                            loadActiveSongMedia();
-                                            toast("곡별 미디어 연결 삭제");
+                                             if (pendingSongMediaUri.equals(currentSongUri())) {
+                                                 loadActiveSongMedia();
+                                                 refreshVisibleBroadcastMedia();
+                                             }
+                                             toast("곡별 미디어 연결 삭제 · 휴대폰 원본 보존");
                                         }
                                     })
                             .setNegativeButton("닫기", null)
@@ -2374,10 +2449,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void showActiveSongMedia() {
         if (activeSongMedia.isEmpty()) {
-            String fallback = AppStorage.defaultBroadcastVideo(this);
-            if (!SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback))
-                fallback = resourceUri(R.raw.default_broadcast);
-            showMediaUri(fallback, true);
+            showMediaUri(defaultVisualVideoUri(), true);
             return;
         }
         mediaIndex = 0;
