@@ -86,6 +86,10 @@ public final class AutoGreetingService extends Service {
     private int activeLanguageIndex = -1;
     private int activeDialogueIndex = -1;
     private RadioConversationScript.Line[] activeDialogue;
+    private TrilingualRadioIntro.Segment[] activeIntro;
+    private int activeIntroIndex = -1;
+    private boolean activeIntroStoryFailed;
+    private String[] activeAnnouncementLanguages = INTERMISSION_LANGUAGES;
     private String activeStoryId = "";
     private final List<Voice> availableKoreanVoices = new ArrayList<>();
     private final List<Voice> availableEnglishVoices = new ArrayList<>();
@@ -100,7 +104,11 @@ public final class AutoGreetingService extends Service {
     };
     private final Runnable speakTimeout = () -> {
         if (!speaking) return;
-        if (isRadioRequest()) {
+        if (isRadioIntroActive()) {
+            AutoGreetingStore.setStatus(this, "언어별 소개 시간 초과 · 다음 소개로 넘어갑니다.");
+            try { if (tts != null) tts.stop(); } catch (RuntimeException ignored) {}
+            advanceRadioIntro(false);
+        } else if (isRadioRequest()) {
             AutoGreetingStore.setStatus(this, "대화 시간 초과 · 다음 멘트로 넘어갑니다.");
             try { if (tts != null) tts.stop(); } catch (RuntimeException ignored) {}
             advanceDialogue(false);
@@ -286,8 +294,8 @@ public final class AutoGreetingService extends Service {
                                 System.currentTimeMillis());
                         AutoGreetingStore.setStatus(
                                 AutoGreetingService.this,
-                                isRadioRequest()
-                                        ? "Ahwan Radio · guest conversation"
+                                isRadioIntroActive() ? "Ahwan Radio · 영어/한국어/중국어 소개"
+                                        : isRadioRequest() ? "Ahwan Radio · guest conversation"
                                         : "곡 사이 TTS 안내 재생 중");
                     });
                 }
@@ -295,7 +303,8 @@ public final class AutoGreetingService extends Service {
                 @Override public void onDone(String utteranceId) {
                     main.post(() -> {
                         if (!utteranceId.equals(activeUtteranceId)) return;
-                        if (isRadioRequest()) advanceDialogue(true);
+                        if (isRadioIntroActive()) advanceRadioIntro(true);
+                        else if (isRadioRequest()) advanceDialogue(true);
                         else if (isMultiLanguageRequest()) advanceLanguage(true);
                         else finishCurrent(true);
                     });
@@ -375,29 +384,47 @@ public final class AutoGreetingService extends Service {
         activeRequest = request;
         activeRequestKey = request.key();
         activeResumeIndex = request.resumeIndex;
+        activeAnnouncementLanguages = request.kind == AnnouncementRequest.KIND_INTERMISSION
+                && AppStorage.trilingualIntroEnabled(this)
+                ? TrilingualRadioIntro.ORDER : INTERMISSION_LANGUAGES;
         activeLanguageIndex = request.kind == AnnouncementRequest.KIND_INTERMISSION
                 || request.kind == AnnouncementRequest.KIND_CLOSING ? 0 : -1;
         activeDialogueIndex = request.kind == AnnouncementRequest.KIND_RADIO ? 0 : -1;
         englishRadioDialogue = request.kind == AnnouncementRequest.KIND_RADIO
                 && AppStorage.englishRadioEnabled(this);
+        activeIntro = null;
+        activeIntroIndex = -1;
+        activeIntroStoryFailed = false;
         activeStoryId = "";
+
         if (request.kind == AnnouncementRequest.KIND_RADIO) {
+            RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
+            boolean multilingual = AppStorage.trilingualIntroEnabled(this);
+            boolean readable = story != null && TrilingualRadioIntro.canReadStory(story.text);
+            String introName = multilingual && readable ? story.name : "";
+            String introStory = multilingual && readable ? story.text : "";
+            if (multilingual) {
+                activeIntro = TrilingualRadioIntro.beforeSong(request.value,
+                        request.episodeIndex, introName, introStory, request.listenerRequested);
+                activeIntroIndex = 0;
+            }
+            // The approved original is read exactly once. Do not repeat it in
+            // the English/Korean fictional conversation after the introduction.
+            String dialogueName = multilingual || story == null ? "" : story.name;
+            String dialogueStory = multilingual || story == null ? "" : story.text;
+            if (story != null && (multilingual ? readable
+                    : (englishRadioDialogue || AppStorage.longGuestTalkEnabled(this)))) {
+                activeStoryId = story.id;
+            }
             if (englishRadioDialogue) {
-                // English is ALWAYS short regardless of older saved long-talk settings.
-                RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
-                if (story != null) activeStoryId = story.id;
                 activeDialogue = EnglishRadioTalkShow.shortBeforeSong(
                         request.value, request.episodeIndex,
                         java.time.LocalDate.now(), request.artistId,
-                        story == null ? "" : story.name,
-                        story == null ? "" : story.text);
+                        dialogueName, dialogueStory);
             } else if (AppStorage.longGuestTalkEnabled(this)) {
-                RadioAudienceStore.Story story = RadioAudienceStore.peekStory(this);
-                if (story != null) activeStoryId = story.id;
                 activeDialogue = GuestTalkShow.beforeSong(
                         request.value, request.episodeIndex, java.time.LocalDate.now(),
-                        request.artistId, story == null ? "" : story.name,
-                        story == null ? "" : story.text,
+                        request.artistId, dialogueName, dialogueStory,
                         RadioAudienceStore.approvedResearchNote(this, request.episodeIndex),
                         request.listenerRequested);
             } else {
@@ -412,12 +439,12 @@ public final class AutoGreetingService extends Service {
 
         if (isRadioRequest()) {
             announceHostVisual(BroadcastMediaSelector.TALK);
-            // Notify only our own app: never disclose story text or touch BIGO.
+            // Only the app itself receives the approved story's scene ID.
             sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
                     .putExtra(EXTRA_STORY_VISUAL_ID, activeStoryId));
-            speakCurrentDialogue();
+            if (isRadioIntroActive()) speakCurrentRadioIntro();
+            else speakCurrentDialogue();
         } else if (isMultiLanguageRequest()) {
-            // Greetings and farewell announcements use Ahwan's greeting clip.
             announceHostVisual(BroadcastMediaSelector.GREETING);
             speakCurrentLanguage();
         } else {
@@ -429,6 +456,97 @@ public final class AutoGreetingService extends Service {
         sendBroadcast(new Intent().setAction(ACTION_HOST_VISUAL)
                 .setPackage(getPackageName())
                 .putExtra(EXTRA_HOST_MODE, mode == null ? "" : mode));
+    }
+
+    /** Play three language introductions in a fixed order before any guest banter. */
+    private boolean isRadioIntroActive() {
+        return isRadioRequest() && activeIntro != null
+                && activeIntroIndex >= 0 && activeIntroIndex < activeIntro.length;
+    }
+
+    private void speakCurrentRadioIntro() {
+        if (!isRadioRequest() || activeIntro == null) {
+            finishCurrent(false);
+            return;
+        }
+        if (activeIntroIndex >= activeIntro.length) {
+            activeIntro = null;
+            activeIntroIndex = -1;
+            main.postDelayed(this::speakCurrentDialogue, 320L);
+            return;
+        }
+        TrilingualRadioIntro.Segment segment = activeIntro[activeIntroIndex];
+        if (!languageAvailable(segment.language)) {
+            AutoGreetingStore.setStatus(this, GreetingLanguage.koreanLabel(segment.language)
+                    + " 미설치 · 다음 언어로 이동");
+            advanceRadioIntro(false);
+            return;
+        }
+        int languageResult = tts.setLanguage(GreetingLanguage.locale(segment.language));
+        if (languageResult == TextToSpeech.LANG_MISSING_DATA
+                || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+            advanceRadioIntro(false);
+            return;
+        }
+        chooseSteadyLocalVoice(segment.language);
+        // Slightly restrained conversational timing: no exaggerated synthetic pitch.
+        tts.setPitch(1.0f);
+        tts.setSpeechRate(0.95f);
+        String status = "곡·사연 소개 " + (activeIntroIndex + 1) + "/"
+                + activeIntro.length + " · " + GreetingLanguage.koreanLabel(segment.language);
+        AutoGreetingStore.setStatus(this, status);
+        startForeground(NOTIFICATION_ID, notification(status));
+        speaking = true;
+        activeUtteranceId = UUID.randomUUID().toString();
+        Bundle params = new Bundle();
+        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, BroadcastVoicePolicy.VOLUME);
+        if (tts.speak(segment.text, TextToSpeech.QUEUE_FLUSH, params,
+                activeUtteranceId) == TextToSpeech.ERROR) {
+            advanceRadioIntro(false);
+            return;
+        }
+        main.removeCallbacks(speakTimeout);
+        main.postDelayed(speakTimeout, SPEAK_TIMEOUT_MS);
+    }
+
+    /** Prefer one consistent installed voice per language, never random speakers. */
+    private void chooseSteadyLocalVoice(String language) {
+        try {
+            Set<Voice> voices = tts.getVoices();
+            if (voices == null) return;
+            Voice best = null;
+            String target = GreetingLanguage.locale(language).getLanguage();
+            for (Voice candidate : voices) {
+                if (candidate == null || candidate.getLocale() == null
+                        || candidate.isNetworkConnectionRequired()
+                        || !target.equals(candidate.getLocale().getLanguage())) continue;
+                if (best == null || candidate.getQuality() > best.getQuality()
+                        || candidate.getQuality() == best.getQuality()
+                        && candidate.getName().compareTo(best.getName()) < 0) best = candidate;
+            }
+            if (best != null) tts.setVoice(best);
+        } catch (RuntimeException ignored) {
+            // Android will use its chosen installed language voice.
+        }
+    }
+
+    private void advanceRadioIntro(boolean success) {
+        main.removeCallbacks(speakTimeout);
+        speaking = false;
+        activeUtteranceId = "";
+        if (!isRadioIntroActive()) return;
+        TrilingualRadioIntro.Segment segment = activeIntro[activeIntroIndex];
+        if (segment.originalStory && !success) activeIntroStoryFailed = true;
+        int next = activeIntroIndex + 1;
+        // Only mark an approved story read after every original-language
+        // segment has actually completed. Do not consume on missing TTS data.
+        if (success && segment.originalStory && !activeIntroStoryFailed
+                && (next >= activeIntro.length || !activeIntro[next].originalStory)
+                && !activeStoryId.isEmpty()) {
+            RadioAudienceStore.markStoryRead(this, activeStoryId);
+        }
+        activeIntroIndex = next;
+        main.postDelayed(this::speakCurrentRadioIntro, 320L);
     }
 
     /** Each line completes before the next speaker starts; no song overlap. */
@@ -534,11 +652,11 @@ public final class AutoGreetingService extends Service {
             finishCurrent(false);
             return;
         }
-        if (activeLanguageIndex < 0 || activeLanguageIndex >= INTERMISSION_LANGUAGES.length) {
+        if (activeLanguageIndex < 0 || activeLanguageIndex >= activeAnnouncementLanguages.length) {
             finishCurrent(true);
             return;
         }
-        String language = INTERMISSION_LANGUAGES[activeLanguageIndex];
+        String language = activeAnnouncementLanguages[activeLanguageIndex];
         if (!languageAvailable(language)) {
             AutoGreetingStore.setStatus(
                     this,
@@ -594,11 +712,11 @@ public final class AutoGreetingService extends Service {
 
         String status;
         if (request.kind == AnnouncementRequest.KIND_INTERMISSION) {
-            status = (activeLanguageIndex + 1) + "/" + INTERMISSION_LANGUAGES.length
+            status = (activeLanguageIndex + 1) + "/" + activeAnnouncementLanguages.length
                     + " " + GreetingLanguage.koreanLabel(language)
                     + " 통합 안내 재생 중";
         } else if (request.kind == AnnouncementRequest.KIND_CLOSING) {
-            status = (activeLanguageIndex + 1) + "/" + INTERMISSION_LANGUAGES.length
+            status = (activeLanguageIndex + 1) + "/" + activeAnnouncementLanguages.length
                     + " " + GreetingLanguage.koreanLabel(language)
                     + " 방송 종료 안내 중";
         } else {
@@ -659,7 +777,7 @@ public final class AutoGreetingService extends Service {
         speaking = false;
         activeUtteranceId = "";
         activeLanguageIndex++;
-        if (activeLanguageIndex >= INTERMISSION_LANGUAGES.length) {
+        if (activeLanguageIndex >= activeAnnouncementLanguages.length) {
             finishCurrent(success);
         } else {
             main.postDelayed(this::speakCurrentLanguage, 180L);
@@ -669,12 +787,14 @@ public final class AutoGreetingService extends Service {
     private void handleSpeechError(String status) {
         AutoGreetingStore.setStatus(
                 this,
-                isRadioRequest()
+                isRadioIntroActive() ? status + " · 다음 언어로 넘어갑니다."
+                        : isRadioRequest()
                         ? status + " · 다음 진행 멘트로 넘어갑니다."
                         : isMultiLanguageRequest()
                             ? status + " · 다음 언어로 넘어갑니다."
                             : status + " · 다음 노래를 시작합니다.");
-        if (isRadioRequest()) advanceDialogue(false);
+        if (isRadioIntroActive()) advanceRadioIntro(false);
+        else if (isRadioRequest()) advanceDialogue(false);
         else if (isMultiLanguageRequest()) advanceLanguage(false);
         else finishCurrent(false);
     }
@@ -684,8 +804,11 @@ public final class AutoGreetingService extends Service {
         int resumeIndex = activeResumeIndex;
         int finishedKind = activeRequest == null ? -1 : activeRequest.kind;
         String resumeToken = activeRequest == null ? "" : activeRequest.resumeToken;
+        // Trilingual stories are removed after confirmed original-language
+        // playback in advanceRadioIntro(), never merely because banter ended.
         if (success && finishedKind == AnnouncementRequest.KIND_RADIO
-                && !activeStoryId.isEmpty())
+                && activeIntro == null && !activeStoryId.isEmpty()
+                && !AppStorage.trilingualIntroEnabled(this))
             RadioAudienceStore.markStoryRead(this, activeStoryId);
         if (finishedKind == AnnouncementRequest.KIND_RADIO) {
             sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
@@ -702,6 +825,10 @@ public final class AutoGreetingService extends Service {
         activeLanguageIndex = -1;
         activeDialogueIndex = -1;
         activeDialogue = null;
+        activeIntro = null;
+        activeIntroIndex = -1;
+        activeIntroStoryFailed = false;
+        activeAnnouncementLanguages = INTERMISSION_LANGUAGES;
         englishRadioDialogue = false;
         if (finishedKind == AnnouncementRequest.KIND_CLOSING) {
             AutoGreetingStore.setStatus(this, "방송 종료 안내 완료 · 전체 재생 종료");
