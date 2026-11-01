@@ -47,6 +47,9 @@ public final class AutoGreetingService extends Service {
             "com.maru.musiclive.TTS_CLOSING";
     public static final String ACTION_BROADCAST_CLOSED =
             "com.maru.musiclive.BROADCAST_CLOSED";
+    public static final String ACTION_STORY_VISUAL =
+            "com.maru.musiclive.STORY_VISUAL";
+    public static final String EXTRA_STORY_VISUAL_ID = "approved_story_id";
     private static final String ACTION_CANCEL =
             "com.maru.musiclive.TTS_CANCEL";
 
@@ -405,6 +408,9 @@ public final class AutoGreetingService extends Service {
         }
 
         if (isRadioRequest()) {
+            // Notify only our own app: never disclose story text or touch BIGO.
+            sendBroadcast(new Intent(ACTION_STORY_VISUAL).setPackage(getPackageName())
+                    .putExtra(EXTRA_STORY_VISUAL_ID, activeStoryId));
             speakCurrentDialogue();
         } else if (isMultiLanguageRequest()) {
             speakCurrentLanguage();
@@ -669,6 +675,10 @@ public final class AutoGreetingService extends Service {
         if (success && finishedKind == AnnouncementRequest.KIND_RADIO
                 && !activeStoryId.isEmpty())
             RadioAudienceStore.markStoryRead(this, activeStoryId);
+        if (finishedKind == AnnouncementRequest.KIND_RADIO) {
+            sendBroadcast(new Intent(ACTION_STORY_VISUAL).setPackage(getPackageName())
+                    .putExtra(EXTRA_STORY_VISUAL_ID, ""));
+        }
         activeStoryId = "";
         speaking = false;
         activeUtteranceId = "";
