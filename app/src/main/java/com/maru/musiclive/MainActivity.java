@@ -707,7 +707,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(heading);
 
         TextView version = text(
-                "V3.2.24 · Daily English Weather & News Radio",
+                "V3.2.25 · English/Korean/Chinese Radio",
                 15,
                 true);
         version.setTextColor(ContextCompat.getColor(this, R.color.maru_subtext));
@@ -936,11 +936,22 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(random);
 
         CheckBox songTitleTts = checkBox(
-                "곡 사이 5개 언어 통합 안내",
+                "곡 사이 음악·진행 안내 재생",
                 AppStorage.songTitleTts(this));
         songTitleTts.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setSongTitleTts(this, checked));
         column.addView(songTitleTts);
+        CheckBox trilingualIntro = checkBox(
+                "곡·승인 사연 소개: 영어 → 한국어 → 중국어 (순차 재생)",
+                AppStorage.trilingualIntroEnabled(this));
+        trilingualIntro.setOnCheckedChangeListener((buttonView, checked) ->
+                AppStorage.setTrilingualIntroEnabled(this, checked));
+        column.addView(trilingualIntro);
+        column.addView(text(
+                "노래 사이에만 한 언어씩 말한 뒤 다음 곡을 재생합니다. "
+                + "사연의 원문은 자동 번역하지 않으며, 지원 언어인 경우 원문 언어로 한 번만 읽습니다. "
+                + "해당 언어 음성이 휴대폰에 설치되지 않았다면 건너뜁니다.",
+                12, false));
 
         CheckBox radioConversation = checkBox(
                 "Guest radio show between imported songs (English by default)",

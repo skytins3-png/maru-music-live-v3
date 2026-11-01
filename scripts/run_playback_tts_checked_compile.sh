@@ -151,6 +151,7 @@ package com.maru.musiclive; import android.content.Context; import java.util.*; 
   public static boolean dailyRadioEnabled(Context c){return true;}
   public static boolean longGuestTalkEnabled(Context c){return true;}
   public static boolean englishRadioEnabled(Context c){return true;}
+  public static boolean trilingualIntroEnabled(Context c){return true;}
   public static int artistForSong(Context c,String uri){return 0;}
  public static java.util.List<String> loadSongs(Context c){return new java.util.ArrayList<>();}
  public static boolean repeatAll(Context c){return true;}
@@ -207,6 +208,7 @@ javac -encoding UTF-8 -d "$CLS" \
   "$ROOT/app/src/main/java/com/maru/musiclive/PlaybackRecoveryPolicy.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/VirtualArtistCatalog.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/RadioConversationScript.java" \
+  "$ROOT/app/src/main/java/com/maru/musiclive/TrilingualRadioIntro.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/DailyRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/MultiArtistRadioProgram.java" \
   "$ROOT/app/src/main/java/com/maru/musiclive/GuestTalkShow.java" \

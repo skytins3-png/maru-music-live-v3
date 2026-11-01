@@ -26,10 +26,10 @@ FORBIDDEN_DEX_STRINGS = {
 # fragments of one longer Java string. javac folds adjacent literals, so DEX
 # contains the whole guide string rather than each fragment as a separate entry.
 REQUIRED_EXACT_DEX_STRINGS = {
-    "V3.2.24 · Daily English Weather & News Radio",
+    "V3.2.25 · English/Korean/Chinese Radio",
     "BIGO 오디오 LIVE 시작",
     "Suno → BIGO 원곡 방송 안내",
-    "곡 사이 5개 언어 통합 안내",
+    "곡 사이 음악·진행 안내 재생",
     "랜덤 재생 · 같은 곡 20분 중복 방지",
     "댓글 인식 · 화면 답변",
     "완전 종료",
