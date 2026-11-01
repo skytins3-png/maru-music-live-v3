@@ -2255,7 +2255,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private void loadActiveSongMedia() {
         activeSongMedia.clear();
         String song = currentSongUri();
-        if (!song.isEmpty()) activeSongMedia.addAll(SongMediaStore.load(this, song));
+        if (!song.isEmpty()) {
+            for (String media : SongMediaStore.load(this, song)) {
+                if (isValidLocalVisual(media)) {
+                    activeSongMedia.add(media);
+                    break; // one media for this song
+                }
+            }
+        }
         // No shared random image: each song has its own visual or default video.
         if (activeSongMedia.size() > 1)
             activeSongMedia.subList(1, activeSongMedia.size()).clear();
@@ -2295,6 +2302,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     player.setVolume(0f, 0f);
                     player.setLooping(eventMedia);
                     mediaVideo.start();
+                });
+                mediaVideo.setOnErrorListener((player, what, extra) -> {
+                    String builtIn = resourceUri(R.raw.default_broadcast);
+                    if (!builtIn.equals(uriText)) {
+                        showMediaUri(builtIn, true);
+                    } else {
+                        try { mediaVideo.stopPlayback(); } catch (RuntimeException ignored) {}
+                        mediaVideo.setVisibility(View.GONE);
+                        if (foregroundImage != null) {
+                            foregroundImage.setVisibility(View.VISIBLE);
+                            foregroundImage.setImageResource(R.drawable.actual_image_01);
+                        }
+                        if (backgroundImage != null) backgroundImage.setVisibility(View.GONE);
+                    }
+                    return true;
                 });
                 mediaVideo.setOnCompletionListener(player -> {
                     if (!eventMedia
