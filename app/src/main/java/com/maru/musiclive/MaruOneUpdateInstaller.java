@@ -116,7 +116,7 @@ public final class MaruOneUpdateInstaller {
                     Uri.parse("package:"+activity.getPackageName()));
             activity.startActivity(permission);
             android.widget.Toast.makeText(activity,
-                    "이 출처의 설치를 허용하면 MARU 설치 화면이 자동으로 열립니다.",1).show();
+                    "이 출처의 설치를 허용하면 MARU 설치 화면이 자동으로 열립니다.",android.widget.Toast.LENGTH_LONG).show();
             return false;
         }
         Uri content=FileProvider.getUriForFile(activity,
