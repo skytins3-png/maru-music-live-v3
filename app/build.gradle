@@ -19,12 +19,19 @@ android {
         if (project.hasProperty('maruInstallRepair')) {
             applicationId 'com.maru.musiclive.trilang.safe20261101'
         }
+        // Unique package because previous sideload builds may use a different
+        // signing certificate. Existing MARU apps and data are not touched.
+        if (project.hasProperty('maruDjVoiceSelector')) {
+            applicationId 'com.maru.musiclive.ahwanvoice.v20261101'
+        }
         // Preview installs beside the previous MARU apps, never overwrites their data.
         if (project.hasProperty('maruLibraryPreview')) {
             applicationId 'com.maru.musiclive.librarypreview'
         }
         manifestPlaceholders = [
-            maruAppLabel: project.hasProperty('maruInstallRepair')
+            maruAppLabel: project.hasProperty('maruDjVoiceSelector')
+                ? 'MARU 아환 음성선택'
+                : project.hasProperty('maruInstallRepair')
                 ? 'MARU 3언어 새설치'
                 : project.hasProperty('maruLibraryPreview')
                 ? 'MARU 노래 보관함 시험판'
