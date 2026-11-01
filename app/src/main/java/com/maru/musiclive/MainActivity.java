@@ -1998,9 +1998,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         handler.removeCallbacks(updateProgress);
         handler.removeCallbacks(rotateImage);
         handler.post(updateProgress);
-        handler.postDelayed(
-                rotateImage,
-                localTestMode ? 4_000L : IMAGE_CHANGE_MS);
+        // One visual is fixed for the entire song; no slideshow rotation.
 
         if (localTestMode) {
             showTemporaryTestOverlay(
@@ -2258,18 +2256,22 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         activeSongMedia.clear();
         String song = currentSongUri();
         if (!song.isEmpty()) activeSongMedia.addAll(SongMediaStore.load(this, song));
-        if (activeSongMedia.isEmpty()) activeSongMedia.addAll(images);
+        // No shared random image: each song has its own visual or default video.
+        if (activeSongMedia.size() > 1)
+            activeSongMedia.subList(1, activeSongMedia.size()).clear();
         mediaIndex = 0;
     }
 
     private void showActiveSongMedia() {
         if (activeSongMedia.isEmpty()) {
-            activeSongMedia.add(resourceUri(R.drawable.actual_image_01));
-            activeSongMedia.add(resourceUri(R.drawable.actual_image_02));
-            mediaIndex = 0;
+            String fallback = AppStorage.defaultBroadcastVideo(this);
+            if (!SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback))
+                fallback = resourceUri(R.raw.default_broadcast);
+            showMediaUri(fallback, true);
+            return;
         }
-        mediaIndex = Math.max(0, Math.min(mediaIndex, activeSongMedia.size() - 1));
-        showMediaUri(activeSongMedia.get(mediaIndex), false);
+        mediaIndex = 0;
+        showMediaUri(activeSongMedia.get(0), false);
     }
 
     private void advanceSongMedia() {
@@ -2330,6 +2332,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         String type = getContentResolver().getType(uri);
         if (type != null && type.startsWith("video/")) return true;
         String value = uri.toString().toLowerCase(Locale.ROOT);
+        if (uri.toString().equals(resourceUri(R.raw.default_broadcast))) return true;
         return value.endsWith(".mp4")
                 || value.endsWith(".m4v")
                 || value.endsWith(".webm")
