@@ -111,6 +111,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private ActivityResultLauncher<Intent> webStudioFileLauncher;
     private TextView miniSongTitle;
     private Button miniPlayButton;
+    private SingleMediaPreviewView miniMediaPreview;
+    private LinearLayout miniMediaActions;
     private MediaPlayer ownVoicePreview;
     private TextView ownVoiceStatus;
     private boolean pendingAutoMusicStart;
@@ -146,6 +148,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private ActivityResultLauncher<String[]> ownVoicePickerLauncher;
     private ActivityResultLauncher<String> ownVoiceExportLauncher;
     private ActivityResultLauncher<String[]> imagePickerLauncher;
+    private ActivityResultLauncher<String[]> miniMediaPickerLauncher;
     private ActivityResultLauncher<String[]> lyricsPickerLauncher;
     private ActivityResultLauncher<String[]> greetingAudioPickerLauncher;
     private ActivityResultLauncher<String[]> songMediaPickerLauncher;
@@ -194,6 +197,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     };
 
     private final Runnable restoreHostSpeech = this::endHostSpeechDuck;
+    private final Runnable hideMiniMediaActions = () -> {
+        if (miniMediaActions != null) miniMediaActions.setVisibility(View.GONE);
+    };
 
     private final BroadcastReceiver liveEventReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -435,6 +441,25 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     AppStorage.saveSongs(this, songs);
                     refreshSongList();
                     if (playback != null) playback.setQueue(songs);
+                });
+
+        miniMediaPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenDocument(),
+                uri -> {
+                    if (uri == null) return;
+                    String type = "";
+                    try { type = getContentResolver().getType(uri); }
+                    catch (RuntimeException ignored) {}
+                    if (!SingleMediaPreviewPolicy.accept(type, uri.toString())) {
+                        toast("사진 또는 영상 파일만 선택할 수 있습니다.");
+                        return;
+                    }
+                    persist(uri);
+                    AppStorage.setPopupMediaUri(this, uri.toString());
+                    if (miniPlayerMode && miniMediaPreview != null) {
+                        miniMediaPreview.show(uri, type);
+                        showMiniMediaActions();
+                    }
                 });
 
         imagePickerLauncher = registerForActivityResult(
@@ -685,7 +710,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 v -> showHomePlayer());
         openPlayer.setTextSize(20f);
         column.addView(openPlayer);
-        column.addView(button("미니 조종창 · BIGO와 한 화면으로 보기", v -> showMiniController()));
+        column.addView(button("사진·영상 꽉찬 팝업 · BIGO와 함께 보기", v -> showMiniController()));
 
         Button regularLive = button(
                 "BIGO 오디오 LIVE 시작",
@@ -1382,7 +1407,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private void showHomePlayerMenu() {
         String[] items = {
                 "BIGO 오디오 LIVE 시작",
-                "BIGO와 함께 보기 · 미니 조종창",
+                "BIGO와 함께 보기 · 사진/영상 한 화면",
                 "Suno 음악 + 아환 자동 토크",
                 "아환 짧은 멘트 바로 말하기",
                 "형의 보정 음성 멘트 재생",
@@ -1408,77 +1433,85 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
-    /** Compact controller intended for Samsung's user-initiated pop-up view.
-     * It is this app's own Activity, never a SYSTEM_ALERT_WINDOW overlay
-     * and never any control injected into BIGO. */
+    /**
+     * One image or silent, looping video fills Samsung's user-selected pop-up.
+     * This is only MARU's own Activity, not an injected BIGO window, and is
+     * not evidence that a BIGO listener sees the picture or hears the music.
+     */
     private void showMiniController() {
-        if (broadcastVisible) {
-            leavePlayerScreen(false); // keep the existing PlaybackService running
-        }
+        if (broadcastVisible) leavePlayerScreen(false); // preserve music service
+        releaseMiniMedia();
         miniPlayerMode = true;
         homePlayerMode = false;
         localTestMode = false;
+        miniSongTitle = null;
+        miniPlayButton = null;
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
         showSystemBars();
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(ContextCompat.getColor(this, R.color.maru_bg));
-        LinearLayout column = new LinearLayout(this);
-        column.setOrientation(LinearLayout.VERTICAL);
-        column.setPadding(dp(10), dp(8), dp(10), dp(8));
-        scroll.addView(column);
+        FrameLayout popup = new FrameLayout(this);
+        popup.setBackgroundColor(Color.BLACK);
+        miniMediaPreview = new SingleMediaPreviewView(this);
+        popup.addView(miniMediaPreview, match());
+        // Tap the image to temporarily reveal a tiny row of controls.
+        View tapLayer = new View(this);
+        tapLayer.setOnClickListener(v -> showMiniMediaActions());
+        popup.addView(tapLayer, match());
 
-        TextView label = text("MARU · 미니 조종창", 17, true);
-        label.setGravity(Gravity.CENTER);
-        label.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
-        column.addView(label);
-
-        miniSongTitle = text(currentTitle(), 14, true);
-        miniSongTitle.setGravity(Gravity.CENTER);
-        miniSongTitle.setSingleLine(true);
-        miniSongTitle.setEllipsize(TextUtils.TruncateAt.END);
-        column.addView(miniSongTitle);
-
-        LinearLayout musicControls = new LinearLayout(this);
-        musicControls.setOrientation(LinearLayout.HORIZONTAL);
-        musicControls.setGravity(Gravity.CENTER);
-        musicControls.addView(smallButton("이전", v -> {
-            if (playback != null) playback.previous();
+        miniMediaActions = new LinearLayout(this);
+        miniMediaActions.setGravity(Gravity.CENTER);
+        miniMediaActions.setOrientation(LinearLayout.HORIZONTAL);
+        miniMediaActions.setBackgroundColor(0xCC101018);
+        miniMediaActions.addView(smallButton("사진·영상 선택", v -> {
+            if (miniMediaPickerLauncher != null)
+                miniMediaPickerLauncher.launch(new String[]{"image/*", "video/*"});
         }));
-        miniPlayButton = smallButton("재생", v -> {
+        miniMediaActions.addView(smallButton("음악 재생/정지", v -> {
             if (playback != null) playback.toggle();
-        });
-        musicControls.addView(miniPlayButton);
-        musicControls.addView(smallButton("다음", v -> {
-            if (playback != null) playback.next();
         }));
-        column.addView(musicControls);
+        miniMediaActions.addView(smallButton("설정", v -> openSetupFromMini()));
+        FrameLayout.LayoutParams bar = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM);
+        popup.addView(miniMediaActions, bar);
+        setContentView(popup);
+        showSavedMiniMedia();
+        showMiniMediaActions();
+    }
 
-        LinearLayout companionActions = new LinearLayout(this);
-        companionActions.setOrientation(LinearLayout.HORIZONTAL);
-        companionActions.addView(smallButton("Suno + 토크", v -> startSunoCompanion(true)));
-        companionActions.addView(smallButton("아환 멘트", v -> speakSunoCompanionNow()));
-        companionActions.addView(smallButton("형 멘트", v -> playMyVoiceOverSuno()));
-        column.addView(companionActions);
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.addView(smallButton("BIGO 열기", v -> openBigoChat()));
-        actions.addView(smallButton("노래·설정", v -> openSetupFromMini()));
-        column.addView(actions);
+    private void showSavedMiniMedia() {
+        if (miniMediaPreview == null) return;
+        String value = AppStorage.popupMediaUri(this);
+        // Show an existing image immediately even before the user picks a new one.
+        if (value.isEmpty() && !images.isEmpty()) value = images.get(0);
+        if (value.isEmpty()) return; // embedded sample image is already visible
+        Uri uri = Uri.parse(value);
+        String type = "";
+        try { type = getContentResolver().getType(uri); }
+        catch (RuntimeException ignored) {}
+        miniMediaPreview.show(uri, type);
+    }
 
-        TextView hint = text(
-            "BIGO와 함께 보기: 갤럭시 최근 앱 → MARU 아이콘 → "
-            + "'팝업 화면으로 열기'. 창 크기·위치는 갤럭시에서 조절하세요. "
-            + "실제 BIGO 청취자 송출은 별도로 확인해야 합니다.", 11, false);
-        column.addView(hint);
-        setContentView(scroll);
-        syncPlayButtonState();
+    private void showMiniMediaActions() {
+        if (miniMediaActions == null) return;
+        miniMediaActions.setVisibility(View.VISIBLE);
+        handler.removeCallbacks(hideMiniMediaActions);
+        handler.postDelayed(hideMiniMediaActions, 4_000L);
+    }
+
+    private void releaseMiniMedia() {
+        handler.removeCallbacks(hideMiniMediaActions);
+        if (miniMediaPreview != null) {
+            miniMediaPreview.stopForLeavingScreen();
+            miniMediaPreview = null;
+        }
+        miniMediaActions = null;
     }
 
     private void openSetupFromMini() {
+        releaseMiniMedia();
         miniPlayerMode = false;
         miniSongTitle = null;
         miniPlayButton = null;
@@ -1823,7 +1856,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }));
 
         if (homePlayerMode) {
-            controls.addView(smallButton("미니", v -> showMiniController()));
+            controls.addView(smallButton("사진·영상", v -> showMiniController()));
             controls.addView(smallButton("오디오 LIVE", v ->
                     startCommunityLive("오디오 LIVE")));
             controls.addView(smallButton("설정", v ->
@@ -2931,6 +2964,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        releaseMiniMedia();
         if (webStudioFileCallback != null) {
             webStudioFileCallback.onReceiveValue(null);
             webStudioFileCallback = null;
