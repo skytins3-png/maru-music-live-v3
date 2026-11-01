@@ -710,7 +710,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 v -> showHomePlayer());
         openPlayer.setTextSize(20f);
         column.addView(openPlayer);
-        column.addView(button("미니 조종창 · BIGO와 한 화면으로 보기", v -> showMiniController()));
+        column.addView(button("사진·영상 꽉찬 팝업 · BIGO와 함께 보기", v -> showMiniController()));
 
         Button regularLive = button(
                 "BIGO 오디오 LIVE 시작",
@@ -1407,7 +1407,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private void showHomePlayerMenu() {
         String[] items = {
                 "BIGO 오디오 LIVE 시작",
-                "BIGO와 함께 보기 · 미니 조종창",
+                "BIGO와 함께 보기 · 사진/영상 한 화면",
                 "Suno 음악 + 아환 자동 토크",
                 "아환 짧은 멘트 바로 말하기",
                 "형의 보정 음성 멘트 재생",
@@ -1856,7 +1856,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         }));
 
         if (homePlayerMode) {
-            controls.addView(smallButton("미니", v -> showMiniController()));
+            controls.addView(smallButton("사진·영상", v -> showMiniController()));
             controls.addView(smallButton("오디오 LIVE", v ->
                     startCommunityLive("오디오 LIVE")));
             controls.addView(smallButton("설정", v ->
