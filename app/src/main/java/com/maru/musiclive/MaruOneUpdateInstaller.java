@@ -63,7 +63,7 @@ public final class MaruOneUpdateInstaller {
             throw new SecurityException("현재 앱 서명과 배포 서명이 다릅니다.");
         File dir=new File(activity.getCacheDir(),"maru-verified-updates");
         if(!dir.exists()&&!dir.mkdirs())throw new java.io.IOException("임시 저장 공간을 열 수 없습니다.");
-        File temporary=new File(dir,"download.part");
+        File temporary=new File(dir,"download-partial.apk");
         File apk=new File(dir,"MARU-ONE-v"+release.latestVersion+".apk");
         if(temporary.exists())temporary.delete();
         HttpURLConnection conn=null;
