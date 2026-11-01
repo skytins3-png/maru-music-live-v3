@@ -25,8 +25,11 @@ FORBIDDEN_DEX_STRINGS = {
 # checked by exact equality. The two guide sentences below are compile-time
 # fragments of one longer Java string. javac folds adjacent literals, so DEX
 # contains the whole guide string rather than each fragment as a separate entry.
+# The home header is assembled as "V" + runtime package version + suffix.
+# Validate the literal suffix in DEX; the workflow separately verifies
+# versionCode/versionName in the built manifest with aapt.
 REQUIRED_EXACT_DEX_STRINGS = {
-    "V3.2.24 · Daily English Weather & News Radio",
+    " · Daily English Weather & News Radio",
     "BIGO 오디오 LIVE 시작",
     "Suno → BIGO 원곡 방송 안내",
     "곡 사이 5개 언어 통합 안내",
