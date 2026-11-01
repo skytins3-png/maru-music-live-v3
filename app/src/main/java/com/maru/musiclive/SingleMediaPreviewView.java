@@ -55,7 +55,7 @@ public final class SingleMediaPreviewView extends FrameLayout
         if (released) return;
         releasePlayer();
         if (uri == null || !SingleMediaPreviewPolicy.accept(mime, uri.toString())) {
-            showDefault();
+            showDefaultVideo();
             return;
         }
         if (SingleMediaPreviewPolicy.isVideo(mime, uri.toString())) {
@@ -69,7 +69,7 @@ public final class SingleMediaPreviewView extends FrameLayout
         video.setVisibility(View.GONE);
         Bitmap bmp = loadSampledBitmap(uri);
         if (bmp == null) {
-            showDefault();
+            showDefaultVideo();
             return;
         }
         picture.setImageBitmap(bmp);
@@ -96,6 +96,12 @@ public final class SingleMediaPreviewView extends FrameLayout
         } catch (RuntimeException | java.io.IOException ex) {
             return null;
         }
+    }
+
+    /** Real, bundled, silent MP4 shown when no story/song image or video is assigned. */
+    public void showDefaultVideo() {
+        show(Uri.parse("android.resource://" + getContext().getPackageName()
+                + "/" + R.raw.default_broadcast), "video/mp4");
     }
 
     private void showDefault() {
@@ -135,7 +141,7 @@ public final class SingleMediaPreviewView extends FrameLayout
             next.setOnErrorListener((mp, what, extra) -> {
                 if (generation == playerGeneration && !released) {
                     releasePlayer();
-                    showDefault(); // never leave a black failed video
+                    showDefault(); // do not loop failed decoders
                 }
                 return true;
             });
