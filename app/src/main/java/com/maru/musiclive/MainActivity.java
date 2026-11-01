@@ -419,15 +419,17 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         ownVoicePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenDocument(), uri -> {
                     if (uri == null) return;
-                    if (ownVoiceStatus != null) ownVoiceStatus.setText("내 녹음 음성 보정 중...");
+                    persist(uri); // Retain read access for before/after comparison.
+                    if (ownVoiceStatus != null) ownVoiceStatus.setText("녹음 파일 보정 중 · 실시간 마이크 보정 아님");
                     musicScanExecutor.execute(() -> {
                         try {
                             final File output = MyVoiceFileProcessor.enhance(this, uri);
                             runOnUiThread(() -> {
+                                AppStorage.setOwnVoiceOriginalUri(this, uri.toString());
                                 if (ownVoiceStatus != null)
-                                    ownVoiceStatus.setText("보정 성공 · " + output.length() / 1024
-                                            + "KB · 기기 내부에 비공개 저장");
-                                toast("내 음성 보정 완료 · 미리듣기 또는 WAV 저장 가능");
+                                    ownVoiceStatus.setText("녹음 WAV 보정 완료 · " + output.length() / 1024
+                                            + "KB · 원본/보정본 비교 가능 · 실시간 마이크에는 미적용");
+                                toast("녹음 WAV 저장 완료 · 원본과 보정본을 비교해 보세요");
                             });
                         } catch (IOException e) {
                             runOnUiThread(() -> {
@@ -524,17 +526,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     String mime = "";
                     try { mime = getContentResolver().getType(uri); }
                     catch (RuntimeException ignored) {}
-                    if (!SingleMediaPreviewPolicy.isVideo(mime, uri.toString())) {
-                        toast("기본 배경은 영상만 선택해 주세요.");
+                    if (!SingleMediaPreviewPolicy.accept(mime, uri.toString())) {
+                        toast("기본 배경은 사진 또는 MP4 영상만 선택해 주세요.");
                         return;
                     }
                     persist(uri);
                     AppStorage.setDefaultBroadcastVideo(this, uri.toString());
-                    if (miniPlayerMode) showSavedMiniMedia();
-                    if (broadcastVisible && activeStoryVisualId.isEmpty()
-                            && SongMediaStore.load(this, currentSongUri()).isEmpty())
-                        showActiveSongMedia();
-                    toast("기본 영상 등록 완료");
+                    refreshVisibleBroadcastMedia();
+                    toast("기본 배경 사진·영상 교체 완료");
                 });
         storyVisualPickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenDocument(),
@@ -672,15 +671,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             AppStorage.saveSongs(this, songs);
         }
 
-        if (images.isEmpty()) {
-            images.add(
-                    resourceUri(
-                            R.drawable.actual_image_01));
-            images.add(
-                    resourceUri(
-                            R.drawable.actual_image_02));
-            AppStorage.saveImages(this, images);
-        }
+        // Keep an intentionally empty common-image library empty after deletion.
+        // Built-in fallback artwork remains in drawable and is not user media.
 
         // Remove the old built-in timed instructions. They were the
         // permanent BIGO warning text seen in previous versions.
@@ -759,7 +751,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         ownVoiceStatus = text(MyVoiceFileProcessor.output(this).isFile()
                 ? "내 음성 보정본 준비됨 · 비공개" : "내 음성 보정본 없음", 12, false);
         column.addView(ownVoiceStatus);
-        column.addView(button("형의 보정 목소리 미리듣기", v -> previewMyVoice()));
+        column.addView(text("보정은 선택한 녹음 파일에만 적용됩니다. 일반 마이크, BIGO 통화 및 생방송 음성을 실시간으로 바꾸지 않습니다.", 12, false));
+        column.addView(button("① 원본 녹음 미리듣기", v -> previewMyVoice(true)));
+        column.addView(button("② 보정 WAV 미리듣기", v -> previewMyVoice(false)));
         column.addView(button("형의 보정 WAV 휴대폰에 저장", v ->
                 ownVoiceExportLauncher.launch("MARU-형-보정목소리.wav")));
         column.addView(button("Suno 음악 중 형의 보정 멘트 재생", v -> playMyVoiceOverSuno()));
@@ -907,8 +901,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 audioPickerLauncher.launch(new String[]{"audio/*"})));
         column.addView(button("Suno → BIGO 원곡 방송 안내", v ->
                 showSunoBigoGuide()));
-        column.addView(button("공통 배경 이미지 추가", v ->
+        column.addView(button("공통 이미지 추가", v ->
                 imagePickerLauncher.launch(new String[]{"image/*"})));
+        column.addView(button("공통 이미지 목록 · 개별 삭제", v -> showCommonImageManager()));
         column.addView(button("가사 추가 (LRC/TXT)", v ->
                 lyricsPickerLauncher.launch(
                         new String[]{"text/*", "application/octet-stream"})));
@@ -916,15 +911,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 showSongMediaPickerDialog()));
         column.addView(button("사연별 사진·영상 하나씩 연결", v ->
                 showStoryMediaPickerDialog()));
-        column.addView(button("아환 인사 멘트 영상 연결", v ->
-                greetingVideoPickerLauncher.launch(new String[]{"video/*"})));
-        column.addView(button("DJ 진행자 토크 영상 연결", v ->
-                talkVideoPickerLauncher.launch(new String[]{"video/*"})));
+        column.addView(button("아환 인사영상 · 교체 / 해제", v -> showHostVideoManager(true)));
+        column.addView(button("DJ 토크영상 · 교체 / 해제", v -> showHostVideoManager(false)));
         column.addView(text("인사·토크 영상은 소리 없이 화면만 반복하고, "
                 + "아환 음성은 기존 방송 멘트/TTS가 별도로 재생합니다. "
                 + "입모양 동기화는 제공하지 않습니다.", 12, false));
-        column.addView(button("자료 없을 때 재생할 기본 영상 선택", v ->
-                defaultVideoPickerLauncher.launch(new String[]{"video/*"})));
+        column.addView(button("기본 배경 사진·영상 · 교체 / 해제", v -> showDefaultVisualManager()));
         column.addView(button("노래 전체 삭제", v -> confirmDeleteAllSongs()));
 
         CheckBox repeat = checkBox("전체 반복", AppStorage.repeatAll(this));
@@ -1423,12 +1415,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
 
-    private void previewMyVoice() {
+    /** Compare the unchanged original and processed WAV in the same player. */
+    private void previewMyVoice(boolean original) {
+        String originalUri = AppStorage.ownVoiceOriginalUri(this);
         File wav = MyVoiceFileProcessor.output(this);
-        if (!wav.isFile()) { toast("먼저 내 음성 녹음을 선택해서 보정하세요."); return; }
+        if (original && originalUri.isEmpty()) {
+            toast("원본 녹음을 먼저 선택해서 보정하세요.");
+            return;
+        }
+        if (!original && !wav.isFile()) {
+            toast("먼저 녹음 WAV를 보정하세요.");
+            return;
+        }
         try {
             if (ownVoicePreview != null) {
-                ownVoicePreview.stop();
+                try { ownVoicePreview.stop(); } catch (RuntimeException ignored) {}
                 ownVoicePreview.release();
             }
             ownVoicePreview = new MediaPlayer();
@@ -1436,19 +1437,22 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build());
-            ownVoicePreview.setDataSource(wav.getAbsolutePath());
+            if (original) ownVoicePreview.setDataSource(this, Uri.parse(originalUri));
+            else ownVoicePreview.setDataSource(wav.getAbsolutePath());
             ownVoicePreview.setOnCompletionListener(mp -> {
                 mp.release();
                 if (ownVoicePreview == mp) ownVoicePreview = null;
             });
             ownVoicePreview.prepare();
             ownVoicePreview.start();
+            toast(original ? "원본 녹음 재생 중" : "보정 WAV 재생 중");
         } catch (IOException | RuntimeException e) {
             if (ownVoicePreview != null) {
                 ownVoicePreview.release();
                 ownVoicePreview = null;
             }
-            toast("보정 WAV 미리듣기에 실패했습니다.");
+            toast(original ? "원본 파일 접근 실패 · 원본을 다시 등록하세요"
+                    : "보정 WAV 미리듣기 실패");
         }
     }
 
@@ -1590,11 +1594,18 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         miniMediaActions.setGravity(Gravity.CENTER);
         miniMediaActions.setOrientation(LinearLayout.HORIZONTAL);
         miniMediaActions.setBackgroundColor(0xCC101018);
-        miniMediaActions.addView(smallButton("사진·영상 선택", v -> {
+        miniMediaActions.addView(smallButton("교체", v -> {
             if (miniMediaPickerLauncher != null)
                 miniMediaPickerLauncher.launch(new String[]{"image/*", "video/*"});
         }));
-        miniMediaActions.addView(smallButton("음악 재생/정지", v -> {
+        miniMediaActions.addView(smallButton("해제", v -> {
+            AppStorage.setPopupMediaUri(this, "");
+            miniShownUri = "";
+            showSavedMiniMedia();
+            showMiniMediaActions();
+            toast("팝업 사진·영상 지정 해제");
+        }));
+        miniMediaActions.addView(smallButton("재생/정지", v -> {
             if (playback != null) playback.toggle();
         }));
         miniMediaActions.addView(smallButton("설정", v -> openSetupFromMini()));
@@ -1627,7 +1638,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         if (!isValidLocalVisual(story)) story = "";
         if (!isValidLocalVisual(song)) song = "";
         String fallback = AppStorage.defaultBroadcastVideo(this);
-        if (!SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback))
+        if (!isValidLocalVisual(fallback))
             fallback = resourceUri(R.raw.default_broadcast);
         String hostMedia = BroadcastMediaSelector.GREETING.equals(activeHostVisualMode)
                 ? AppStorage.ahwanGreetingVideo(this)
@@ -1635,6 +1646,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     ? AppStorage.radioTalkVideo(this) : "";
         if (!SingleMediaPreviewPolicy.isVideo(safeMime(hostMedia), hostMedia))
             hostMedia = "";
+        String popup = AppStorage.popupMediaUri(this);
+        if (activeStoryVisualId.isEmpty() && activeHostVisualMode.isEmpty()
+                && isValidLocalVisual(popup)) song = popup;
         String value = BroadcastMediaSelector.chooseForScene(
                 activeStoryVisualId, story, activeHostVisualMode,
                 hostMedia, song, fallback);
@@ -1676,7 +1690,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private String defaultVisualVideoUri() {
         String fallback = AppStorage.defaultBroadcastVideo(this);
-        return SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback)
+        return isValidLocalVisual(fallback)
                 ? fallback : resourceUri(R.raw.default_broadcast);
     }
 
@@ -2222,6 +2236,71 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 .show();
     }
 
+    /** Unlink local media without deleting any original phone files. */
+    private void showDefaultVisualManager() {
+        String current = AppStorage.defaultBroadcastVideo(this);
+        new AlertDialog.Builder(this)
+                .setTitle("기본 배경 사진·영상")
+                .setMessage(current.isEmpty()
+                        ? "개인 배경 미지정 · 앱 내장 기본 영상 사용 중"
+                        : "개인 배경 등록됨 · 사진과 MP4 모두 교체 가능")
+                .setItems(new String[]{"사진·영상 선택 또는 교체", "개인 기본 배경 해제"}, (dialog, which) -> {
+                    if (which == 0) {
+                        defaultVideoPickerLauncher.launch(new String[]{"image/*", "video/*"});
+                    } else {
+                        AppStorage.setDefaultBroadcastVideo(this, "");
+                        miniShownUri = "";
+                        refreshVisibleBroadcastMedia();
+                        toast("개인 기본 배경 해제 · 앱 내장 영상으로 복귀");
+                    }
+                }).setNegativeButton("닫기", null).show();
+    }
+
+    private void showHostVideoManager(boolean greeting) {
+        String current = greeting ? AppStorage.ahwanGreetingVideo(this)
+                : AppStorage.radioTalkVideo(this);
+        new AlertDialog.Builder(this)
+                .setTitle(greeting ? "아환 인사영상 관리" : "DJ 토크영상 관리")
+                .setMessage(current.isEmpty() ? "영상 미등록" : "영상 등록됨 · 교체 또는 해제 가능")
+                .setItems(new String[]{"영상 선택 또는 교체", "영상 지정 해제"}, (dialog, which) -> {
+                    if (which == 0) {
+                        if (greeting) greetingVideoPickerLauncher.launch(new String[]{"video/*"});
+                        else talkVideoPickerLauncher.launch(new String[]{"video/*"});
+                    } else {
+                        if (greeting) AppStorage.setAhwanGreetingVideo(this, "");
+                        else AppStorage.setRadioTalkVideo(this, "");
+                        refreshVisibleBroadcastMedia();
+                        toast("영상 지정 해제 · 휴대폰 원본 파일은 그대로");
+                    }
+                }).setNegativeButton("닫기", null).show();
+    }
+
+    private void showCommonImageManager() {
+        if (images.isEmpty()) {
+            toast("등록된 공통 이미지가 없습니다.");
+            return;
+        }
+        String[] labels = new String[images.size()];
+        for (int i = 0; i < images.size(); i++) {
+            labels[i] = (i + 1) + ". " + displayName(Uri.parse(images.get(i)));
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("공통 이미지 목록 · 삭제할 항목 선택")
+                .setItems(labels, (dialog, which) -> {
+                    String selected = images.get(which);
+                    new AlertDialog.Builder(this)
+                            .setTitle("이미지 등록 해제")
+                            .setMessage("MARU 목록에서만 삭제합니다. 휴대폰 원본 사진은 삭제되지 않습니다.")
+                            .setPositiveButton("등록 해제", (d,w) -> {
+                                images.remove(selected);
+                                AppStorage.saveImages(this, images);
+                                toast("이미지 등록 해제 완료");
+                                if (!images.isEmpty()) showCommonImageManager();
+                            })
+                            .setNegativeButton("취소", null).show();
+                }).setNegativeButton("닫기", null).show();
+    }
+
     private void showStoryMediaPickerDialog() {
         java.util.List<RadioAudienceStore.Story> list =
                 RadioAudienceStore.pendingStories(this);
@@ -2249,11 +2328,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                             new String[]{"image/*", "video/*"});
                                 } else {
                                     StoryMediaStore.clear(this, pendingStoryVisualId);
-                                    if (miniPlayerMode) showSavedMiniMedia();
-                                    if (broadcastVisible
-                                            && pendingStoryVisualId.equals(activeStoryVisualId))
-                                        showMediaUri(resourceUri(R.raw.default_broadcast), true);
-                                    toast("사연 전용 화면 해제 · 기본 영상으로 복귀");
+                                    refreshVisibleBroadcastMedia();
+                                    toast("사연 전용 화면 해제 · 현재 기본 화면으로 복귀");
                                 }
                             }).setNegativeButton("닫기", null).show();
                 }).setNegativeButton("닫기", null).show();
@@ -2283,8 +2359,11 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                                                     new String[]{"image/*", "video/*"});
                                         } else {
                                             SongMediaStore.clear(this, pendingSongMediaUri);
-                                            loadActiveSongMedia();
-                                            toast("곡별 미디어 연결 삭제");
+                                             if (pendingSongMediaUri.equals(currentSongUri())) {
+                                                 loadActiveSongMedia();
+                                                 refreshVisibleBroadcastMedia();
+                                             }
+                                             toast("곡별 미디어 연결 삭제 · 휴대폰 원본 보존");
                                         }
                                     })
                             .setNegativeButton("닫기", null)
@@ -2363,10 +2442,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     private void showActiveSongMedia() {
         if (activeSongMedia.isEmpty()) {
-            String fallback = AppStorage.defaultBroadcastVideo(this);
-            if (!SingleMediaPreviewPolicy.isVideo(safeMime(fallback), fallback))
-                fallback = resourceUri(R.raw.default_broadcast);
-            showMediaUri(fallback, true);
+            showMediaUri(defaultVisualVideoUri(), true);
             return;
         }
         mediaIndex = 0;

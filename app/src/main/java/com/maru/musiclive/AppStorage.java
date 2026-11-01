@@ -31,6 +31,7 @@ public final class AppStorage {
     private static final String KEY_RANDOM_CYCLE = "random_cycle_v1";
     private static final String KEY_FILL_BROADCAST_IMAGE = "fill_broadcast_image";
     private static final String KEY_POPUP_SINGLE_MEDIA = "popup_single_media_uri_v1";
+    private static final String KEY_OWN_VOICE_ORIGINAL = "own_voice_original_uri_v1";
     private static final String KEY_DEFAULT_BROADCAST_VIDEO = "default_broadcast_video_uri_v1";
     private static final String KEY_AHWAN_GREETING_VISUAL = "ahwan_greeting_video_uri_v1";
     private static final String KEY_RADIO_TALK_VISUAL = "radio_talk_video_uri_v1";
@@ -72,7 +73,16 @@ public final class AppStorage {
         prefs(c).edit().putString(KEY_POPUP_SINGLE_MEDIA, safe).apply();
     }
 
-    /** User-selected default clip used only when no approved story/song visual exists. */
+    /** Last operator-approved original recording for local before/after playback only. */
+    public static String ownVoiceOriginalUri(Context c) {
+        return prefs(c).getString(KEY_OWN_VOICE_ORIGINAL, "");
+    }
+    public static void setOwnVoiceOriginalUri(Context c, String uri) {
+        prefs(c).edit().putString(KEY_OWN_VOICE_ORIGINAL,
+                SingleMediaPreviewPolicy.isLocalUri(uri) ? uri : "").apply();
+    }
+
+    /** User-selected fallback image or silent clip for scenes without visuals. */
     public static String defaultBroadcastVideo(Context c) {
         return prefs(c).getString(KEY_DEFAULT_BROADCAST_VIDEO,"");
     }
