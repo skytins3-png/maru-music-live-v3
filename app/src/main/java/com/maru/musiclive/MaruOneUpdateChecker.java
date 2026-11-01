@@ -90,12 +90,30 @@ public final class MaruOneUpdateChecker {
         return hex.toString();
     }
 
+    public static long versionCode(PackageInfo info) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return info.getLongVersionCode();
+        return info.versionCode;
+    }
+
+    public static int signerFlags() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                ? PackageManager.GET_SIGNING_CERTIFICATES
+                : PackageManager.GET_SIGNATURES;
+    }
+
+    public static Signature[] archiveSigners(PackageInfo info) {
+        if (info == null) return null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            return info.signingInfo == null ? null : info.signingInfo.getApkContentsSigners();
+        }
+        return info.signatures;
+    }
+
     public static String installedSigner(Context context) {
         try {
             PackageInfo info = context.getPackageManager().getPackageInfo(
-                    context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
-            Signature[] signatures = info.signingInfo == null
-                    ? null : info.signingInfo.getApkContentsSigners();
+                    context.getPackageName(), signerFlags());
+            Signature[] signatures = archiveSigners(info);
             return signatures == null || signatures.length != 1
                     ? "" : signatureSha256(signatures[0]);
         } catch (Exception e) {
@@ -114,7 +132,7 @@ public final class MaruOneUpdateChecker {
             PackageInfo pkg = context.getPackageManager().getPackageInfo(
                     context.getPackageName(), 0);
             installed = pkg.versionName == null ? "" : pkg.versionName;
-            installedCode = pkg.getLongVersionCode();
+            installedCode = versionCode(pkg);
         } catch (Exception e) {
             return no("", "", "설치 버전을 확인하지 못했습니다.");
         }
