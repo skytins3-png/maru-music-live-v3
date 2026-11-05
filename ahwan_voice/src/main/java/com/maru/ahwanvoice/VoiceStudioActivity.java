@@ -234,6 +234,8 @@ public final class VoiceStudioActivity extends Activity {
     }
     private void sendClipToMaru() {
         if(recordingNow){status.setText("녹음 종료 후 보내세요.");return;}
+        // Prevent simultaneous playback from Studio and MARU during handoff.
+        stopPlayback();
         Uri uri=clip();
         if(uri==null){status.setText("전송할 음성 파일을 먼저 등록하세요.");return;}
         Intent send=new Intent(Intent.ACTION_SEND);
