@@ -1,0 +1,93 @@
+name: Build AHwan real-voice clips and MARU audio-only bridge
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ahwan_voice/**'
+      - 'app/src/main/java/com/maru/musiclive/MainActivity.java'
+      - 'app/src/main/java/com/maru/musiclive/AutoGreetingService.java'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/build-ahwan-realvoice-only.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ahwan_voice/**'
+      - 'app/src/main/java/com/maru/musiclive/MainActivity.java'
+      - 'app/src/main/java/com/maru/musiclive/AutoGreetingService.java'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/build.gradle'
+      - 'settings.gradle'
+      - '.github/workflows/build-ahwan-realvoice-only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install SDK and build tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test previous MARU protections
+        shell: bash
+        run: |
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_voice_policy.py
+          python3 scripts/check_required_media.py
+          gradle --no-daemon :app:testDebugUnitTest
+      - name: Build AHwan Studio and its separate MARU bridge APK
+        run: gradle --no-daemon :ahwan_voice:assembleRelease :app:assembleRelease -PmaruClipOnly=1
+      - name: Validate APK signatures, packages, and sensitive permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deliverables
+          cp ahwan_voice/build/outputs/apk/release/ahwan_voice-release.apk deliverables/AHWAN-REAL-VOICE-NO-TTS-V0.2.apk
+          cp app/build/outputs/apk/release/app-release.apk deliverables/MARU-REAL-VOICE-ONLY-BRIDGE-V3.2.25.apk
+          for file in deliverables/*.apk; do
+            unzip -t "$file" > /dev/null
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$file"
+            "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$file" AndroidManifest.xml > /tmp/manifest_check.txt
+            if grep -E 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS' /tmp/manifest_check.txt; then
+              echo "::error::Unexpected sensitive permission in $file"
+              exit 1
+            fi
+          done
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging deliverables/AHWAN-REAL-VOICE-NO-TTS-V0.2.apk | grep -F "package: name='com.maru.ahwanvoice.realclips'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging deliverables/MARU-REAL-VOICE-ONLY-BRIDGE-V3.2.25.apk | grep -F "package: name='com.maru.musiclive.clips.v20261105'"
+          (cd deliverables && sha256sum *.apk > SHA256SUMS.txt)
+      - name: Enforce no TTS in real voice studio and audio-only runtime
+        run: |
+          ! grep -E 'android[.]speech[.]tts|TextToSpeech|tts[.]speak' ahwan_voice/src/main/java/com/maru/ahwanvoice/VoiceStudioActivity.java
+          grep -F 'BuildConfig.AHWAN_CLIP_ONLY' app/src/main/java/com/maru/musiclive/AutoGreetingService.java
+          grep -F 'BuildConfig.AHWAN_CLIP_ONLY' app/src/main/java/com/maru/musiclive/SunoTalkCompanionService.java
+      - name: Upload paired APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: AHWAN-REALVOICE-NO-TTS-PAIR
+          if-no-files-found: error
+          path: deliverables/*

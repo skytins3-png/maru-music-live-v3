@@ -124,7 +124,7 @@ public final class AppStorage {
     }
 
     public static boolean songTitleTts(Context c) {
-        return prefs(c).getBoolean(KEY_SONG_TITLE_TTS, true);
+        return !BuildConfig.AHWAN_CLIP_ONLY && prefs(c).getBoolean(KEY_SONG_TITLE_TTS, true);
     }
 
     public static void setSongTitleTts(Context c, boolean value) {
@@ -135,7 +135,7 @@ public final class AppStorage {
 
     /** Radio dialogue replaces the legacy five-language track intermission. */
     public static boolean radioConversationEnabled(Context c) {
-        return prefs(c).getBoolean(KEY_RADIO_CONVERSATION, true);
+        return !BuildConfig.AHWAN_CLIP_ONLY && prefs(c).getBoolean(KEY_RADIO_CONVERSATION, true);
     }
 
     public static void setRadioConversationEnabled(Context c, boolean value) {
@@ -165,14 +165,14 @@ public final class AppStorage {
 
     /** User-configured English -> Korean -> Mandarin intros; enabled by default. */
     public static boolean trilingualIntroEnabled(Context c) {
-        return prefs(c).getBoolean(KEY_TRI_INTRO, true);
+        return !BuildConfig.AHWAN_CLIP_ONLY && prefs(c).getBoolean(KEY_TRI_INTRO, true);
     }
     public static void setTrilingualIntroEnabled(Context c, boolean enabled) {
         prefs(c).edit().putBoolean(KEY_TRI_INTRO, enabled).apply();
     }
 
     public static boolean englishRadioEnabled(Context c) {
-        return prefs(c).getBoolean(KEY_ENGLISH_TALK, true);
+        return !BuildConfig.AHWAN_CLIP_ONLY && prefs(c).getBoolean(KEY_ENGLISH_TALK, true);
     }
 
     public static void setEnglishRadioEnabled(Context c, boolean yes) {

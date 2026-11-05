@@ -99,6 +99,10 @@ public final class SunoTalkCompanionService extends Service {
             notifications.createNotificationChannel(new NotificationChannel(
                     CHANNEL, "MARU · Suno 음성 토크", NotificationManager.IMPORTANCE_LOW));
         }
+        if (BuildConfig.AHWAN_CLIP_ONLY) {
+            // Audio-only: never even initialize the device TTS engine.
+            return;
+        }
         // Android TTS service initialization can be asynchronous. No speech
         // will run until the engine reports a usable English voice.
         tts = new TextToSpeech(this, result -> main.post(() -> {
@@ -128,6 +132,11 @@ public final class SunoTalkCompanionService extends Service {
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? "" : intent.getAction();
+        if (BuildConfig.AHWAN_CLIP_ONLY && !ACTION_PLAY_MY_VOICE.equals(action)
+                && !ACTION_STOP.equals(action)) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         if (ACTION_STOP.equals(action)) {
             stopSelf();
             return START_NOT_STICKY;
