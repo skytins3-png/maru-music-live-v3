@@ -13,6 +13,7 @@
     <queries>
         <package android:name="sg.bigo.live" />
         <package android:name="com.suno.android" />
+        <package android:name="com.maru.ahwanvoice.studio" />
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
