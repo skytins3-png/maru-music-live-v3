@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <queries>
-        <intent><action android:name="android.intent.action.TTS_SERVICE"/></intent>
-        <package android:name="com.maru.musiclive.voicebridge.v20261105"/>
+        
+        <package android:name="com.maru.musiclive.clips.v20261105"/>
         <package android:name="com.maru.musiclive.ahwanvoice.v20261101"/>
         <package android:name="com.maru.musiclive.trilang.safe20261101"/>
         <package android:name="com.maru.musiclive.one"/>
         <package android:name="com.maru.musiclive.english"/>
     </queries>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application android:label="아환 음성 스튜디오" android:allowBackup="false"
         android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".VoiceStudioActivity" android:exported="true">
@@ -16,5 +17,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/ahwan_file_paths"/>
+        </provider>
     </application>
 </manifest>
