@@ -5,11 +5,11 @@ android {
     namespace 'com.maru.ahwanvoice'
     compileSdk 36
     defaultConfig {
-        applicationId 'com.maru.ahwanvoice.studio'
+        applicationId 'com.maru.ahwanvoice.realclips'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '0.1-preview'
+        versionCode 2
+        versionName '0.2-real-voice-only'
     }
     buildTypes {
         release {
@@ -22,4 +22,8 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.16.0'
 }
