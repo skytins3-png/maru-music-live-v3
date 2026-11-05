@@ -24,6 +24,11 @@ android {
         if (project.hasProperty('maruDjVoiceSelector')) {
             applicationId 'com.maru.musiclive.ahwanvoice.v20261101'
         }
+        if (project.hasProperty('maruClipOnly')) {
+            applicationId 'com.maru.musiclive.clips.v20261105'
+        }
+        buildConfigField 'boolean', 'AHWAN_CLIP_ONLY',
+                project.hasProperty('maruClipOnly') ? 'true' : 'false'
         // Dedicated MARU voice-bridge APK installs beside earlier differently signed
         // MARU installations. No access to existing apps' saved private data.
         if (project.hasProperty('maruVoiceBridge')) {
@@ -34,7 +39,9 @@ android {
             applicationId 'com.maru.musiclive.librarypreview'
         }
         manifestPlaceholders = [
-            maruAppLabel: project.hasProperty('maruVoiceBridge')
+            maruAppLabel: project.hasProperty('maruClipOnly')
+                ? 'MARU 아환 실제음성 연결'
+                : project.hasProperty('maruVoiceBridge')
                 ? 'MARU 아환 토크연결'
                 : project.hasProperty('maruDjVoiceSelector')
                 ? 'MARU 아환 음성선택'
@@ -73,6 +80,8 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    buildFeatures { buildConfig true }
 
     // The real bundled song and LRC are committed directly under
     // app/src/main/res/raw. No copy/generation task is used, so resource
