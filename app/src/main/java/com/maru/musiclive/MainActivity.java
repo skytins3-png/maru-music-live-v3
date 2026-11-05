@@ -118,6 +118,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private SingleMediaPreviewView miniMediaPreview;
     private LinearLayout miniMediaActions;
     private MediaPlayer ownVoicePreview;
+    private MediaPlayer ahwanClipPlayer;
     private TextToSpeech djVoicePreview;
     private int djVoicePreviewGeneration;
     private TextView ownVoiceStatus;
@@ -370,10 +371,93 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 }).setNegativeButton("취소", null).show();
     }
 
+    /** Play only approved real audio from the separate Ahwan recorder.
+     * The share URI is copied into MARU private storage; never imported as a song.
+     * No voice synthesis or automatically generated speech is involved.
+     */
+    private void acceptAhwanRecording(Intent intent) {
+        Uri uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (uri == null && intent.getClipData() != null
+                && intent.getClipData().getItemCount() > 0)
+            uri = intent.getClipData().getItemAt(0).getUri();
+        if (uri == null) {
+            toast("아환 음성 파일이 전달되지 않았습니다.");
+            return;
+        }
+        Uri source = uri;
+        musicScanExecutor.execute(() -> {
+            String local = "";
+            String error = "";
+            try {
+                local = SharedAudioImport.copyOriginal(getApplicationContext(), source);
+            } catch (Exception ex) {
+                error = ex.getMessage() == null ? "파일 접근 실패" : ex.getMessage();
+            }
+            String saved = local, failure = error;
+            handler.post(() -> {
+                if (isDestroyed()) return;
+                if (saved.isEmpty()) {
+                    toast("아환 음성 가져오기 실패 · " + failure);
+                    return;
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle("아환 실제 목소리 · 즉시 재생")
+                        .setMessage("전달된 녹음 파일을 MARU에서 지금 재생할까요? "
+                                + "휴대폰 TTS를 전혀 사용하지 않습니다. "
+                                + "BIGO 청취자 실제 송출은 별도 확인이 필요합니다.")
+                        .setPositiveButton("지금 재생", (d,w) -> playAhwanClip(saved))
+                        .setNegativeButton("취소", null).show();
+            });
+        });
+    }
+
+    private void playAhwanClip(String saved) {
+        stopAhwanClip();
+        try {
+            ahwanClipPlayer = new MediaPlayer();
+            ahwanClipPlayer.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            ahwanClipPlayer.setDataSource(this, Uri.parse(saved));
+            ahwanClipPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                toast("아환 실제 녹음 재생 중 · 합성 음성 아님");
+            });
+            ahwanClipPlayer.setOnCompletionListener(mp -> stopAhwanClip());
+            ahwanClipPlayer.setOnErrorListener((mp, what, extra) -> {
+                stopAhwanClip();
+                toast("아환 파일 재생 실패");
+                return true;
+            });
+            ahwanClipPlayer.prepareAsync();
+        } catch (Exception ex) {
+            stopAhwanClip();
+            toast("음성 파일을 열 수 없습니다.");
+        }
+    }
+
+    private void stopAhwanClip() {
+        if (ahwanClipPlayer != null) {
+            try { ahwanClipPlayer.stop(); } catch (RuntimeException ignored) {}
+            ahwanClipPlayer.release();
+            ahwanClipPlayer = null;
+        }
+    }
+
     /** Accept audio files the user explicitly shares from Suno or a file manager. */
     private void importSharedOriginals(Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
+        if (BuildConfig.AHWAN_CLIP_ONLY && Intent.ACTION_SEND.equals(action)
+                && intent.getBooleanExtra("com.maru.ahwanvoice.AUDIO_CLIP", false)) {
+            acceptAhwanRecording(intent);
+            return;
+        }
+        if (BuildConfig.AHWAN_CLIP_ONLY && Intent.ACTION_SEND.equals(action)
+                && "text/plain".equals(intent.getType())) {
+            toast("아환 실제 목소리 전용 · 글자 읽기(TTS)는 사용하지 않습니다.");
+            return;
+        }
         if (Intent.ACTION_SEND.equals(action)
                 && "text/plain".equals(intent.getType())) {
             receiveAhwanLiveTalk(intent);
@@ -995,14 +1079,14 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 AppStorage.songTitleTts(this));
         songTitleTts.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setSongTitleTts(this, checked));
-        column.addView(songTitleTts);
+        if (!BuildConfig.AHWAN_CLIP_ONLY) column.addView(songTitleTts);
         CheckBox trilingualIntro = checkBox(
                 "곡·승인 사연 소개: 영어 → 한국어 → 중국어 (순차 재생)",
                 AppStorage.trilingualIntroEnabled(this));
         trilingualIntro.setOnCheckedChangeListener((buttonView, checked) ->
                 AppStorage.setTrilingualIntroEnabled(this, checked));
-        column.addView(trilingualIntro);
-        column.addView(text(
+        if (!BuildConfig.AHWAN_CLIP_ONLY) column.addView(trilingualIntro);
+        if (!BuildConfig.AHWAN_CLIP_ONLY) column.addView(text(
                 "노래 사이에만 한 언어씩 말한 뒤 다음 곡을 재생합니다. "
                 + "사연의 원문은 자동 번역하지 않으며, 지원 언어인 경우 원문 언어로 한 번만 읽습니다. "
                 + "해당 언어 음성이 휴대폰에 설치되지 않았다면 건너뜁니다.",
@@ -1044,6 +1128,16 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
         column.addView(button("AI 가수 32명 · 고유 음색·창법 제작표", v ->
                 showSunoArtistRoster()));
+        if (BuildConfig.AHWAN_CLIP_ONLY) {
+            column.addView(text("아환 실제 목소리 방송 · 휴대폰 TTS 사용 안 함. "
+                    + "별도 스튜디오에서 녹음한 음성 파일만 재생합니다.", 14, false));
+            column.addView(button("아환 실제 목소리 스튜디오 열기", v -> {
+                Intent launch = getPackageManager().getLaunchIntentForPackage(
+                        "com.maru.ahwanvoice.realclips");
+                if (launch == null) toast("아환 실제 목소리 스튜디오를 먼저 설치하세요.");
+                else startActivity(launch);
+            }));
+        } else {
         column.addView(button("아환 방송 목소리 직접 선택 · 영어·한국어·중국어", v -> showDjVoiceLanguages()));
         column.addView(button("아환 실시간 토크 직접 말하기", v -> showManualLiveTalk()));
         column.addView(button("별도 아환 음성 스튜디오 열기", v -> {
@@ -1052,6 +1146,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             else startActivity(launch);
         }));
         column.addView(button("휴대폰 TTS 음성 데이터 설치·설정", v -> openTtsSettings()));
+        }
         column.addView(button("댓글 인식 · 화면 답변", v ->
                 requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
         column.addView(button("입장 감사 화면", v -> showEventVisualSettings()));
@@ -3729,6 +3824,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     @Override protected void onDestroy() {
+        stopAhwanClip();
         closeDjVoicePreview();
         releaseMiniMedia();
         if (webStudioFileCallback != null) {
