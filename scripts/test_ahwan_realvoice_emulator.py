@@ -146,8 +146,14 @@ try:
     # app-side onPrepared -> start() trace without capturing any private audio.
     logs=shell("logcat","-d","-v","brief",check=False,timeout=45)
     (OUT/"logcat.txt").write_text(logs[-150000:],encoding="utf-8")
-    if "AhwanClipPlayback" not in logs or "PLAYBACK_STARTED" not in logs:
-        raise AssertionError("MARU MediaPlayer did not report playback start.")
+    # Read the app's dedicated log tag instead of assuming unfiltered
+    # logcat will retain every message after an emulator boot.
+    audio_log=shell("logcat","-d","-v","brief",
+                    "-s","AhwanClipPlayback:I","*:S",check=False,timeout=45)
+    (OUT/"ahwan-player.txt").write_text(audio_log,encoding="utf-8")
+    if "PLAYBACK_STARTED" not in audio_log:
+        raise AssertionError("MARU MediaPlayer did not start. Stages: " +
+                             audio_log[-2200:])
     print("Found confirmed MARU MediaPlayer PLAYBACK_STARTED",flush=True)
     # System UI, Google Autofill, Wi-Fi and AppOps log unrelated
     # SecurityException warnings. Fail only on exception stacks FROM our apps.
