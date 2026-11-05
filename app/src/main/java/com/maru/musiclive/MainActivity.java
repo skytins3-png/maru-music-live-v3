@@ -421,13 +421,23 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void playAhwanClip(String saved) {
+        android.util.Log.i("AhwanClipPlayback", "PLAY_REQUESTED");
         stopAhwanClip();
         try {
             ahwanClipPlayer = new MediaPlayer();
             ahwanClipPlayer.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-            ahwanClipPlayer.setDataSource(this, Uri.parse(saved));
+            Uri sourceUri = Uri.parse(saved);
+            if ("file".equalsIgnoreCase(sourceUri.getScheme())
+                    && sourceUri.getPath() != null) {
+                // For files already copied into this app's private storage,
+                // an absolute local path is more robust than a file:// resolver.
+                ahwanClipPlayer.setDataSource(sourceUri.getPath());
+            } else {
+                ahwanClipPlayer.setDataSource(this, sourceUri);
+            }
+            android.util.Log.i("AhwanClipPlayback", "DATASOURCE_READY");
             ahwanClipPlayer.setOnPreparedListener(mp -> {
                 if (ahwanClipPlayer != mp) return;
                 try {
@@ -452,7 +462,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 return true;
             });
             ahwanClipPlayer.prepareAsync();
+            android.util.Log.i("AhwanClipPlayback", "PREPARE_ASYNC");
         } catch (Exception ex) {
+            android.util.Log.e("AhwanClipPlayback", "LOAD_FAILED", ex);
             stopAhwanClip();
             toast("음성 파일을 열 수 없습니다.");
         }
