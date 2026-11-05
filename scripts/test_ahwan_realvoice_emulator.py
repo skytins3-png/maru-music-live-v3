@@ -142,13 +142,26 @@ try:
     time.sleep(4)
     snap("05-maru-playback")
 
-    # Failure markers are indicative, not proof of end-to-end audio fidelity.
+    # MediaPlayer may look successful from UI alone. Require an actual
+    # app-side onPrepared -> start() trace without capturing any private audio.
     logs=shell("logcat","-d","-v","brief",check=False,timeout=45)
     (OUT/"logcat.txt").write_text(logs[-150000:],encoding="utf-8")
-    app_errors=[line for line in logs.splitlines()
-                if "FATAL EXCEPTION" in line or "SecurityException" in line]
+    if "AhwanClipPlayback" not in logs or "PLAYBACK_STARTED" not in logs:
+        raise AssertionError("MARU MediaPlayer did not report playback start.")
+    print("Found confirmed MARU MediaPlayer PLAYBACK_STARTED",flush=True)
+    # System UI, Google Autofill, Wi-Fi and AppOps log unrelated
+    # SecurityException warnings. Fail only on exception stacks FROM our apps.
+    loglines = logs.splitlines()
+    app_errors = []
+    for i, line in enumerate(loglines):
+        block = "\n".join(loglines[i:i+12])
+        if "FATAL EXCEPTION" in line and "Process: com.maru." in block:
+            app_errors.append(block[:450])
+        if "SecurityException" in line and (
+                "at com.maru." in block or "Process: com.maru." in block):
+            app_errors.append(block[:450])
     if app_errors:
-        raise AssertionError("Android fatal/security error: "+"\n".join(app_errors[:10]))
+        raise AssertionError("MARU or AHwan crash/security error: "+"\n".join(app_errors[:6]))
     (OUT/"RESULT.txt").write_text(
         "PASS: both APKs installed; Studio launched; microphone recorded; "
         "MediaPlayer preview invoked; URI handoff reached MARU; playback "
