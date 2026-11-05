@@ -43,6 +43,8 @@ public final class AutoGreetingService extends Service {
             "com.maru.musiclive.TTS_RADIO_INTERMISSION";
     private static final String ACTION_SONG_TITLE =
             "com.maru.musiclive.TTS_SONG_TITLE";
+    private static final String ACTION_LIVE_TALK =
+            "com.maru.musiclive.TTS_AHWAN_LIVE_TALK";
     private static final String ACTION_CLOSING =
             "com.maru.musiclive.TTS_CLOSING";
     public static final String ACTION_BROADCAST_CLOSED =
@@ -72,7 +74,7 @@ public final class AutoGreetingService extends Service {
             BroadcastVoicePolicy.orderedLanguages();
 
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final Queue<AnnouncementRequest> queue = new ArrayDeque<>();
+    private final ArrayDeque<AnnouncementRequest> queue = new ArrayDeque<>();
     private final Set<String> queuedKeys = new HashSet<>();
 
     private TextToSpeech tts;
@@ -139,6 +141,21 @@ public final class AutoGreetingService extends Service {
         if (context == null || event == null) return;
         IntermissionStore.recordEvent(context, event);
         AutoGreetingStore.setStatus(context, event.type.koreanLabel + " 감지됨 · 곡 사이 안내 대기");
+    }
+
+    /** Operator-confirmed immediate talk from MARU or the companion studio.
+     * This uses installed local TTS. It does NOT clone the owner's voice and
+     * cannot claim it reaches BIGO microphone or remote listeners. */
+    public static boolean speakLiveText(Context context, String text, String language) {
+        if (context == null || text == null) return false;
+        String safe = text.replaceAll("[\\p{Cntrl}]", " ").trim();
+        if (safe.isEmpty()) return false;
+        if (safe.length() > 300) safe = safe.substring(0, 300);
+        return safeStart(context, new Intent(context, AutoGreetingService.class)
+                .setAction(ACTION_LIVE_TALK)
+                .putExtra(EXTRA_VALUE, safe)
+                .putExtra(EXTRA_LANGUAGE, GreetingLanguage.normalize(language))
+                .putExtra(EXTRA_RESUME_INDEX, -1));
     }
 
     /** 설정 화면의 단독 제목 TTS 테스트용. 방송 자동 재생 경로에서는 사용하지 않는다. */
@@ -340,6 +357,7 @@ public final class AutoGreetingService extends Service {
         if (!ACTION_INTERMISSION.equals(action)
                 && !ACTION_RADIO_INTERMISSION.equals(action)
                 && !ACTION_SONG_TITLE.equals(action)
+                && !ACTION_LIVE_TALK.equals(action)
                 && !ACTION_CLOSING.equals(action)) {
             return START_NOT_STICKY;
         }
@@ -361,7 +379,12 @@ public final class AutoGreetingService extends Service {
                 AnnouncementRequest removed = queue.poll();
                 if (removed != null) queuedKeys.remove(removed.key());
             }
-            queue.offer(request);
+            if (request.kind == AnnouncementRequest.KIND_LIVE_TALK) {
+                // Prioritize operator-triggered replies over later scheduled intros.
+                queue.addFirst(request);
+            } else {
+                queue.offer(request);
+            }
             queuedKeys.add(requestKey);
         }
         main.post(this::playNext);
@@ -437,7 +460,10 @@ public final class AutoGreetingService extends Service {
             activeDialogue = null;
         }
 
-        if (isRadioRequest()) {
+        if (request.kind == AnnouncementRequest.KIND_LIVE_TALK) {
+            announceHostVisual(BroadcastMediaSelector.TALK);
+            speakSingleLanguage(request, request.language);
+        } else if (isRadioRequest()) {
             announceHostVisual(BroadcastMediaSelector.TALK);
             // Only the app itself receives the approved story's scene ID.
             sendBroadcast(new Intent().setAction(ACTION_STORY_VISUAL).setPackage(getPackageName())
@@ -707,6 +733,8 @@ public final class AutoGreetingService extends Service {
                     request.followNames);
         } else if (request.kind == AnnouncementRequest.KIND_CLOSING) {
             message = BroadcastClosingText.build(language);
+        } else if (request.kind == AnnouncementRequest.KIND_LIVE_TALK) {
+            message = request.value;
         } else {
             message = TtsAnnouncementText.songTitle(request.value, language);
         }
@@ -969,6 +997,7 @@ public final class AutoGreetingService extends Service {
         static final int KIND_SONG_TEST = 2;
         static final int KIND_CLOSING = 3;
         static final int KIND_RADIO = 4;
+        static final int KIND_LIVE_TALK = 5;
 
         final int kind;
         final String value;
@@ -1032,6 +1061,12 @@ public final class AutoGreetingService extends Service {
                 radio.listenerRequested = intent.getBooleanExtra(EXTRA_LISTENER_REQUESTED, false);
                 radio.resumeToken = intent.getStringExtra(EXTRA_ANNOUNCEMENT_TOKEN);
                 return radio;
+            }
+            if (ACTION_LIVE_TALK.equals(action)) {
+                return new AnnouncementRequest(
+                        KIND_LIVE_TALK,
+                        value, language,
+                        new ArrayList<>(), new ArrayList<>(), -1);
             }
             if (ACTION_CLOSING.equals(action)) {
                 return new AnnouncementRequest(

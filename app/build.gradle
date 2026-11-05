@@ -24,12 +24,19 @@ android {
         if (project.hasProperty('maruDjVoiceSelector')) {
             applicationId 'com.maru.musiclive.ahwanvoice.v20261101'
         }
+        // Dedicated MARU voice-bridge APK installs beside earlier differently signed
+        // MARU installations. No access to existing apps' saved private data.
+        if (project.hasProperty('maruVoiceBridge')) {
+            applicationId 'com.maru.musiclive.voicebridge.v20261105'
+        }
         // Preview installs beside the previous MARU apps, never overwrites their data.
         if (project.hasProperty('maruLibraryPreview')) {
             applicationId 'com.maru.musiclive.librarypreview'
         }
         manifestPlaceholders = [
-            maruAppLabel: project.hasProperty('maruDjVoiceSelector')
+            maruAppLabel: project.hasProperty('maruVoiceBridge')
+                ? 'MARU 아환 토크연결'
+                : project.hasProperty('maruDjVoiceSelector')
                 ? 'MARU 아환 음성선택'
                 : project.hasProperty('maruInstallRepair')
                 ? 'MARU 3언어 새설치'
