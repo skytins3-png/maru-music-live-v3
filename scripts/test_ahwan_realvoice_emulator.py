@@ -127,6 +127,13 @@ try:
     print("5. Send user-approved voice file to MARU with URI read grant",flush=True)
     tap_named("MARU RADIO로 음성 보내기")
     time.sleep(6)
+    # On its first launch MARU enters Android immersive fullscreen.
+    # Android may show a one-time OS tutorial overlay that blocks all
+    # in-app controls; dismiss that system overlay rather than failing.
+    root = xml_dump()
+    if "Viewing full screen" in all_text(root):
+        tap_named("Got it", scroll=False)
+        time.sleep(2)
     require_text("아환 실제 목소리")
     require_text("지금 재생")
     snap("04-maru-received")
