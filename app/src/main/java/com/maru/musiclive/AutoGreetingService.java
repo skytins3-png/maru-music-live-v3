@@ -250,6 +250,10 @@ public final class AutoGreetingService extends Service {
     }
 
     private static boolean safeStart(Context context, Intent intent) {
+        if (BuildConfig.AHWAN_CLIP_ONLY) {
+            AutoGreetingStore.setStatus(context, "실제 목소리 전용 · TTS 사용 안 함");
+            return false;
+        }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent);
@@ -270,6 +274,10 @@ public final class AutoGreetingService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        if (BuildConfig.AHWAN_CLIP_ONLY) {
+            stopSelf();
+            return;
+        }
         createChannel();
         startForeground(NOTIFICATION_ID, notification("곡 사이 통합 안내 준비 중"));
         initializeTts();
