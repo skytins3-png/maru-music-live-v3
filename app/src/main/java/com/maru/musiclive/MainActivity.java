@@ -326,10 +326,44 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         importSharedOriginals(intent);
     }
 
+    /** Accept text only after operator confirmation; no automated external access. */
+    private void receiveAhwanLiveTalk(Intent intent) {
+        String raw = intent.getStringExtra(Intent.EXTRA_TEXT);
+        if (raw == null) return;
+        String phrase = raw.replaceAll("[\\p{Cntrl}]", " ").trim();
+        if (phrase.length() > 300) phrase = phrase.substring(0, 300);
+        if (phrase.isEmpty()) return;
+        String language = GreetingLanguage.normalize(
+                intent.getStringExtra("com.maru.ahwanvoice.LANGUAGE"));
+        final String message = phrase;
+        if (AppStorage.selectedDjVoice(this, language).isEmpty()) {
+            new AlertDialog.Builder(this)
+                    .setTitle("아환 DJ 목소리 선택 필요")
+                    .setMessage("MARU에서 " + GreetingLanguage.koreanLabel(language)
+                            + " 목소리를 미리 듣고 저장한 뒤 다시 보내주세요. "
+                            + "다른 여성 TTS 음성으로 자동 대체하지 않습니다.")
+                    .setPositiveButton("확인", null).show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("아환 실시간 토크 · 지금 말하기")
+                .setMessage(message + "\n\n승인하면 곧바로 MARU에서 읽기를 요청합니다. "
+                        + "청취자에게 BIGO 실제 송출되는지는 확인이 필요합니다.")
+                .setPositiveButton("지금 말하기", (dialog, index) -> {
+                    if (!AutoGreetingService.speakLiveText(this, message, language))
+                        toast("실시간 토크 요청 실패");
+                }).setNegativeButton("취소", null).show();
+    }
+
     /** Accept audio files the user explicitly shares from Suno or a file manager. */
     private void importSharedOriginals(Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
+        if (Intent.ACTION_SEND.equals(action)
+                && "text/plain".equals(intent.getType())) {
+            receiveAhwanLiveTalk(intent);
+            return;
+        }
         if (!Intent.ACTION_SEND.equals(action)
                 && !Intent.ACTION_SEND_MULTIPLE.equals(action)) return;
 
@@ -996,6 +1030,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.addView(button("AI 가수 32명 · 고유 음색·창법 제작표", v ->
                 showSunoArtistRoster()));
         column.addView(button("아환 방송 목소리 직접 선택 · 영어·한국어·중국어", v -> showDjVoiceLanguages()));
+        column.addView(button("아환 실시간 토크 직접 말하기", v -> showManualLiveTalk()));
+        column.addView(button("별도 아환 음성 스튜디오 열기", v -> {
+            Intent launch = getPackageManager().getLaunchIntentForPackage("com.maru.ahwanvoice.studio");
+            if (launch == null) toast("아환 음성 스튜디오 앱이 설치되지 않았습니다.");
+            else startActivity(launch);
+        }));
         column.addView(button("휴대폰 TTS 음성 데이터 설치·설정", v -> openTtsSettings()));
         column.addView(button("댓글 인식 · 화면 답변", v ->
                 requestScreenCapture(ScreenOcrGreetingService.MODE_AUTO_GREETING)));
@@ -1869,6 +1909,37 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
 
     /** Android TTS voices have no reliable male/female metadata. The operator
      * listens to each installed offline voice and explicitly saves their choice. */
+    /** User-initiated text/approval; no scraping BIGO or third-party app data. */
+    private void showManualLiveTalk() {
+        EditText field = new EditText(this);
+        field.setMinLines(2);
+        field.setHint("지금 할 방송 멘트 또는 댓글 답변");
+        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT |
+                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        new AlertDialog.Builder(this)
+                .setTitle("아환 실시간 토크")
+                .setView(field)
+                .setPositiveButton("언어 선택", (dialog, index) -> {
+                    String[] codes = {GreetingLanguage.KOREAN, GreetingLanguage.ENGLISH,
+                            GreetingLanguage.CHINESE};
+                    String[] labels = {"한국어", "English", "中文"};
+                    new AlertDialog.Builder(this)
+                            .setTitle("바로 말할 언어")
+                            .setItems(labels, (d, which) -> {
+                                String code = codes[which];
+                                if (AppStorage.selectedDjVoice(this, code).isEmpty()) {
+                                    toast("먼저 아환 DJ의 " + labels[which]
+                                            + " 목소리를 선택하세요.");
+                                } else if (!AutoGreetingService.speakLiveText(
+                                        this, field.getText().toString(), code)) {
+                                    toast("문장을 입력하거나 음성 엔진을 확인하세요.");
+                                } else {
+                                    toast("MARU 실시간 토크 요청 완료");
+                                }
+                            }).show();
+                }).setNegativeButton("취소", null).show();
+    }
+
     private void showDjVoiceLanguages() {
         String[] codes = {GreetingLanguage.ENGLISH, GreetingLanguage.KOREAN,
                 GreetingLanguage.CHINESE};
