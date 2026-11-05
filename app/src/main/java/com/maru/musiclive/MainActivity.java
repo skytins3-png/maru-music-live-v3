@@ -336,6 +336,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         String language = GreetingLanguage.normalize(
                 intent.getStringExtra("com.maru.ahwanvoice.LANGUAGE"));
         final String message = phrase;
+        String incomingVoice = intent.getStringExtra("com.maru.ahwanvoice.VOICE_NAME");
+        if (AppStorage.selectedDjVoice(this, language).isEmpty()
+                && incomingVoice != null && !incomingVoice.trim().isEmpty()) {
+            final String approvedVoice = incomingVoice.trim();
+            new AlertDialog.Builder(this)
+                    .setTitle("아환 음성 스튜디오 목소리 연결")
+                    .setMessage("스튜디오에서 미리 들은 음성을 MARU에서도 사용하고, "
+                            + "이 멘트를 지금 말할까요?\n" + message)
+                    .setPositiveButton("음성 연결·지금 말하기", (d,w) -> {
+                        AppStorage.setSelectedDjVoice(this, language, approvedVoice);
+                        if (!AutoGreetingService.speakLiveText(this, message, language))
+                            toast("실시간 토크 요청 실패");
+                    }).setNegativeButton("취소", null).show();
+            return;
+        }
         if (AppStorage.selectedDjVoice(this, language).isEmpty()) {
             new AlertDialog.Builder(this)
                     .setTitle("아환 DJ 목소리 선택 필요")
