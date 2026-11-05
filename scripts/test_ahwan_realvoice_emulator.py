@@ -102,9 +102,19 @@ try:
     shell("logcat","-c")
 
     print("2. Launch voice recorder UI and check start-up crashes",flush=True)
-    shell("shell","am","start","-W","-n",
-          STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity")
-    time.sleep(3.0)
+    # Android's system launcher can show a first-boot ANR overlay on
+    # headless virtual machines. Dismiss only that OS overlay and retry.
+    for attempt in range(3):
+        shell("shell","am","start","-W","-n",
+              STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity")
+        time.sleep(3.0)
+        root = xml_dump()
+        visible = all_text(root)
+        if "아환 실제 목소리 스튜디오" in visible:
+            break
+        if "Pixel Launcher isn't responding" in visible:
+            tap_named("Close app", scroll=False)
+            time.sleep(3)
     require_text("아환 실제 목소리 스튜디오")
     snap("01-studio-launched")
 
