@@ -43,7 +43,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          command -v ffmpeg
+          if ! command -v ffmpeg; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
           mkdir -p ahwan_voice/src/androidTest/assets
           ffmpeg -hide_banner -loglevel error -y \
             -f lavfi -i color=c=blue:s=180x320:r=12 \
