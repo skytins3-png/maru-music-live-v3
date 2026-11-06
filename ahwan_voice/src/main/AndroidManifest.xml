@@ -9,7 +9,7 @@
         <package android:name="com.maru.musiclive.english"/>
     </queries>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <application android:label="아환 음성 스튜디오" android:allowBackup="false"
+    <application android:label="아환 LIVE STUDIO" android:allowBackup="false"
         android:usesCleartextTraffic="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".VoiceStudioActivity" android:exported="true">
             <intent-filter>
@@ -17,6 +17,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".LiveShowActivity" android:exported="false"/>
         <provider android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false" android:grantUriPermissions="true">
