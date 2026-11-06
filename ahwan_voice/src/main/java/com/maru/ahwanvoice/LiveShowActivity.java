@@ -37,7 +37,7 @@ public final class LiveShowActivity extends Activity {
         "오태린","임선우","정하온","유도현","문이안","신재온","권도하","장유건","홍시안","송태오",
         "서하린","윤채린","한세아","차나린","백소윤","류서빈","남예린","오하늬","임다온","정유라"
     };
-    private static final String[] CUE_NAMES = {
+    public static final String[] CUE_NAMES = {
         "① 아환 환영 인사", "② 오늘의 가수 초대·근황 대화",
         "③ 가수의 첫 번째 노래", "④ 청취자 사연·답변",
         "⑤ 가수의 두 번째 노래", "⑥ 아환 마무리 인사"
