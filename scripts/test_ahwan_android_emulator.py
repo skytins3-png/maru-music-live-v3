@@ -41,7 +41,12 @@ def tree():
             if begin>=0: return ET.fromstring(xml[begin:])
         except Exception:
             time.sleep(1)
-    raise AssertionError("Could not read Android accessibility UI hierarchy")
+    snap("hierarchy_failure")
+    activity=adb("shell","dumpsys","activity","activities",timeout=25,check=False)
+    (OUT/"activity-hierarchy-failure.txt").write_text(activity,encoding="utf-8")
+    log=adb("logcat","-d","-s","AndroidRuntime:E",timeout=25,check=False)
+    (OUT/"crashlog-hierarchy-failure.txt").write_text(log,encoding="utf-8")
+    raise AssertionError("Could not read Android accessibility UI hierarchy; see screenshots and crash log")
 
 def nodes():
     return list(tree().iter("node"))
@@ -84,8 +89,12 @@ packages=adb("shell","pm","list","packages")
 assert "package:"+STUDIO in packages and "package:"+RADIO in packages
 result("Both real APKs install together",True)
 adb("shell","pm","grant",STUDIO,"android.permission.RECORD_AUDIO")
-adb("shell","am","start","-n",STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity")
-time.sleep(4)
+adb("shell","input","keyevent","82",check=False)
+adb("shell","input","keyevent","3",check=False)
+adb("shell","am","start","-W","-n",STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity",timeout=60)
+time.sleep(10)
+result("Studio app process alive",bool(adb("shell","pidof",STUDIO,check=False).strip()))
+assert checks[-1][1]
 snap("01_studio_launch")
 result("Voice Studio launches",text_present("아환 실제 목소리"),"no synthetic TTS expected")
 assert checks[-1][1]
