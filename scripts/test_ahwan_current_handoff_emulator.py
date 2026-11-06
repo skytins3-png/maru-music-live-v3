@@ -53,10 +53,19 @@ def all_text(root):
 def tap_named(name, scroll=True):
     for attempt in range(10 if scroll else 2):
         root = xml_dump()
-        for node in root.iter():
-            text = node.attrib.get("text", "")
-            if name in text:
-                m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
+        nodes = list(root.iter())
+        # Exact clickable button first. The confirmation dialog's message
+        # contains "지금 재생할까요?" and tapping that TextView does nothing.
+        for candidates in (
+            [n for n in nodes if n.attrib.get("text", "") == name
+             and n.attrib.get("clickable") == "true"],
+            [n for n in nodes if n.attrib.get("text", "") == name],
+            [n for n in nodes if name in n.attrib.get("text", "")
+             and n.attrib.get("clickable") == "true"],
+            [n for n in nodes if name in n.attrib.get("text", "")],
+        ):
+            for node in candidates:
+                m = re.match(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
                              node.attrib.get("bounds", ""))
                 if not m:
                     continue
@@ -64,15 +73,15 @@ def tap_named(name, scroll=True):
                 if r <= l or b <= t:
                     continue
                 shell("shell","input","tap",str((l+r)//2),str((t+b)//2))
-                print("Tapped:", name, flush=True)
+                print("Tapped exact control:" if node.attrib.get("text") == name
+                      else "Tapped matching control:", name, flush=True)
                 time.sleep(2.0)
                 return
         if scroll:
-            # Scroll the view rather than restarting activities or repeating actions.
             shell("shell","input","swipe","520","1530","520","520","550")
             time.sleep(.8)
     raise AssertionError("Could not find visible button: "+name+
-                         "\nvisible: "+all_text(root)[:1800])
+                         "\\nvisible: "+all_text(root)[:1800])
 
 def require_text(text):
     root=xml_dump()
