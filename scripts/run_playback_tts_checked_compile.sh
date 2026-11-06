@@ -9,6 +9,15 @@ mkdir -p "$SRC/android/app" "$SRC/android/content" "$SRC/android/media" \
   "$SRC/android/net" "$SRC/android/os" "$SRC/android/speech/tts" \
   "$SRC/androidx/core/app" "$SRC/com/maru/musiclive" "$CLS"
 
+cat > "$SRC/com/maru/musiclive/BuildConfig.java" <<'JAVA'
+package com.maru.musiclive;
+/** Compile-only stand-in; the Android Gradle Plugin generates the real BuildConfig. */
+public final class BuildConfig {
+    public static final boolean AHWAN_CLIP_ONLY = false;
+    private BuildConfig() {}
+}
+JAVA
+
 cat > "$SRC/com/maru/musiclive/AutoReplyPolicy.java" <<'JAVA'
 package com.maru.musiclive;
 

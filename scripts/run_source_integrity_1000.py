@@ -79,31 +79,62 @@ def sha256(path: Path) -> str:
 
 
 def balanced(text: str, opening: str, closing: str) -> bool:
+    """Check Groovy brace balance without treating comments as code.
+
+    Apostrophes and braces in // or /* */ comments must not change quote or
+    brace state.  This is a lightweight source guard, not a Gradle parser.
+    """
     level = 0
     quote = None
     escaped = False
-    for char in text:
-        if escaped:
-            escaped = False
+    line_comment = False
+    block_comment = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        following = text[index + 1] if index + 1 < len(text) else ""
+
+        if line_comment:
+            if char == "\n":
+                line_comment = False
+            index += 1
             continue
-        if char == "\\":
-            escaped = True
+        if block_comment:
+            if char == "*" and following == "/":
+                block_comment = False
+                index += 2
+            else:
+                index += 1
             continue
-        if quote:
-            if char == quote:
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
                 quote = None
+            index += 1
+            continue
+
+        if char == "/" and following == "/":
+            line_comment = True
+            index += 2
+            continue
+        if char == "/" and following == "*":
+            block_comment = True
+            index += 2
             continue
         if char in ("'", '"'):
             quote = char
-            continue
-        if char == opening:
+        elif char == opening:
             level += 1
         elif char == closing:
             level -= 1
             if level < 0:
                 return False
-    return level == 0 and quote is None
+        index += 1
 
+    return level == 0 and quote is None and not block_comment
 
 def validate_static_once() -> list[str]:
     errors: list[str] = []
