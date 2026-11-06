@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p deliverables
-          cp ahwan_voice/build/outputs/apk/release/ahwan_voice-release.apk deliverables/AHWAN-VOICE-STUDIO-LIVE-V0.1.apk
+          cp ahwan_voice/build/outputs/apk/release/ahwan_voice-release.apk deliverables/AHWAN-LIVE-STUDIO-V0.5-STAGE.apk
           cp app/build/outputs/apk/release/app-release.apk deliverables/MARU-VOICE-BRIDGE-V3.2.25.apk
           for file in deliverables/*.apk; do
             unzip -t "$file" > /dev/null
@@ -77,7 +77,7 @@ jobs:
               exit 1
             fi
           done
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging deliverables/AHWAN-VOICE-STUDIO-LIVE-V0.1.apk | grep -F "package: name='com.maru.ahwanvoice.studio'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging deliverables/AHWAN-LIVE-STUDIO-V0.5-STAGE.apk | grep -F "package: name='com.maru.ahwanvoice.stage.v20261107'"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging deliverables/MARU-VOICE-BRIDGE-V3.2.25.apk | grep -F "package: name='com.maru.musiclive.voicebridge.v20261105'"
           (cd deliverables && sha256sum *.apk > SHA256SUMS.txt)
       - name: Upload paired APKs
