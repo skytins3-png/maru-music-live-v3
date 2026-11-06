@@ -28,6 +28,8 @@ import android.widget.TextView;
  */
 public final class LiveShowActivity extends Activity {
     private static final int PICK_CUE = 401;
+    private static final int PICK_VISUAL = 402;
+    private static final long MAX_VISUAL = 300L * 1024L * 1024L;
     private static final String PREFS = "ahwan_live_show_v1";
     private static final long MAX_FILE = 160L * 1024L * 1024L;
     public static final String[] SINGERS = {
@@ -47,6 +49,7 @@ public final class LiveShowActivity extends Activity {
     private Button[] cueButtons = new Button[ShowQueue.CUE_COUNT];
     private MediaPlayer player;
     private int activeSinger = 0, selectedCue = -1, playingCue = -1;
+    private int visualSelectedSinger = -1, visualSelectedCue = -1;
     private int lastFinishedCueCount = 0;
     private boolean autoAdvance, paused;
 
@@ -119,6 +122,17 @@ public final class LiveShowActivity extends Activity {
             startActivity(writer);
         });
         label(column,"토크 작가에서 대본을 승인한 뒤 실제 음성으로 녹음하여 방송실의 토크 코너에 등록하세요.",12,0xFF596474);
+        button(column,"🎬 방송 영상·표지 관리 (등록·교체·삭제)",v -> chooseVisualSource());
+        button(column,"▶ 전체화면 방송 화면 시작 · 영상+음악",v -> {
+            stop();
+            Intent show=new Intent(this,BroadcastStageActivity.class);
+            show.putExtra(BroadcastStageActivity.EXTRA_SINGER,activeSinger);
+            startActivity(show);
+        });
+        label(column,"세로 화면을 검은 여백 없이 채우는 로컬 영상 무대입니다. "
+                +"화면은 방송 처음부터 끝까지 계속 보이고, 토크/노래 코너마다 지정한 "
+                +"영상 또는 이미지를 표시합니다. BIGO 오디오 LIVE 내부 화면 공유는 별도 확인이 필요합니다.",
+                12,0xFF596474);
         label(column,"초대 → 대화 → 노래 → 사연 → 노래 → 마무리",17,0xFF173A58);
         for (int i=0; i<ShowQueue.CUE_COUNT; i++) {
             final int slot=i;
@@ -169,6 +183,100 @@ public final class LiveShowActivity extends Activity {
         return source.length()>max?source.substring(0,max)+"…":source;
     }
 
+    private void chooseVisualSource() {
+        String[] options=new String[ShowQueue.CUE_COUNT+1];
+        options[0]="기본 방송 배경 (모든 코너 대체)";
+        for(int i=0;i<ShowQueue.CUE_COUNT;i++)options[i+1]=CUE_NAMES[i]+" 화면";
+        new AlertDialog.Builder(this)
+                .setTitle("방송 영상·표지 관리")
+                .setItems(options,(dialog,which)->visualActions(which-1))
+                .setNegativeButton("취소",null).show();
+    }
+    private String visualKey(int which,int whichSinger) {
+        return which<0?BroadcastStageActivity.DEFAULT_VISUAL_KEY:
+                "stage_s"+whichSinger+"_c"+which+"_visual_uri";
+    }
+    private String mimeKey(int which,int whichSinger) {
+        return which<0?BroadcastStageActivity.DEFAULT_VISUAL_MIME:
+                "stage_s"+whichSinger+"_c"+which+"_visual_mime";
+    }
+    private void visualActions(int chosenCue) {
+        int snapshotSinger=activeSinger;
+        boolean saved=!pref.getString(visualKey(chosenCue,snapshotSinger),"").isEmpty();
+        new AlertDialog.Builder(this)
+                .setTitle(chosenCue<0?"기본 방송 배경":CUE_NAMES[chosenCue]+" 화면")
+                .setMessage(saved?"등록된 이미지·동영상이 있습니다. 교체나 해제가 가능합니다.":
+                        "이 화면의 영상 또는 표지가 아직 없습니다.")
+                .setPositiveButton(saved?"교체":"영상·이미지 선택",(d,w)->
+                        confirmVisualRights(chosenCue,snapshotSinger))
+                .setNeutralButton(saved?"등록 해제":"닫기",(d,w)->{
+                    if(saved) {
+                        pref.edit()
+                          .remove(visualKey(chosenCue,snapshotSinger))
+                          .remove(mimeKey(chosenCue,snapshotSinger)).apply();
+                        status.setText("이 화면의 영상 연결 해제 · 원본 파일은 보존했습니다.");
+                    }
+                })
+                .setNegativeButton("취소",null).show();
+    }
+    private void confirmVisualRights(int chosenCue,int chosenSinger) {
+        new AlertDialog.Builder(this)
+            .setTitle("방송 영상·초상권 확인")
+            .setMessage("이 영상이나 사진에 대한 BIGO 방송 사용 허락이 있나요? "
+                    +"실존 인물의 얼굴·음성을 포함한다면 공개 동의도 확인해야 합니다. "
+                    +"가상 AI 인물은 화면에서 가상임을 표시합니다.")
+            .setPositiveButton("권리 확인 후 선택",(d,w)->{
+                visualSelectedCue=chosenCue;
+                visualSelectedSinger=chosenSinger;
+                Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES,
+                        new String[]{"video/*","image/*"});
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        |Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                startActivityForResult(intent,PICK_VISUAL);
+            })
+            .setNegativeButton("취소",null).show();
+    }
+    private void importVisual(Intent data){
+        if(data==null||data.getData()==null||visualSelectedSinger<0)return;
+        Uri uri=data.getData();
+        if(!"content".equals(uri.getScheme())) {
+            status.setText("안전한 파일 선택기를 통해 이미지 또는 영상을 선택하세요.");
+            return;
+        }
+        String mime=getContentResolver().getType(uri);
+        if(mime==null || !(mime.startsWith("video/") || mime.startsWith("image/"))) {
+            status.setText("이미지와 동영상만 등록할 수 있습니다.");
+            return;
+        }
+        long limit=mime.startsWith("video/")?MAX_VISUAL:30L*1024L*1024L;
+        try(Cursor c=getContentResolver().query(uri,
+                new String[]{OpenableColumns.SIZE},null,null,null)){
+            if(c!=null&&c.moveToFirst()) {
+                int index=c.getColumnIndex(OpenableColumns.SIZE);
+                if(index>=0&&!c.isNull(index)&&c.getLong(index)>limit){
+                    status.setText("영상은 300MB, 이미지는 30MB 이하로 선택하세요.");
+                    return;
+                }
+            }
+        }catch(RuntimeException ignored){}
+        try {
+            getContentResolver().takePersistableUriPermission(
+                    uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }catch(SecurityException ex){
+            status.setText("장기 접근 권한 없음 · 다운로드 폴더에서 다시 선택하세요.");
+            return;
+        }
+        pref.edit().putString(visualKey(visualSelectedCue,visualSelectedSinger),uri.toString())
+                .putString(mimeKey(visualSelectedCue,visualSelectedSinger),mime)
+                .apply();
+        status.setText("영상/이미지 등록 완료 · 전체화면 방송 시작에서 확인하세요.");
+        visualSelectedSinger=-1;
+        visualSelectedCue=-1;
+    }
+
     private void chooseCue(int index) {
         if (player!=null) stop();
         selectedCue=index;
@@ -203,6 +311,10 @@ public final class LiveShowActivity extends Activity {
 
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==PICK_VISUAL){
+            if(result==RESULT_OK)importVisual(data);
+            return;
+        }
         if (request!=PICK_CUE || result!=RESULT_OK || data==null
                 || data.getData()==null || selectedCue<0) return;
         Uri uri=data.getData();
