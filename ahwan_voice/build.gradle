@@ -5,11 +5,12 @@ android {
     namespace 'com.maru.ahwanvoice'
     compileSdk 36
     defaultConfig {
-        applicationId 'com.maru.ahwanvoice.realclips'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        applicationId 'com.maru.ahwanvoice.show.v20261106'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '0.2-real-voice-only'
+        versionCode 1
+        versionName '0.3-guest-show-test'
     }
     buildTypes {
         release {
@@ -26,4 +27,8 @@ android {
 
 dependencies {
     implementation 'androidx.core:core:1.16.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }
