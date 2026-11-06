@@ -238,6 +238,9 @@ public final class VoiceStudioActivity extends Activity {
         if(recordingNow){status.setText("녹음 종료 후 보내세요.");return;}
         Uri uri=clip();
         if(uri==null){status.setText("전송할 음성 파일을 먼저 등록하세요.");return;}
+        // Stop the studio preview before MARU is offered the same clip.
+        // Otherwise two MediaPlayers can overlap on Android audio focus.
+        stopPlayback();
         Intent send=new Intent(Intent.ACTION_SEND);
         send.setClassName(TARGET_PACKAGE,TARGET_ACTIVITY);
         send.setType("audio/*");
