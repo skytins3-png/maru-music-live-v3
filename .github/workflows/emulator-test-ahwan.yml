@@ -26,6 +26,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Android SDK 36
         run: |
           yes | sdkmanager --licenses > /dev/null || true
@@ -43,7 +45,7 @@ jobs:
           mkdir -p verified-arm64
           cp ahwan_voice/build/outputs/apk/release/ahwan_voice-release.apk verified-arm64/AHWAN-REAL-VOICE-NO-TTS-V0.2.apk
           cp app/build/outputs/apk/release/app-release.apk verified-arm64/MARU-REAL-VOICE-ONLY-BRIDGE-V3.2.25.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify verified-arm64/*.apk || for a in verified-arm64/*.apk; do "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$a"; done
+          for a in verified-arm64/*.apk; do "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$a"; done
       - name: Build equivalent x86_64 emulator APK, no changes to user release
         run: |
           set -euo pipefail
