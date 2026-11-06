@@ -65,7 +65,7 @@ def tap_named(name, scroll=True):
             [n for n in nodes if name in n.attrib.get("text", "")],
         ):
             for node in candidates:
-                m = re.match(r"\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]",
+                m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
                              node.attrib.get("bounds", ""))
                 if not m:
                     continue
@@ -81,7 +81,7 @@ def tap_named(name, scroll=True):
             shell("shell","input","swipe","520","1530","520","520","550")
             time.sleep(.8)
     raise AssertionError("Could not find visible button: "+name+
-                         "\\nvisible: "+all_text(root)[:1800])
+                         "\nvisible: "+all_text(root)[:1800])
 
 def require_text(text):
     root=xml_dump()
