@@ -89,6 +89,9 @@ packages=adb("shell","pm","list","packages")
 assert "package:"+STUDIO in packages and "package:"+RADIO in packages
 result("Both real APKs install together",True)
 adb("shell","pm","grant",STUDIO,"android.permission.RECORD_AUDIO")
+# Initial MARU notification prompt may hide its audio confirmation dialog.
+# This is an isolated emulator permission, never the user's phone.
+adb("shell","pm","grant",RADIO,"android.permission.POST_NOTIFICATIONS",check=False)
 adb("shell","input","keyevent","82",check=False)
 adb("shell","input","keyevent","3",check=False)
 adb("shell","am","start","-W","-n",STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity",timeout=60)
@@ -121,6 +124,15 @@ try:
         time.sleep(9)
         snap("04_maru_share_dialog")
         dialog=text_present("아환 실제 목소리",scrolling=False) or text_present("지금 재생",scrolling=False)
+        if not dialog:
+            # Capture the currently foreground window and visible text to separate
+            # a MARU dialog problem from Android's first-install permission UI.
+            (OUT/"share_window.txt").write_text(
+                adb("shell","dumpsys","window","windows",check=False,timeout=40),encoding="utf-8")
+            (OUT/"share_activity.txt").write_text(
+                adb("shell","dumpsys","activity","activities",check=False,timeout=40),encoding="utf-8")
+            (OUT/"share_ui.xml").write_text(
+                adb("shell","uiautomator","dump","/dev/tty",check=False,timeout=40),encoding="utf-8")
         result("Cross-app recorded-audio handoff",dialog)
         if dialog:
             tap("지금 재생")
@@ -138,10 +150,16 @@ snap("06_maru_launch")
 current=adb("shell","pidof",RADIO,check=False).strip()
 result("MARU main process survives launch",bool(current),current)
 adb("shell","input","keyevent","3")
-adb("shell","am","start","-n",STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity",check=False)
-time.sleep(3)
+adb("shell","am","start","-W","-n",STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity",check=False,timeout=50)
+time.sleep(7)
 snap("07_studio_reopen")
-result("Studio survives background/foreground",text_present("아환 실제 목소리"))
+studio_back=text_present("아환 실제 목소리",scrolling=False)
+if not studio_back:
+    (OUT/"reopen_activity.txt").write_text(
+        adb("shell","dumpsys","activity","activities",check=False,timeout=40),encoding="utf-8")
+    (OUT/"reopen_ui.xml").write_text(
+        adb("shell","uiautomator","dump","/dev/tty",check=False,timeout=40),encoding="utf-8")
+result("Studio survives background/foreground",studio_back)
 raw=adb("logcat","-d","-s","AndroidRuntime:E",timeout=40,check=False)
 (OUT/"android-runtime-errors.txt").write_text(raw,encoding="utf-8")
 fatal=any(p in raw for p in [
