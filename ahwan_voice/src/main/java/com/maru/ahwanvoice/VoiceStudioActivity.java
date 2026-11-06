@@ -63,6 +63,8 @@ public final class VoiceStudioActivity extends Activity {
         scroll.addView(area);
         setContentView(scroll);
         text(area,"아환 실제 목소리 스튜디오",25,0xFF163A58);
+        button(area,"🎙 아환 LIVE 초대·토크·노래 방송실 열기", () ->
+                startActivity(new Intent(this, LiveShowActivity.class)));
         text(area,"휴대폰 TTS 사용 안 함 · 실제 녹음 및 본인 음성 파일만 재생",13,0xFF324C5C);
         text(area,"언어 선택",17,0xFF163A58);
         languages = new Spinner(this);
