@@ -119,6 +119,15 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     private LinearLayout miniMediaActions;
     private MediaPlayer ownVoicePreview;
     private MediaPlayer ahwanClipPlayer;
+    private final Runnable ahwanClipDucking = new Runnable() {
+        @Override public void run() {
+            // Keep background songs soft while the REAL pre-recorded voice talks.
+            if (ahwanClipPlayer != null && playback != null) {
+                playback.setHostVolume(0.22f);
+                handler.postDelayed(this, 7_000L);
+            }
+        }
+    };
     private TextToSpeech djVoicePreview;
     private int djVoicePreviewGeneration;
     private TextView ownVoiceStatus;
@@ -412,31 +421,58 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
     }
 
     private void playAhwanClip(String saved) {
+        android.util.Log.i("AhwanClipPlayback", "PLAY_REQUESTED");
         stopAhwanClip();
         try {
             ahwanClipPlayer = new MediaPlayer();
             ahwanClipPlayer.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-            ahwanClipPlayer.setDataSource(this, Uri.parse(saved));
+            Uri sourceUri = Uri.parse(saved);
+            if ("file".equalsIgnoreCase(sourceUri.getScheme())
+                    && sourceUri.getPath() != null) {
+                // For files already copied into this app's private storage,
+                // an absolute local path is more robust than a file:// resolver.
+                ahwanClipPlayer.setDataSource(sourceUri.getPath());
+            } else {
+                ahwanClipPlayer.setDataSource(this, sourceUri);
+            }
+            android.util.Log.i("AhwanClipPlayback", "DATASOURCE_READY");
             ahwanClipPlayer.setOnPreparedListener(mp -> {
-                mp.start();
-                toast("아환 실제 녹음 재생 중 · 합성 음성 아님");
+                if (ahwanClipPlayer != mp) return;
+                try {
+                    mp.start();
+                    handler.removeCallbacks(ahwanClipDucking);
+                    ahwanClipDucking.run();
+                    android.util.Log.i("AhwanClipPlayback", "PLAYBACK_STARTED");
+                    toast("아환 실제 녹음 재생 중 · 합성 음성 아님");
+                } catch (RuntimeException error) {
+                    android.util.Log.e("AhwanClipPlayback", "PLAYBACK_FAILED", error);
+                    stopAhwanClip();
+                    toast("아환 음성 재생 실패");
+                }
             });
-            ahwanClipPlayer.setOnCompletionListener(mp -> stopAhwanClip());
+            ahwanClipPlayer.setOnCompletionListener(mp -> {
+                android.util.Log.i("AhwanClipPlayback", "PLAYBACK_COMPLETED");
+                stopAhwanClip();
+            });
             ahwanClipPlayer.setOnErrorListener((mp, what, extra) -> {
                 stopAhwanClip();
                 toast("아환 파일 재생 실패");
                 return true;
             });
             ahwanClipPlayer.prepareAsync();
+            android.util.Log.i("AhwanClipPlayback", "PREPARE_ASYNC");
         } catch (Exception ex) {
+            android.util.Log.e("AhwanClipPlayback", "LOAD_FAILED", ex);
             stopAhwanClip();
             toast("음성 파일을 열 수 없습니다.");
         }
     }
 
     private void stopAhwanClip() {
+        handler.removeCallbacks(ahwanClipDucking);
+        if (playback != null) playback.setHostVolume(1f);
         if (ahwanClipPlayer != null) {
             try { ahwanClipPlayer.stop(); } catch (RuntimeException ignored) {}
             ahwanClipPlayer.release();
