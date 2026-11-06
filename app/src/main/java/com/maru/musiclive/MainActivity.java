@@ -418,10 +418,27 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             ahwanClipPlayer.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-            ahwanClipPlayer.setDataSource(this, Uri.parse(saved));
+            Uri localClip = Uri.parse(saved);
+            if ("file".equalsIgnoreCase(localClip.getScheme())
+                    && localClip.getPath() != null) {
+                // Imported bytes are already in MARU private storage.
+                ahwanClipPlayer.setDataSource(localClip.getPath());
+            } else {
+                ahwanClipPlayer.setDataSource(this, localClip);
+            }
             ahwanClipPlayer.setOnPreparedListener(mp -> {
-                mp.start();
-                toast("아환 실제 녹음 재생 중 · 합성 음성 아님");
+                if (mp != ahwanClipPlayer) return; // stale async callback
+                try {
+                    mp.start();
+                    // Marker contains no filenames, content or personal data;
+                    // isolated emulator CI verifies playback began.
+                    android.util.Log.i("AhwanClipPlayback", "PLAYBACK_STARTED");
+                    toast("아환 실제 녹음 재생 중 · 합성 음성 아님");
+                } catch (RuntimeException error) {
+                    android.util.Log.w("AhwanClipPlayback", "PLAYBACK_FAILED");
+                    stopAhwanClip();
+                    toast("아환 음성 재생 실패");
+                }
             });
             ahwanClipPlayer.setOnCompletionListener(mp -> stopAhwanClip());
             ahwanClipPlayer.setOnErrorListener((mp, what, extra) -> {

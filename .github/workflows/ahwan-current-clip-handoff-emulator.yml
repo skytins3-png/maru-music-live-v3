@@ -1,0 +1,83 @@
+name: Android 15 AHwan V0.5 to MARU voice-clip handoff smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'ahwan_voice/**'
+      - 'scripts/test_ahwan_current_handoff_emulator.py'
+      - '.github/workflows/ahwan-current-clip-handoff-emulator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Android SDK 36
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Check source policies and build virtual-phone-only debug APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_voice_policy.py
+          python3 scripts/check_required_media.py
+          gradle --no-daemon :app:testDebugUnitTest :ahwan_voice:testDebugUnitTest
+          gradle --no-daemon :ahwan_voice:assembleDebug :app:assembleDebug -PmaruClipOnly=1 -PmaruEmulatorSmoke=1
+          apktool="$ANDROID_HOME/build-tools/36.0.0"
+          "$apktool/apksigner" verify ahwan_voice/build/outputs/apk/debug/ahwan_voice-debug.apk
+          "$apktool/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          "$apktool/aapt" dump badging ahwan_voice/build/outputs/apk/debug/ahwan_voice-debug.apk |
+            grep -F "package: name='com.maru.ahwanvoice.stage.v20261107'"
+          "$apktool/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk |
+            grep -F "package: name='com.maru.musiclive.clips.v20261105'"
+          if "$apktool/aapt" dump xmltree app/build/outputs/apk/debug/app-debug.apk AndroidManifest.xml |
+              grep -E 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS'; then
+            echo "::error::Unexpected sensitive permission"
+            exit 1
+          fi
+      - name: Enable KVM
+        shell: bash
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+      - name: Android 15 virtual microphone, clip share, MARU MediaPlayer startup
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          script: python3 scripts/test_ahwan_current_handoff_emulator.py
+      - name: Upload isolated virtual device logs (never real user recordings)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AHWAN-MARU-ANDROID15-CLIP-HANDOFF-SMOKE
+          if-no-files-found: warn
+          path: test-results/ahwan-emulator/
+          retention-days: 10
