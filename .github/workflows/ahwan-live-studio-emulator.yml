@@ -39,6 +39,17 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
+      - name: Generate original silent video for virtual-device stage test
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v ffmpeg
+          mkdir -p ahwan_voice/src/androidTest/assets
+          ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i color=c=blue:s=180x320:r=12 \
+            -t 1.2 -an -c:v libx264 -pix_fmt yuv420p \
+            -movflags +faststart ahwan_voice/src/androidTest/assets/stage_loop.mp4
+          test -s ahwan_voice/src/androidTest/assets/stage_loop.mp4
       - name: Unit tests and actual Android APK builds
         run: |
           set -euo pipefail
