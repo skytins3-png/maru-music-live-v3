@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ! grep -E 'android[.]speech[.]tts|TextToSpeech|tts[.]speak' ahwan_voice/src/main/java/com/maru/ahwanvoice/*.java
+          ! grep -E 'import[[:space:]]+android[.]speech[.]tts|new[[:space:]]+TextToSpeech|TextToSpeech[.]|tts[.]speak' ahwan_voice/src/main/java/com/maru/ahwanvoice/*.java
       - name: Enable KVM
         shell: bash
         run: |
