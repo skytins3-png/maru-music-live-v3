@@ -21,6 +21,9 @@ final class RadioShowNarrator {
     private int generation;
     private int position;
     private String pendingUtterance = "";
+    private String currentLine = "";
+    String currentLine() { return currentLine; }
+    boolean isSpeaking() { return completion != null; }
     private Runnable completion;
     private final List<RadioShowLines.Line> lines = new ArrayList<>();
     private Runnable timeout;
@@ -70,6 +73,7 @@ final class RadioShowNarrator {
         RadioShowLines.Line current = lines.get(position++);
         int support = speech.isLanguageAvailable(current.locale);
         if (support < TextToSpeech.LANG_AVAILABLE) {next(ticket);return;}
+        currentLine = current.speaker + ": " + current.text;
         speech.setLanguage(current.locale);
         speech.setPitch(current.pitch);
         speech.setSpeechRate(.98f);
@@ -81,6 +85,7 @@ final class RadioShowNarrator {
         final String expected = pendingUtterance;
         timeout = () -> {
             if (expected.equals(pendingUtterance) && ticket == generation) {
+                pendingUtterance = ""; // Ignore late callbacks from the timed-out sentence.
                 speech.stop();
                 next(ticket);
             }
@@ -88,13 +93,17 @@ final class RadioShowNarrator {
         handler.postDelayed(timeout, 15000L);
     }
     private void onFinishedLine(String utteranceId) {
-        if (utteranceId != null && utteranceId.equals(pendingUtterance)) next(generation);
+        if (utteranceId != null && utteranceId.equals(pendingUtterance)) {
+            pendingUtterance = "";
+            next(generation);
+        }
     }
     private void finish(int ticket) {
         if (ticket != generation) return;
         Runnable done = completion;
         completion = null;
         pendingUtterance = "";
+        currentLine = "";
         lines.clear();
         if (timeout != null) handler.removeCallbacks(timeout);
         timeout = null;
@@ -106,6 +115,7 @@ final class RadioShowNarrator {
         timeout = null;
         pendingUtterance = "";
         completion = null;
+        currentLine = "";
         lines.clear();
         position = 0;
         if (speech != null) speech.stop();

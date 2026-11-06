@@ -44,7 +44,7 @@ checks = {
     "one-time clock reminder": "RadioSchedule" in manifest and "POST_NOTIFICATIONS" in manifest and
         "new Intent(this, RadioAutomationActivity.class)" in activity,
     "schedule confirms live start": all(w in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8") for w in (
-        "handleStartIntent", "beginBroadcast()", "getLaunchIntentForPackage(\"sg.bigo.live\")", "RadioSchedule.set(this, pendingStartAt)")),
+        "handleStartIntent", "beginBroadcast()", "BigoBroadcastGuide.openBigo(this, false)", "RadioSchedule.set(this, pendingStartAt)")),
     "five-language copy-only replies": "RadioReplies.message(language, event)" in (root / "radio/src/main/java/com/maru/radio/RadioAutomationActivity.java").read_text(encoding="utf-8"),
     "no accessibility service or permission": all(s not in manifest for s in
         ("AccessibilityService", "BIND_ACCESSIBILITY_SERVICE", "BigoControlAssist",

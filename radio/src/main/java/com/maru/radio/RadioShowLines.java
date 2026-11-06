@@ -45,6 +45,11 @@ public final class RadioShowLines {
                 "지금 들려드릴 노래는 " + title + " 입니다.", 1.00f));
         return Collections.unmodifiableList(result);
     }
+    public static List<Line> ahwanIntro(String title, String artist) {
+        String singer = artist == null || artist.trim().isEmpty() || "미지정".equals(artist) ? "" : tidy(artist) + "의 ";
+        return Collections.singletonList(new Line("아환", Locale.KOREAN,
+                "마루 라디오 아환입니다. 이번 곡은 " + singer + tidy(title) + "입니다. 함께 들어주세요.", 1.0f));
+    }
     public static String tidy(String raw) {
         if (raw == null) return "제목 없는 자작곡";
         String result = raw.replaceAll("(?i)\\.(mp3|m4a|wav|aac|ogg|flac)$", "")
