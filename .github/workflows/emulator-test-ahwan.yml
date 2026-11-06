@@ -53,6 +53,14 @@ jobs:
           mkdir -p deliverables
           cp verified-arm64/AHWAN-REAL-VOICE-NO-TTS-V0.2.apk deliverables/
           cp app/build/outputs/apk/debug/app-debug.apk deliverables/MARU-REAL-VOICE-ONLY-BRIDGE-V3.2.25.apk
+      - name: Enable nested KVM on GitHub runner for reliable UI
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "::warning::No KVM device on this runner, emulator will be slower"
+          fi
       - name: Start virtual Android 35 and perform recording / playback / MARU handoff
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
@@ -63,7 +71,7 @@ jobs:
           force-avd-creation: true
           disable-animations: true
           emulator-boot-timeout: 600
-          emulator-options: -no-window -no-snapshot -no-boot-anim
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           script: python3 scripts/test_ahwan_android_emulator.py
       - name: Upload virtual device screenshots and test report
         if: always()
