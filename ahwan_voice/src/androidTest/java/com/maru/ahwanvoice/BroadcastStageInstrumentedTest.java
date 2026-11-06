@@ -144,16 +144,19 @@ public class BroadcastStageInstrumentedTest {
         assertTrue(edit.commit());
         try(ActivityScenario<BroadcastStageActivity> scenario=ActivityScenario.launch(launch())){
             AtomicBoolean visible=new AtomicBoolean(false);
-            long deadline=SystemClock.uptimeMillis()+15000;
+            AtomicBoolean actualFrame=new AtomicBoolean(false);
+            long deadline=SystemClock.uptimeMillis()+18000;
             do{
-                SystemClock.sleep(450);
+                SystemClock.sleep(500);
                 scenario.onActivity(stage->{
                     visible.set(stage.videoVisibilityForTest()==View.VISIBLE);
+                    actualFrame.set(stage.videoFrameRenderedForTest());
                     assertTrue("Stage must remain awake",stage.screenOnForTest());
                 });
-                if(visible.get())break;
+                if(actualFrame.get())break;
             }while(SystemClock.uptimeMillis()<deadline);
             assertTrue("Video canvas must be visible",visible.get());
+            assertTrue("Must show decoded BLUE video frame, not black or blank",actualFrame.get());
             scenario.onActivity(stage->{
                 FrameLayout root=(FrameLayout)stage.getWindow().findViewById(android.R.id.content);
                 assertTrue("Portrait video screen",root.getHeight()>root.getWidth());
