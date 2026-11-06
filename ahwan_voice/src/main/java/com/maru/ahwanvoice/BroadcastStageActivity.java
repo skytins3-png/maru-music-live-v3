@@ -418,6 +418,17 @@ public final class BroadcastStageActivity extends Activity
     }
     @Override public void onSurfaceTextureUpdated(SurfaceTexture surface){}
 
+    /** Verify the emulator has decoded blue test pixels, not only opened a view. */
+    public boolean videoFrameRenderedForTest() {
+        if(videoView == null || videoView.getVisibility()!=View.VISIBLE
+                || !videoView.isAvailable())return false;
+        android.graphics.Bitmap frame=videoView.getBitmap(16,16);
+        if(frame==null)return false;
+        int pixel=frame.getPixel(8,8);
+        frame.recycle();
+        return Color.blue(pixel) > Color.red(pixel)+35
+                && Color.blue(pixel) > Color.green(pixel)+35;
+    }
     public int currentCueForTest(){return currentCue;}
     public int completedForTest(){return completed;}
     public boolean screenOnForTest(){
