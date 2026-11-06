@@ -1,8 +1,8 @@
-name: AHwan Live Studio adaptive talk and emulator tests
+name: AHwan fullscreen video stage Android 15 tests
 
 on:
   push:
-    branches: ["feat/ahwan-adaptive-talk-producer-20261107"]
+    branches: ["feat/ahwan-portrait-video-stage-20261107"]
   pull_request:
     branches: [main]
     paths:
@@ -71,15 +71,15 @@ jobs:
           apk="ahwan_voice/build/outputs/apk/release/ahwan_voice-release.apk"
           unzip -t "$apk" > /dev/null
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$apk"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -F "package: name='com.maru.ahwanvoice.show.v20261107'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -F "package: name='com.maru.ahwanvoice.stage.v20261107'"
           mkdir -p verified
-          cp "$apk" verified/AHWAN-LIVE-STUDIO-V0.4-TESTED.apk
+          cp "$apk" verified/AHWAN-LIVE-STUDIO-V0.5-VIDEO-TESTED.apk
           (cd verified && sha256sum *.apk > SHA256SUMS.txt)
       - name: Publish installer only after virtual phone tests pass
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: AHWAN-LIVE-STUDIO-V0.4-ANDROID15-VERIFIED
+          name: AHWAN-LIVE-STUDIO-V0.5-VIDEO-ANDROID15-VERIFIED
           if-no-files-found: error
           path: verified/*
       - name: Save virtual phone test report
