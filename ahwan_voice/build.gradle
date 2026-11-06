@@ -6,11 +6,11 @@ android {
     compileSdk 36
     defaultConfig {
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        applicationId 'com.maru.ahwanvoice.show.v20261106'
+        applicationId 'com.maru.ahwanvoice.show.v20261107'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '0.3-guest-show-test'
+        versionCode 2
+        versionName '0.4-adaptive-talk-preview'
     }
     buildTypes {
         release {

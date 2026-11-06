@@ -113,6 +113,12 @@ public final class LiveShowActivity extends Activity {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
+        button(column,"🧠 AI 토크 작가 · 생활 이야기·개그·학습",v -> {
+            Intent writer=new Intent(this,TalkWriterActivity.class);
+            writer.putExtra(TalkWriterActivity.EXTRA_SINGER_INDEX,activeSinger);
+            startActivity(writer);
+        });
+        label(column,"토크 작가에서 대본을 승인한 뒤 실제 음성으로 녹음하여 방송실의 토크 코너에 등록하세요.",12,0xFF596474);
         label(column,"초대 → 대화 → 노래 → 사연 → 노래 → 마무리",17,0xFF173A58);
         for (int i=0; i<ShowQueue.CUE_COUNT; i++) {
             final int slot=i;
