@@ -124,6 +124,17 @@ try:
         time.sleep(9)
         snap("04_maru_share_dialog")
         dialog=text_present("아환 실제 목소리",scrolling=False) or text_present("지금 재생",scrolling=False)
+        # Collect activity state even on success so failure can be reproduced.
+        (OUT/"share_window.txt").write_text(
+            adb("shell","dumpsys","window","windows",check=False,timeout=40),encoding="utf-8")
+        (OUT/"share_activity.txt").write_text(
+            adb("shell","dumpsys","activity","activities",check=False,timeout=40),encoding="utf-8")
+        (OUT/"share_ui.xml").write_text(
+            adb("shell","uiautomator","dump","/dev/tty",check=False,timeout=40),encoding="utf-8")
+        if not dialog:
+            time.sleep(6)
+            snap("04b_maru_share_retry")
+            dialog=text_present("아환 실제 목소리",scrolling=False) or text_present("지금 재생",scrolling=False)
         if not dialog:
             # Capture the currently foreground window and visible text to separate
             # a MARU dialog problem from Android's first-install permission UI.
@@ -153,7 +164,14 @@ adb("shell","input","keyevent","3")
 adb("shell","am","start","-W","-n",STUDIO+"/com.maru.ahwanvoice.VoiceStudioActivity",check=False,timeout=50)
 time.sleep(7)
 snap("07_studio_reopen")
-studio_back=text_present("아환 실제 목소리",scrolling=False)
+# Activity may reopen at the previous ScrollView position; its title is
+# deliberately offscreen in that case. Check the active package as well.
+activity_info=adb("shell","dumpsys","activity","activities",check=False,timeout=40)
+(OUT/"reopen_activity.txt").write_text(activity_info,encoding="utf-8")
+studio_live=bool(adb("shell","pidof",STUDIO,check=False).strip())
+visible=text_present("아환 실제 목소리",scrolling=False) or text_present("MARU RADIO로 음성 보내기",scrolling=False) or text_present("등록한 음성",scrolling=False)
+studio_front=(STUDIO in activity_info and ("topResumedActivity" in activity_info or "mResumedActivity" in activity_info))
+studio_back=studio_live and visible and studio_front
 if not studio_back:
     (OUT/"reopen_activity.txt").write_text(
         adb("shell","dumpsys","activity","activities",check=False,timeout=40),encoding="utf-8")
