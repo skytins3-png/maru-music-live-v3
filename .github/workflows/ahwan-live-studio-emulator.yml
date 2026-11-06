@@ -1,6 +1,8 @@
 name: AHwan Live Studio actual emulator tests
 
 on:
+  push:
+    branches: ["feat/ahwan-live-guest-show-tested-20261106"]
   pull_request:
     branches: [main]
     paths:
@@ -50,7 +52,7 @@ jobs:
         shell: bash
         run: |
           if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
-      - name: Android 15 virtual phone: six audio cues, empty queue, emergency stop
+      - name: "Android 15 virtual phone - six audio cues, empty queue, emergency stop"
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 35
