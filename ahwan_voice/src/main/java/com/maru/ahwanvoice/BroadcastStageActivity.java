@@ -41,6 +41,7 @@ public final class BroadcastStageActivity extends Activity
     private SharedPreferences prefs;
     private FrameLayout stage;
     private ImageView background;
+    private ShowSceneFallbackView sceneFallback;
     private TextureView videoView;
     private TextView title, overlayStatus, disclosure;
     private LinearLayout controls;
@@ -82,6 +83,12 @@ public final class BroadcastStageActivity extends Activity
         stage.addView(background,new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
 
+        // Original drawn fallback, not remote/downloading content.
+        sceneFallback=new ShowSceneFallbackView(this);
+        sceneFallback.setTag("scene_fallback");
+        stage.addView(sceneFallback,new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.MATCH_PARENT));
+
         videoView=new TextureView(this);
         videoView.setOpaque(false);
         videoView.setSurfaceTextureListener(this);
@@ -111,12 +118,13 @@ public final class BroadcastStageActivity extends Activity
 
         TextView empty=new TextView(this);
         empty.setTextColor(0xFFD8E5F3);
-        empty.setTextSize(18);
+        empty.setTextSize(13);
         empty.setGravity(Gravity.CENTER);
         empty.setText("AHWAN LIVE STUDIO\n\n방송 배경·토크 영상 미등록");
         empty.setTag("fallback_message");
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.CENTER);
+                ViewGroup.LayoutParams.MATCH_PARENT,ViewGroup.LayoutParams.WRAP_CONTENT,Gravity.BOTTOM);
+        fp.bottomMargin=dp(132);
         fp.leftMargin=dp(18);
         fp.rightMargin=dp(18);
         stage.addView(empty,fp);
@@ -274,6 +282,8 @@ public final class BroadcastStageActivity extends Activity
         videoToLoad=null;
         background.setImageDrawable(null);
         videoView.setVisibility(View.GONE);
+        sceneFallback.showCue(cue,LiveShowActivity.SINGERS[singer],singer);
+        sceneFallback.setVisibility(View.VISIBLE);
         TextView fallback=(TextView)stage.findViewWithTag("fallback_message");
         fallback.setVisibility(View.VISIBLE);
         String key=cue<0?DEFAULT_VISUAL_KEY:"stage_s"+singer+"_c"+cue+"_visual_uri";
@@ -287,16 +297,17 @@ public final class BroadcastStageActivity extends Activity
         title.setText(cue<0?"아환 LIVE STUDIO":
                 LiveShowActivity.CUE_NAMES[cue]+" · "+LiveShowActivity.SINGERS[singer]);
         if(source.isEmpty()){
-            fallback.setText(cue<0?"AHWAN LIVE STUDIO\n기본 방송 화면":
-                    "AHWAN LIVE STUDIO\n"+LiveShowActivity.CUE_NAMES[cue]
-                    +"\n\n토크 영상·배경 미등록");
+            fallback.setText("영상·사진 미등록 · 가상 캐릭터 기본 화면");
             return;
         }
         Uri uri=Uri.parse(source);
         if(mime.startsWith("image/")){
             try{
                 background.setImageURI(uri);
-                if(background.getDrawable()!=null) fallback.setVisibility(View.GONE);
+                if(background.getDrawable()!=null) {
+                    fallback.setVisibility(View.GONE);
+                    sceneFallback.setVisibility(View.GONE);
+                }
                 else fallback.setText("배경을 열 수 없습니다 · 새 이미지로 교체하세요.");
             }catch(RuntimeException error){
                 fallback.setText("이미지 파일 접근 실패 · 재등록 필요");
@@ -304,6 +315,7 @@ public final class BroadcastStageActivity extends Activity
             return;
         }
         if(mime.startsWith("video/")){
+            sceneFallback.setVisibility(View.GONE);
             fallback.setVisibility(View.GONE);
             videoView.setVisibility(View.VISIBLE);
             videoToLoad=source;
@@ -361,6 +373,7 @@ public final class BroadcastStageActivity extends Activity
         releaseVideo();
         videoToLoad=null;
         videoView.setVisibility(View.GONE);
+        sceneFallback.setVisibility(View.VISIBLE);
         TextView fallback=(TextView)stage.findViewWithTag("fallback_message");
         fallback.setVisibility(View.VISIBLE);
         fallback.setText("방송 영상 파일을 열 수 없습니다.\n다른 MP4를 선택해 주세요.");
