@@ -1,0 +1,59 @@
+name: Build separate MARU VOICE native APK
+on:
+  push:
+    branches:
+      - voicefx-native-20261108
+    paths:
+      - 'voicefx/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-maru-voicefx-native.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'voicefx/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-maru-voicefx-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  voicefx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Unit tests and native Android debug build
+        run: gradle --no-daemon :voicefx:testDebugUnitTest :voicefx:assembleDebug
+      - name: Verify APK and isolate installed MARU packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=voicefx/build/outputs/apk/debug/voicefx-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.maru.voicefx.v20261108'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/voicefx-manifest.txt
+          ! grep -E 'BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS|SYSTEM_ALERT_WINDOW' /tmp/voicefx-manifest.txt
+          mkdir -p deliverables
+          cp "$APK" deliverables/MARU-VOICE-V1.1-ANDROID-PREVIEW.apk
+          cd deliverables && sha256sum *.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-VOICE-V1.1-NATIVE-APK
+          if-no-files-found: error
+          path: deliverables/*
