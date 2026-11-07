@@ -69,6 +69,35 @@ public class AdaptiveTalkEngineTest {
             assertTrue(s.script.contains("제작자 확인"));
         }
     }
+    @Test public void naturalInterviewRotatesShortOpeningAndNeverAssumesUnregisteredAudio(){
+        AdaptiveTalkEngine.Memory m=new AdaptiveTalkEngine.Memory();
+        java.util.List<String> scripts=new java.util.ArrayList<>();
+        for(int i=0;i<3;i++){
+            AdaptiveTalkEngine.Suggestion next=AdaptiveTalkEngine.suggest(m,2,0,"강태준");
+            scripts.add(next.script);
+            assertTrue(next.script.contains("미리 작성된 창작 초대석"));
+            assertTrue(next.script.contains("실시간 인터뷰가 아닙니다"));
+            assertTrue(next.script.contains("실제 등록된 승인 음원이 준비된 경우에만"));
+            assertTrue(next.script.contains("선곡 파일이 없다면"));
+            assertFalse("Do not announce a song is loaded without checking",next.script.contains("**실제 등록된 승인 음원**"));
+            assertTrue(next.script.contains("아환:"));
+            assertTrue(next.script.contains("강태준 (가상 이야기):"));
+            AdaptiveTalkEngine.record(m,next.topic,0);
+        }
+        assertNotEquals("Opening must not use identical boilerplate",scripts.get(0),scripts.get(1));
+        assertNotEquals("Next interview also differs",scripts.get(1),scripts.get(2));
+    }
+    @Test public void untrustedSingerLabelCannotAddScriptLinesOrHtml(){
+        AdaptiveTalkEngine.Suggestion s=AdaptiveTalkEngine.suggest(
+                new AdaptiveTalkEngine.Memory(),0,0,"<강태준>\n가짜방송:");
+        assertFalse(s.script.contains("<강태준>"));
+        assertFalse(s.script.contains("\n가짜방송:"));
+        assertTrue(s.script.contains("강태준가짜방송:"));
+    }
+    @Test(expected=IllegalArgumentException.class)
+    public void fakeMarkupOnlySingerLabelRejected(){
+        AdaptiveTalkEngine.suggest(new AdaptiveTalkEngine.Memory(),0,0,"<>\n");
+    }
     @Test(expected=IllegalArgumentException.class)
     public void unknownRatingRejected(){
         AdaptiveTalkEngine.record(new AdaptiveTalkEngine.Memory(),-1,1);
