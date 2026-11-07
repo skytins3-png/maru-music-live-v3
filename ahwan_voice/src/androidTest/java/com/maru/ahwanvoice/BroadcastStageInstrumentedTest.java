@@ -95,6 +95,10 @@ public class BroadcastStageInstrumentedTest {
                 assertTrue(stage.overlayForTest().contains("미등록"));
                 assertEquals(View.GONE,stage.videoVisibilityForTest());
                 assertNotNull(stage.getWindow().getDecorView().findViewWithTag("stage_controls"));
+                View scene=stage.getWindow().getDecorView().findViewWithTag("scene_fallback");
+                assertNotNull("Without licensed video we must still draw a scene",scene);
+                assertEquals(View.VISIBLE,scene.getVisibility());
+                assertEquals("BRIDGE",((ShowSceneFallbackView)scene).sceneModeForTest());
             });
         }
     }
@@ -128,6 +132,9 @@ public class BroadcastStageInstrumentedTest {
                 View fallback=stage.getWindow().getDecorView().findViewWithTag("fallback_message");
                 assertNotNull(fallback);
                 assertEquals("Default image should occupy stage",View.GONE,fallback.getVisibility());
+                View scene=stage.getWindow().getDecorView().findViewWithTag("scene_fallback");
+                assertNotNull(scene);
+                assertEquals("User-approved image must replace illustration",View.GONE,scene.getVisibility());
             });
         }finally{
             pref().edit().clear().commit();
