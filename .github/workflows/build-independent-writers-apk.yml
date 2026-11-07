@@ -1,0 +1,60 @@
+name: Build independent MARU WRITERS APK
+on:
+  push:
+    branches: [standalone-writers-studio-20261108]
+    paths:
+      - 'writers_app/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-independent-writers-apk.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'writers_app/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-independent-writers-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test standalone writer engine
+        run: gradle --no-daemon :writers_app:testDebugUnitTest
+      - name: Build independent APK
+        run: gradle --no-daemon :writers_app:assembleDebug
+      - name: Verify independent package and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=writers_app/build/outputs/apk/debug/writers_app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep "package: name='com.maru.writers.studio.v20261108'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/manifest.txt
+          ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|WRITE_EXTERNAL_STORAGE|READ_EXTERNAL_STORAGE|BIND_NOTIFICATION_LISTENER_SERVICE' /tmp/manifest.txt
+          mkdir -p deliverables
+          cp "$APK" deliverables/MARU-WRITERS-STUDIO-V1.0.apk
+          cd deliverables && sha256sum *.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-WRITERS-STUDIO-V1.0-ANDROID-APK
+          if-no-files-found: error
+          path: deliverables/*

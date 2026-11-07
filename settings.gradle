@@ -16,5 +16,5 @@ rootProject.name = 'MARU-MUSIC-LIVE'
 include ':app'
 include ':radio'
 include ':radio_transition'
-
 include ':ahwan_voice'
+include ':writers_app'
