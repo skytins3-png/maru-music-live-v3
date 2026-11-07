@@ -21,9 +21,9 @@ public final class AdaptiveTalkEngine {
     private static final int RECENT_LIMIT = 6;
     private static final int MAX_RATING = 5;
     private static final String[] INTROS = {
-        "바쁜 하루 끝에는 별것 아닌 말이 큰 위로가 되죠.",
-        "누구나 하나쯤은 소소하지만 이야기하고 싶은 순간이 있잖아요.",
-        "커다란 사건보다 평범한 하루에 더 좋은 이야기가 숨어 있더라고요."
+        "",
+        "여기서 조금 다른 이야기도 해 볼까요? ",
+        "짧게 하나만 여쭤볼게요. "
     };
 
     // Original, broadcaster-safe micro-dialogues. All guest stories are explicitly fictional.
@@ -170,15 +170,28 @@ public final class AdaptiveTalkEngine {
         int topic=requested==AUTO_TOPIC ? choose(mem,singerId) : requested;
         int variation=Math.floorMod(mem.episodes + Math.floorMod(singerId,3),INTROS.length);
         String[] lines=MATERIAL[topic];
-        String host="아환",guest=singerName.trim();
-        String script="[방송 안내] 지금부터 가상 AI 가수 "+guest+"의 창작 인터뷰를 소개합니다.\n\n"
-                +host+": "+INTROS[variation]+" "+lines[1]+"\n"
+        String host="아환";
+        // A fictional performer name is display data, not markup or a script line.
+        String guest=singerName.replaceAll("[\\p{Cntrl}<>]","").trim();
+        if(guest.isEmpty())throw new IllegalArgumentException("valid singer name required");
+        if(guest.length()>32)guest=guest.substring(0,32);
+        String opening=INTROS[variation]+lines[1];
+        String closing=variation==0
+                ?"오늘은 여기까지 듣고 다음 음악으로 넘어가 볼까요?"
+                :variation==1
+                ?"좋아요. 잠시 음악으로 분위기를 바꿔보죠."
+                :"하하, 이야기 나누다 보니 시간이 빠르네요. 음악으로 이어갈게요.";
+        String script="[방송 안내] 지금부터 가상 AI 가수 "+guest
+                +"의 미리 작성된 창작 초대석입니다. 실시간 인터뷰가 아닙니다.\n\n"
+                +host+": "+opening+"\n"
                 +guest+" (가상 이야기): "+lines[2]+"\n"
                 +host+": "+lines[3]+"\n"
                 +guest+" (가상 이야기): "+lines[4]+"\n"
-                +host+": "+lines[5]+"\n\n"
-                +host+": 이제 "+guest+"의 **실제 등록된 승인 음원**을 함께 듣겠습니다.\n"
-                +"[제작자 확인] 사실관계·권리·표현을 검토하고, 본인 승인 녹음으로만 방송하세요.";
+                +host+": "+lines[5]+"\n"
+                +host+": "+closing+"\n\n"
+                +host+": 실제 등록된 승인 음원이 준비된 경우에만 노래를 이어서 들려드릴게요.\n"
+                +"[제작자 확인] 사실관계·권리·표현을 검토하고, 본인 승인 녹음으로만 방송하세요.\n"
+                +"[방송 기술] 선곡 파일이 없다면 노래 소개를 건너뛰고 다음 승인 코너로 넘어갑니다.\n";
         return new Suggestion(topic,lines[0],script);
     }
 
