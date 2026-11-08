@@ -334,6 +334,32 @@ public final class ShowcaseActivity extends Activity {
       try{return listComments(kind,id).toString();}catch(Exception e){return "[]";}
     }
     @JavascriptInterface public String songCover(long id){return dataCover(id);}
+    @JavascriptInterface public void identifyArtists(){
+      say("실제 원곡의 ID3 가수·곡명 정보를 확인합니다.");
+      new Thread(()->{
+        int artists=0,titles=0,missing=0;
+        for(VaultDb.Track track:db.tracks("전체")){
+          if(track.uri==null||track.uri.isEmpty())continue;
+          android.media.MediaMetadataRetriever tag=new android.media.MediaMetadataRetriever();
+          try{
+            tag.setDataSource(ShowcaseActivity.this,Uri.parse(track.uri));
+            String artist=tag.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST);
+            if(artist==null||artist.trim().isEmpty())
+              artist=tag.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST);
+            String title=tag.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE);
+            if(track.artist.trim().isEmpty()&&artist!=null&&!artist.trim().isEmpty()){
+              db.update(track.id,"artist",artist.trim());artists++;
+            }else if(track.artist.trim().isEmpty())missing++;
+            if((track.title.trim().equalsIgnoreCase(CatalogLogic.base(track.filename))||track.title.trim().isEmpty())
+               &&title!=null&&!title.trim().isEmpty()&&!title.trim().equalsIgnoreCase(track.title)){
+              db.update(track.id,"title",title.trim());titles++;
+            }
+          }catch(Exception ignored){}
+          finally{try{tag.release();}catch(Exception ignored){}}
+        }
+        changed();say("원곡 태그 검사 완료: 가수 "+artists+"곡, 제목 "+titles+"곡 반영 · 가수 정보 없는 곡 "+missing+"곡");
+      },"maru-track-metadata").start();
+    }
     @JavascriptInterface public void getFiles(){ui.post(()->launchPicker(IMPORT,"*/*",new String[]{"audio/mpeg","audio/mp4","application/zip","application/x-zip-compressed"}));}
     @JavascriptInterface public void getFolder(){ui.post(()->{
       Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);

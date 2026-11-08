@@ -124,13 +124,13 @@ function renderSongs(){
      '<div class="empty">'+icon("music","big")+'<h3>노래 보관함이 비어 있어요</h3><p>원곡 MP3·ZIP을 가져오면 여기에 표시됩니다.</p>'
     +'<button class="primary-btn" data-action="importFiles">'+icon("cloud")+' 노래 가져오기</button>'
     +'<button class="secondary-btn" style="margin-top:10px" data-action="importFolder">폴더 불러오기</button></div>')
-   +'<div class="row" style="justify-content:center;flex-wrap:wrap;margin-top:12px"><button class="secondary-btn" data-action="importFiles">MP3·ZIP 가져오기</button>'
+   +'<div class="row" style="justify-content:center;flex-wrap:wrap;margin-top:12px"><button class="secondary-btn" data-action="identifyArtists">가수·곡명 자동 확인</button><button class="secondary-btn" data-action="importFiles">MP3·ZIP 가져오기</button>'
     +'<button class="secondary-btn" data-action="importManifest">107곡 분류표 적용</button></div>';
 }
 function songRow(s,i){
  return '<article class="song-card" data-action="openSong" data-id="'+s.id+'">'+picture(s,i)+
  '<div class="song-main" data-action="openSong" data-id="'+s.id+'"><h3>'+escapeHTML(s.title)+'</h3>'
- +'<div class="artist">'+escapeHTML(s.artist||"등록된 노래")+'</div>'
+ +'<div class="artist">'+escapeHTML(s.artist||"가수 정보 없음")+'</div>'
  +'<div class="song-stats"><span>'+icon("eye")+' '+(s.views||0).toLocaleString()+'</span>'
  +'<span class="liked">'+icon("heart")+' '+(s.liked||0).toLocaleString()+'</span></div></div>'
  +'<div class="song-controls"><button class="primary" data-action="download" data-id="'+s.id+'" aria-label="다운로드">'+icon("download")+'</button>'
@@ -145,7 +145,7 @@ function renderDetail(){
  $("page-detail").innerHTML=topbar("곡 상세",'<button class="icon-btn" data-action="songOptions" aria-label="곡 관리">'+icon("more")+'</button>',"songs")
  +demoBanner()
  +'<div class="detail-banner" '+detailStyle+'><button class="play-central" data-action="preview" data-id="'+song.id+'">'+icon("play")+'</button>'
- +'<div class="detail-title"><h2>'+escapeHTML(song.title)+'</h2><p>'+escapeHTML(song.artist||"등록 음원")+'</p></div></div>'
+ +'<div class="detail-title"><h2>'+escapeHTML(song.title)+'</h2><p>'+escapeHTML(song.artist||"가수 정보 없음")+'</p></div></div>'
  +'<div class="detail-counts"><span>'+icon("eye")+' '+(song.views||0).toLocaleString()+' 조회</span><span>'+icon("heart")+' '+(song.liked||0).toLocaleString()+' 좋아요</span></div>'
  +'<div class="actions-row">'+actionButton("download","다운로드","download",song.id)+actionButton("sheet","악보 보기","score",song.id)
  +actionButton("share","공유","share",song.id)+actionButton("bookmark","보관함 추가","favorite",song.id)+'</div>'
@@ -325,6 +325,7 @@ document.addEventListener("click",e=>{
  if(["download","preview","score","favorite","share"].includes(act)&&demo(song)){notify("홍보용 시연 데이터입니다. 실제 곡을 등록하면 작동합니다.");return;}
  if(act==="moreSongs"){songLimit+=20;renderSongs();return;}
  if(act==="top5"){trackTab="인기";go("songs");return;}
+ if(act==="identifyArtists"){call("identifyArtists");return;}
  if(act==="importFiles"){call("getFiles");return;}
  if(act==="importFolder"){call("getFolder");return;}
  if(act==="importManifest"){call("getManifest");return;}
