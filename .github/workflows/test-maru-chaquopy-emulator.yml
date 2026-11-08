@@ -44,17 +44,10 @@ jobs:
             sleep 10
             adb shell dumpsys activity activities | grep 'com.maru.pyscore'
             adb logcat -d -v time > maru-emulator-log.txt
-            if grep -A 18 'FATAL EXCEPTION' maru-emulator-log.txt | grep 'com.maru.pyscore'; then
-              echo 'App crashed during Python boot'; exit 1
-            fi
+            ! grep 'FATAL EXCEPTION' maru-emulator-log.txt
             adb exec-out screencap -p > maru-emulator-screen.png
             test -s maru-emulator-screen.png
-            python - <<'PY'
-            from pathlib import Path
-            p=Path('maru-emulator-screen.png')
-            assert p.read_bytes()[:8]==b'\x89PNG\r\n\x1a\n'
-            print('Android emulator app startup and screenshot confirmed')
-            PY
+            python3 -c "from pathlib import Path; p=Path('maru-emulator-screen.png'); assert p.read_bytes().startswith(bytes([137,80,78,71,13,10,26,10])); print('Android app startup and PNG screen confirmed')"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
