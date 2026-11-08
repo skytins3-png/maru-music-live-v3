@@ -6,8 +6,8 @@ android {
     applicationId 'com.maru.media.privatevault.v20261108'
     minSdk 26
     targetSdk 35
-    versionCode 4
-    versionName '1.1.0-eight-screen'
+    versionCode 5
+    versionName '1.1.1-private-vault-qa'
     testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   }
   buildTypes { release { signingConfig signingConfigs.debug; minifyEnabled false } }

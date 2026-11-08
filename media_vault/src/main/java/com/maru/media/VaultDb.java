@@ -54,7 +54,15 @@ public final class VaultDb extends SQLiteOpenHelper {
  }
  public synchronized void update(long id,String field,String value){
    if(!Arrays.asList("title","language","genre","artist","score_uri","upload_state","cover_uri").contains(field))throw new IllegalArgumentException("field");
-   ContentValues v=new ContentValues();v.put(field,CatalogLogic.cleanText(value,250));getWritableDatabase().update("tracks",v,"_id=?",new String[]{String.valueOf(id)});
+   ContentValues v=new ContentValues();
+   if("score_uri".equals(field)||"cover_uri".equals(field)){
+     if(value==null||value.length()>4096)throw new IllegalArgumentException("URI exceeds limit");
+     android.net.Uri uri=android.net.Uri.parse(value);
+     if(!"content".equals(uri.getScheme())&&!"file".equals(uri.getScheme()))
+       throw new IllegalArgumentException("Unsupported URI");
+     v.put(field,value);
+   }else v.put(field,CatalogLogic.cleanText(value,250));
+   getWritableDatabase().update("tracks",v,"_id=?",new String[]{String.valueOf(id)});
  }
  public synchronized void flag(long id,String field,int value){
    if(!Arrays.asList("liked","rights_ok").contains(field))throw new IllegalArgumentException("flag");
@@ -159,6 +167,8 @@ public final class VaultDb extends SQLiteOpenHelper {
        ContentValues cv=new ContentValues();
        cv.put("language",g);
        cv.put("title",CatalogLogic.cleanText(t.optString("title",t.optString("filename","")),150));
+       if(t.has("genre"))cv.put("genre",CatalogLogic.cleanText(t.optString("genre","미확인"),40));
+       if(t.has("artist"))cv.put("artist",CatalogLogic.cleanText(t.optString("artist",""),60));
        changed+=d.update("tracks",cv,"sha=?",new String[]{sha});
      }
    }catch(JSONException e){throw new IllegalArgumentException("JSON 읽기 실패",e);}
