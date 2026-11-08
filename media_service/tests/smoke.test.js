@@ -38,7 +38,7 @@ test('unknown admin key is rejected',async()=>{
  assert.equal(r.status,401);
 });
 test('public listener story stays pending',async()=>{
- const f=new FormData();f.set('author','청취자');f.set('body','라디오 방송 듣고 너무 반가웠습니다');
+ const f=new FormData();f.set('author','청취자');f.set('body','라디오 방송 듣고 너무 반가웠습니다');f.set('publishConsent','true');
  const r=await get('/api/stories',{method:'POST',body:f});
  assert.equal(r.status,201);assert.equal(r.data.status,'pending');
  const admin=await get('/api/admin/stories',{headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN}});
@@ -61,7 +61,7 @@ test('guest song intake pending until antivirus and owner approval',async()=>{
 
 test('quarantined attachment cannot be downloaded or approved',async()=>{
  const f=new FormData();f.set('author','검증중');
- f.set('body','악성 파일 차단 여부를 검사하는 가상 사연입니다');
+ f.set('body','악성 파일 차단 여부를 검사하는 가상 사연입니다');f.set('publishConsent','true');
  f.set('attachment',new Blob([Buffer.from('89504e470d0a1a0a00000000','hex')]),'sample.png');
  const r=await get('/api/stories',{method:'POST',body:f});
  assert.equal(r.status,201);
@@ -151,4 +151,61 @@ test('authorized upload: correct sha, approved after mocked CLEAN scan; private 
  assert.equal(uploadScore.status,200);
  assert.equal((await get('/api/score/'+id)).status,200);
  process.env.CLAMSCAN_CMD='not-installed-test-clamscan';
+});
+
+test('public stories require explicit publication consent, safe approval and moderated subfunctions',async()=>{
+ const noConsent=new FormData();noConsent.set('author','시험');noConsent.set('body','동의하지 않은 청취자 사연입니다.');
+ const blocked=await get('/api/stories',{method:'POST',body:noConsent});
+ assert.equal(blocked.status,400);
+ const f=new FormData();f.set('author','가명');f.set('body','승인된 테스트 사연입니다. 실제 개인정보는 없습니다.');
+ f.set('publishConsent','true');f.set('songRequest','테스트 음악');
+ const submit=await get('/api/stories',{method:'POST',body:f});
+ assert.equal(submit.status,201);
+ const id=submit.data.receipt;
+ assert.ok(!(await get('/api/stories/public')).data.stories.some(s=>s.id===id));
+ assert.equal((await get('/api/story-download/'+id)).status,404);
+ assert.equal((await get('/api/story-view/'+id,{method:'POST'})).status,404);
+ const approved=await get('/api/admin/stories/'+id+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'approve',downloadAllowed:false})
+ });
+ assert.equal(approved.status,200);
+ assert.equal(approved.data.status,'approved');
+ const list=await get('/api/stories/public');
+ assert.ok(list.data.stories.some(s=>s.id===id));
+ const detail=await get('/api/stories/public/'+id);
+ assert.equal(detail.data.body,'승인된 테스트 사연입니다. 실제 개인정보는 없습니다.');
+ assert.equal((await get('/api/story-download/'+id)).status,404);
+ const view1=await get('/api/story-view/'+id,{method:'POST'});
+ const view2=await get('/api/story-view/'+id,{method:'POST'});
+ assert.equal(view1.data.views,view2.data.views);
+ const like=await get('/api/story-like/'+id,{method:'POST'});
+ assert.equal(like.data.likes,1);
+ const unlike=await get('/api/story-like/'+id,{method:'POST'});
+ assert.equal(unlike.data.likes,0);
+ const c=await get('/api/story-comments/'+id,{method:'POST',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({author:'댓글작성자',body:'공개 승인 대기 댓글'})});
+ assert.equal(c.status,201);
+ assert.equal((await get('/api/story-comments/'+id)).data.comments.length,0);
+ const pending=await get('/api/admin/story-comments',{headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN}});
+ assert.equal(pending.status,200);
+ const comment=pending.data.comments.find(c=>c.story===id);
+ assert.ok(comment);
+ const verified=await get('/api/admin/story-comments/'+comment.id+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'approve'})
+ });
+ assert.equal(verified.status,200);
+ assert.equal((await get('/api/story-comments/'+id)).data.comments.length,1);
+ const reply=await get('/api/story-comments/'+id,{method:'POST',
+  headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({author:'답글',body:'공개된 댓글에 답장',parentId:comment.id})});
+ assert.equal(reply.status,201);
+ const allow=await get('/api/admin/stories/'+id+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'approve',downloadAllowed:true})
+ });
+ assert.equal(allow.status,200);
+ assert.equal((await get('/api/story-download/'+id)).status,200);
 });
