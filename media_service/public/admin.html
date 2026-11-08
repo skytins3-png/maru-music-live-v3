@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#081524">
+<title>MARU RADIO · 운영자 관리</title>
+<link rel="stylesheet" href="/style.css"></head>
+<body><main class="wrap">
+<header><div class="logo">MARU 운영자 관리</div><p>노래·사연·댓글 검수 및 승인</p></header>
+<section class="panel">
+  <h2>관리자 인증</h2>
+  <p>인증키는 브라우저에 저장하지 않습니다. 창을 닫으면 다시 입력해야 합니다.</p>
+  <input type="password" autocomplete="off" id="token" placeholder="관리자 키 입력" aria-label="관리자 인증키">
+  <button id="login">불러오기</button>
+  <p id="message" role="status">관리자 키를 입력하세요.</p>
+</section>
+<section class="panel hidden" id="tracksPanel">
+  <h2>접수된 노래</h2><div id="tracks"></div>
+</section>
+<section class="panel hidden" id="storiesPanel">
+  <h2>접수된 사연</h2><div id="stories"></div>
+</section>
+<section class="panel hidden" id="commentsPanel">
+  <h2>댓글 검수</h2><div id="comments"></div>
+</section>
+<footer><a href="/">← 청취자 홈으로</a></footer>
+</main><script src="/admin.js" defer></script></body></html>

@@ -1,0 +1,23 @@
+:root{color-scheme:dark;--bg:#081524;--card:#10273b;--line:#284257;--text:#f4fbff;--muted:#9eb5c4;--mint:#61e9d5}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#0a2036,#081524 35%);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--text)}
+.wrap{width:min(100%,680px);margin:auto;padding:20px 15px 35px}
+header{text-align:center;padding:15px 0 20px}.logo{font-size:29px;letter-spacing:.04em;font-weight:800;color:var(--mint)}p{color:var(--muted);line-height:1.6}header p{margin:5px}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tile{min-height:150px;border-radius:22px;padding:16px 10px;border:1px solid #ffffff1a;color:white;font-weight:750;font-size:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;box-shadow:0 9px 20px #0004}.big{font-size:41px;line-height:1}.tile small{font-size:12px;font-weight:400;opacity:.9}
+.pink{background:linear-gradient(135deg,#ae315e,#e04f7c)}.blue{background:linear-gradient(135deg,#086aaa,#2a8be8)}.violet{background:linear-gradient(135deg,#6445a9,#9f54de)}.green{background:linear-gradient(135deg,#07866f,#20aa97)}
+.status{margin:19px 0;border-radius:13px;background:#143c4d;padding:10px 13px;color:var(--mint);font-size:13px;min-height:37px}
+.panel{margin:18px 0;padding:15px;background:#10253a;border:1px solid var(--line);border-radius:20px}.hidden{display:none!important}
+h2{font-size:22px;margin:4px 0 12px}h3{margin:22px 0 12px}.section-top{display:flex;justify-content:space-between;align-items:center}.section-top h2{margin:0}
+.filter{display:grid;grid-template-columns:1fr 120px;gap:7px;margin:15px 0}
+input,textarea,select{width:100%;background:#0a1c2b;color:var(--text);border:1px solid #456079;border-radius:11px;padding:12px;font:inherit;min-height:45px}
+textarea{min-height:110px;resize:vertical}
+input[type=checkbox]{width:auto;min-height:0;accent-color:#55dcc6}
+button,.subactions a{border:0;border-radius:12px;background:#1d7393;color:white;padding:12px 14px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;text-align:center}
+button.small{font-size:13px;padding:8px 11px;background:#24445b}
+.songlist{display:flex;flex-direction:column;gap:8px}.song{display:flex;gap:10px;align-items:center;padding:11px;border:1px solid #294459;border-radius:13px;background:#0c2032}
+.song .info{flex:1;min-width:0}.song strong{display:block;font-size:15px;word-break:break-word}.song small{color:var(--muted);font-size:12px}.song button{min-width:75px;font-size:13px}
+form{display:grid;gap:13px}form label{display:grid;gap:7px;color:#d9e9f6;font-weight:600}label.check{display:flex;flex-direction:row;gap:10px;font-size:13px;align-items:flex-start;line-height:1.5}
+#player{width:100%;margin:15px 0} .stats{display:flex;gap:24px;color:#d2e6f2;margin:8px 0 16px}.subactions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.comment{padding:12px 2px;border-bottom:1px solid var(--line)}.comment strong{font-size:13px;color:var(--mint)}.comment p{margin:4px 0;color:#e1ecf2;font-size:14px}
+footer{text-align:center;margin:38px 0 5px;color:var(--muted);font-size:12px}a{color:var(--mint)}
+@media(min-width:540px){.tile{min-height:170px}.tiles{gap:15px}}
