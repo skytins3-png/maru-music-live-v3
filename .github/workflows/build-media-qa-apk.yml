@@ -40,11 +40,12 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee package-details.txt
           grep -F "package: name='com.maru.media.privatevault.v20261108'" package-details.txt
+          grep -F "application-label:'MARU RADIO'" package-details.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$APK" > permissions.txt
           ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|MANAGE_EXTERNAL_STORAGE' permissions.txt
           mkdir -p output
           cp "$APK" output/MARU-MEDIA-QA-ANDROID-TESTONLY.apk
-          sha256sum output/*.apk > output/SHA256SUMS.txt
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
           cp package-details.txt permissions.txt output/
       - uses: actions/upload-artifact@v4
         with:
