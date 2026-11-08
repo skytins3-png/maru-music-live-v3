@@ -3,6 +3,8 @@ package com.maru.media;
 import android.app.*;
 import android.os.*;
 import android.content.*;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 import android.graphics.*;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -141,6 +143,28 @@ public final class MainActivity extends Activity {
  private void persistRead(Uri u){
    try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}
    catch(SecurityException ignored){}catch(IllegalArgumentException ignored){}
+ }
+ private boolean safeStoryAttachment(Uri u){
+   String mime="";
+   try{mime=getContentResolver().getType(u);}catch(Exception ignored){}
+   if(mime==null)mime="";
+   String name=u.getLastPathSegment()==null?"":u.getLastPathSegment();
+   long size=-1;
+   try(Cursor c=getContentResolver().query(u,new String[]{OpenableColumns.DISPLAY_NAME,OpenableColumns.SIZE},null,null,null)){
+     if(c!=null&&c.moveToFirst()){
+       if(!c.isNull(0))name=c.getString(0);
+       if(!c.isNull(1))size=c.getLong(1);
+     }
+   }catch(Exception ignored){}
+   if(size>25L*1024*1024)return false;
+   String lower=name.toLowerCase(java.util.Locale.ROOT);
+   boolean knownExt=lower.endsWith(".jpg")||lower.endsWith(".jpeg")||lower.endsWith(".png")||lower.endsWith(".webp")
+        ||lower.endsWith(".mp3")||lower.endsWith(".m4a")||lower.endsWith(".mp4")||lower.endsWith(".pdf");
+   if(!knownExt)return false;
+   if(mime.equals("application/vnd.android.package-archive")
+       ||mime.equals("application/x-msdownload")||mime.equals("application/x-executable"))return false;
+   return mime.isEmpty()||mime.equals("application/octet-stream")||mime.startsWith("image/")
+       ||mime.startsWith("audio/")||mime.equals("video/mp4")||mime.equals("application/pdf");
  }
  private void renderSongs(){
    initPage(1);
@@ -319,7 +343,9 @@ public final class MainActivity extends Activity {
    btn(main,"📎 사진·영상·음성·악보 첨부 (선택)",()->{
      storyNickDraft=nick.getText().toString();storyBodyDraft=body.getText().toString();
      Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);
-     i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+     i.setType("*/*");
+     i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/jpeg","image/png","image/webp","audio/mpeg","audio/mp4","video/mp4","application/pdf"});
+     i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
      startActivityForResult(i,PICK_STORY_FILE);
    });
    if(!storyAttachment.isEmpty())paragraph(main,"첨부 선택됨: "+storyAttachment);
@@ -556,7 +582,14 @@ public final class MainActivity extends Activity {
        notice("악보 등록 완료");scoreTarget=-1;
      }
    }else if(request==PICK_STORY_FILE){
-     if(data.getData()!=null){persistRead(data.getData());storyAttachment=data.getData().toString();notice("사연 첨부파일 선택");renderStories();}
+     if(data.getData()!=null){
+       if(!safeStoryAttachment(data.getData())){
+         notice("첨부 파일은 JPG/PNG/WebP, MP3/M4A/MP4, PDF (최대 25MB)만 가능합니다.");
+         renderStories();return;
+       }
+       persistRead(data.getData());storyAttachment=data.getData().toString();
+       notice("사연 첨부파일 선택 · 서버 공개 전 악성코드 검사 필수");renderStories();
+     }
    }
  }
  @Override protected void onPause(){super.onPause();stopPlayer();}
