@@ -1,0 +1,43 @@
+name: Validate MARU private media server before deployment
+on:
+  push:
+    branches: [maru-media-vault-20261108, maru-media-qa-galaxy-20261108]
+    paths:
+      - 'media_service/**'
+      - '.github/workflows/test-maru-media-server.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'media_service/**'
+      - '.github/workflows/test-maru-media-server.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install server dependencies (test only; no public deployment)
+        working-directory: media_service
+        run: npm install --no-audit --no-fund
+      - name: JavaScript syntax and web menu/detail contract
+        working-directory: media_service
+        run: |
+          node --check public/app.js
+          node --check public/admin.js
+          python3 tests/ui_contract.py
+      - name: Unit/integration HTTP tests
+        working-directory: media_service
+        run: npm test
+
+      - name: Capture site source for independent layout verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-MEDIA-WEB-UI-QA-FILES
+          if-no-files-found: error
+          path: media_service/public/**

@@ -1,0 +1,55 @@
+name: Build MARU V1.1.6 Personal Songs and Stories QA APK
+on:
+  push:
+    branches: [maru-score-manager-20261108]
+    paths:
+      - "media_vault/**"
+      - ".github/workflows/build-maru-song-credits.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install required Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Verify JavaScript
+        run: node --check media_vault/src/main/assets/studio/app.js
+      - name: Android unit tests and debug build
+        run: gradle --no-daemon :media_vault:testDebugUnitTest :media_vault:assembleDebug
+      - name: Verify signed APK package, requested permissions and SHA256
+        run: |
+          set -euo pipefail
+          apk=media_vault/build/outputs/apk/debug/media_vault-debug.apk
+          test -s "$apk"
+          unzip -t "$apk" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | tee app-package.txt
+          grep -F "package: name='com.maru.media.scoremanager20261108'" app-package.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$apk" | tee permissions.txt
+          ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|MANAGE_EXTERNAL_STORAGE' permissions.txt
+          mkdir -p output
+          cp "$apk" output/MARU-VAULT-SONG-CREDITS-V1.1.6-QA.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          cp app-package.txt permissions.txt output/
+          git rev-parse HEAD > output/GIT-COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-RADIO-SONGS-STORIES-V1.1.6-QA-SIGNED-APK
+          if-no-files-found: error
+          path: output/*

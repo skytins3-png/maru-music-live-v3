@@ -1,0 +1,58 @@
+name: Build MARU MEDIA private song and story APK
+on:
+  push:
+    branches: [maru-media-vault-20261108]
+    paths:
+      - 'media_vault/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-media-vault.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'media_vault/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-media-vault.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Run local validation and compile debug
+        run: gradle --no-daemon :media_vault:testDebugUnitTest :media_vault:assembleDebug
+      - name: Validate package signature and avoid sensitive permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=media_vault/build/outputs/apk/debug/media_vault-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.maru.media.privatevault.v20261108'"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/maru-media-manifest.txt
+          ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE' /tmp/maru-media-manifest.txt
+          mkdir -p deliverables
+          cp "$APK" deliverables/MARU-MEDIA-VAULT-V1.0-ANDROID.apk
+          cd deliverables && sha256sum *.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-MEDIA-VAULT-APK-V1
+          if-no-files-found: error
+          path: deliverables/*
