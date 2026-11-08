@@ -245,12 +245,17 @@ public final class MainActivity extends Activity {
  private void comments(long id){
    LinearLayout panel=vertical();panel.setPadding(dp(15),dp(8),dp(15),dp(8));
    paragraph(panel,"댓글은 이 휴대폰의 로컬 기록입니다. 서버 연결 전 다른 청취자에게 공개되지 않습니다.");
-   for(String comment:db.comments(id))panel.addView(label("• "+comment,14));
-   for(VaultDb.Comment reply:db.songReplies(id)){
-     btn(panel,"↳ 답글 "+reply.author+": "+reply.body,()->songReply(id,reply.id));
+   for(VaultDb.Comment c:db.songCommentDetails(id)){
+     panel.addView(label("• "+c.author+" : "+c.body,14));
+     btn(panel,"↳ "+c.author+"님에게 답글",()->songReply(id,c.id));
+     for(VaultDb.Comment reply:db.songReplies(id)){
+       if(reply.parentId==c.id){
+         panel.addView(label("   ↳ "+reply.author+": "+reply.body,13));
+         btn(panel,"↳ "+reply.author+"님에게 답글",()->songReply(id,reply.id));
+       }
+     }
    }
-   paragraph(panel,"기존 댓글에 답글을 달려면 댓글을 길게 누르는 대신 아래 답글 버튼을 사용하세요.");
-   btn(panel,"↳ 첫 댓글에 답글 달기",()->songReply(id,0));
+   paragraph(panel,"기본 댓글과 답글은 이 휴대폰에만 저장되며, 외부 공개용 서버 댓글과 분리되어 있습니다.");
    EditText name=edit(panel,"닉네임","호스트",1);
    EditText body=edit(panel,"댓글 내용","",3);
    new AlertDialog.Builder(this).setTitle("댓글").setView(panel)

@@ -76,6 +76,13 @@ public final class VaultDb extends SQLiteOpenHelper {
    }
    return result;
  }
+ public synchronized List<Comment> songCommentDetails(long track){
+   ArrayList<Comment> result=new ArrayList<>();
+   try(Cursor c=getReadableDatabase().rawQuery("SELECT _id,author,body FROM comments WHERE track_id=? ORDER BY _id DESC LIMIT 40",new String[]{String.valueOf(track)})){
+     while(c.moveToNext())result.add(new Comment(c.getLong(0),0,c.getString(1),c.getString(2)));
+   }
+   return result;
+ }
  public synchronized long addSongReply(long track,long parent,String author,String body){
    ContentValues v=new ContentValues();v.put("track_id",track);v.put("parent_id",parent);
    v.put("author",CatalogLogic.cleanText(author,30));v.put("body",CatalogLogic.cleanText(body,700));

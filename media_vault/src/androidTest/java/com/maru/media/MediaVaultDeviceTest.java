@@ -57,8 +57,8 @@ public final class MediaVaultDeviceTest {
 
  @Test public void storyAttachmentPickerPreservesTypedDraft(){
    onView(withText("사연")).perform(click());
-   onView(withHint("사연 보낸 사람 닉네임")).perform(typeText("가명청취자"),closeSoftKeyboard());
-   onView(withHint("사연 내용")).perform(typeText("사연 작성 중 입력한 내용 보존 확인"),closeSoftKeyboard());
+   onView(withHint("사연 보낸 사람 닉네임")).perform(typeText("TestGuest"),closeSoftKeyboard());
+   onView(withHint("사연 내용")).perform(typeText("Draft body stays when selecting attachment"),closeSoftKeyboard());
    Intents.init();
    try{
      Intent data=new Intent().setData(Uri.parse("content://media-vault-test/fixture.jpg"));
@@ -66,8 +66,8 @@ public final class MediaVaultDeviceTest {
        .respondWith(new android.app.Instrumentation.ActivityResult(Activity.RESULT_OK,data));
      onView(withText("📎 사진·영상·음성·악보 첨부 (선택)")).perform(scrollTo(),click());
    }finally{Intents.release();}
-   onView(withHint("사연 보낸 사람 닉네임")).check(matches(withText("가명청취자")));
-   onView(withHint("사연 내용")).check(matches(withText("사연 작성 중 입력한 내용 보존 확인")));
+   onView(withHint("사연 보낸 사람 닉네임")).check(matches(withText("TestGuest")));
+   onView(withHint("사연 내용")).check(matches(withText("Draft body stays when selecting attachment")));
  }
 
  @Test public void storySubmenusAndDatabaseStatus(){
