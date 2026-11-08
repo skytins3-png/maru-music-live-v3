@@ -44,6 +44,7 @@ public final class LibraryImporter {
    File temp=new File(directory,uuid+".part");
    File target=new File(directory,uuid+extension);
    long count=0;
+   boolean retained=false;
    String sha;
    try{
      MessageDigest digest=MessageDigest.getInstance("SHA-256");
@@ -63,20 +64,12 @@ public final class LibraryImporter {
      if(!temp.renameTo(target))throw new IOException("보관 파일 확정 실패");
      long added=db.insertTrack(CatalogLogic.base(name),name,Uri.fromFile(target).toString(),sha,count,CatalogLogic.group(name));
      if(added<0){stats.duplicate++;return;}
+     retained=true;
      stats.inserted++;
    }finally{
      if(temp.exists())temp.delete();
-     if(target.exists()&&!db.bySha(shaOfUriSafe(target)))target.delete();
+     if(!retained&&target.exists())target.delete();
    }
- }
- private String shaOfUriSafe(File file){
-   // Only used for cleanup in unexpected insert failures; normal inserts do not need a second hash.
-   try(InputStream in=new BufferedInputStream(new FileInputStream(file))){
-     MessageDigest digest=MessageDigest.getInstance("SHA-256");
-     byte[] b=new byte[65536];int n;
-     while((n=in.read(b))!=-1)digest.update(b,0,n);
-     return CatalogLogic.hashHex(digest.digest());
-   }catch(Exception e){return "";}
  }
  public void fromAudioUris(List<Uri> files){
    for(Uri uri:files){
