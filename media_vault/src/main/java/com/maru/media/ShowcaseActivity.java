@@ -364,6 +364,19 @@ public final class ShowcaseActivity extends Activity {
         changed();say("원곡 태그 검사 완료: 가수 "+artists+"곡, 제목 "+titles+"곡 반영 · 가수 정보 없는 곡 "+missing+"곡");
       },"maru-track-metadata").start();
     }
+    /** Opens only an official Suno song page. Never logs in, scrapes or auto-downloads. */
+    @JavascriptInterface public void openSuno(String songId){
+      if(songId==null||!songId.matches("(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")){
+        say("Suno 노래 주소가 올바르지 않습니다.");return;
+      }
+      ui.post(()->{
+        Intent browser=new Intent(Intent.ACTION_VIEW,
+          Uri.parse("https://suno.com/song/"+songId));
+        browser.addCategory(Intent.CATEGORY_BROWSABLE);
+        try{startActivity(browser);}
+        catch(Exception ex){say("Suno 페이지를 열 수 없습니다. 브라우저를 확인하세요.");}
+      });
+    }
     @JavascriptInterface public void getFiles(){ui.post(()->launchPicker(IMPORT,"*/*",new String[]{"audio/mpeg","audio/mp4","application/zip","application/x-zip-compressed"}));}
     @JavascriptInterface public void getFolder(){ui.post(()->{
       Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -505,7 +518,7 @@ public final class ShowcaseActivity extends Activity {
         j.put("songCount",db.count());
         j.put("uploadedCount",db.uploaded());
         j.put("storyCount",db.stories().size());
-        j.put("appVersion","1.1.3 곡 크레딧");
+        j.put("appVersion","1.1.4 개인 보관·Suno 후보");
       }catch(Exception ignored){}
       return j.toString();
     }
