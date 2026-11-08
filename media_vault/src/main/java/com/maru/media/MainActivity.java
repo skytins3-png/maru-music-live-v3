@@ -130,7 +130,7 @@ public final class MainActivity extends Activity {
      Bitmap bitmap=BitmapFactory.decodeStream(in);
      if(bitmap!=null){
        ImageView photo=new ImageView(this);photo.setImageBitmap(bitmap);
-       photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setAlpha(0.86f);
+       photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setAlpha(0.72f);
        FrameLayout.LayoutParams img=new FrameLayout.LayoutParams(dp(194),-1,Gravity.RIGHT);
        cover.addView(photo,img);
      }
@@ -144,7 +144,7 @@ public final class MainActivity extends Activity {
    TextView setting=label("⚙",25);setting.setGravity(Gravity.CENTER);
    FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(dp(42),dp(45),Gravity.TOP|Gravity.RIGHT);
    cover.addView(setting,sp);setting.setOnClickListener(v->switchTab(4));
-   LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(228));hp.setMargins(0,dp(3),0,dp(8));
+   LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(203));hp.setMargins(0,dp(3),0,dp(8));
    main.addView(cover,hp);
    LinearLayout line1=new LinearLayout(this);line1.setOrientation(0);main.addView(line1);
    homeTile(line1,"♫","노래 보관함","저장된 노래 보기",0xffdf427a,0xff982758,()->switchTab(1));
@@ -165,7 +165,7 @@ public final class MainActivity extends Activity {
  private void homeTile(LinearLayout row,String pict,String name,String subtitle,int top,int bottom,Runnable run){
    LinearLayout tile=vertical();tile.setGravity(Gravity.CENTER);
    tile.setBackground(round(top,bottom,20));tile.setElevation(dp(2));
-   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(137),1);
+   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(126),1);
    p.setMargins(dp(2),dp(4),dp(2),dp(6));row.addView(tile,p);
    TextView icon=bigLabel(pict,35);icon.setGravity(Gravity.CENTER);tile.addView(icon);
    TextView title=bigLabel(name,19);title.setGravity(Gravity.CENTER);tile.addView(title);
