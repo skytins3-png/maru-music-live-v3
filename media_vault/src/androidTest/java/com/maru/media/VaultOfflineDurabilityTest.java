@@ -10,6 +10,37 @@ import java.util.*;
 import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class VaultOfflineDurabilityTest{
+ @Test public void singleZipImportAppliesCatalogBySha()throws Exception{
+   android.content.Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+   byte[] bytes=("ID3-MARU-CATALOG-TEST-"+System.nanoTime()).getBytes(StandardCharsets.UTF_8);
+   byte[] digest=java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
+   String sha=CatalogLogic.hashHex(digest);
+   File archive=new File(ctx.getCacheDir(),"qa-catalog-single-zip.zip");
+   try(java.util.zip.ZipOutputStream out=new java.util.zip.ZipOutputStream(new FileOutputStream(archive))){
+     out.putNextEntry(new java.util.zip.ZipEntry("처음_이름.mp3"));
+     out.write(bytes);out.closeEntry();
+     org.json.JSONObject m=new org.json.JSONObject();
+     org.json.JSONObject item=new org.json.JSONObject()
+       .put("sha256",sha).put("title","검증된 제목").put("languageGroup","중국노래")
+       .put("genre","발라드").put("artist","가상 보컬");
+     m.put("tracks",new org.json.JSONArray().put(item));
+     out.putNextEntry(new java.util.zip.ZipEntry("MARU_CATALOG.json"));
+     out.write(m.toString().getBytes(StandardCharsets.UTF_8));
+     out.closeEntry();
+   }
+   VaultDb db=new VaultDb(ctx);
+   LibraryImporter importer=new LibraryImporter(ctx,db,null);
+   importer.fromAudioUris(Collections.singletonList(Uri.fromFile(archive)));
+   assertEquals(1,importer.stats().inserted);
+   assertEquals(1,importer.stats().manifestUpdated);
+   VaultDb.Track result=null;
+   for(VaultDb.Track track:db.tracks("전체"))if(sha.equals(track.sha))result=track;
+   assertNotNull(result);
+   assertEquals("검증된 제목",result.title);
+   assertEquals("중국노래",result.language);
+   assertEquals("발라드",result.genre);
+   assertEquals("가상 보컬",result.artist);
+ }
  @Test public void importedMp3IsPrivateDurableAndDeduplicated()throws Exception{
    android.content.Context c=InstrumentationRegistry.getInstrumentation().getTargetContext();
    byte[] bytes=("ID3-MARU-OFFLINE-DURABILITY-"+System.nanoTime()).getBytes(StandardCharsets.UTF_8);
