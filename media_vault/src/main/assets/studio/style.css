@@ -175,3 +175,12 @@ select{appearance:auto}
 .exact-home button:focus-visible{outline:3px solid #25c6f6;opacity:.6;background:#26bfe420}
 #page-home{padding:0 7px 14px}
 #page-home .intro-note{padding:0 8px;margin:5px 0}
+
+/* Marketing-derived five-photo thumbnail strip; replaceable by each owner's uploaded cover. */
+.song-art:not(.actual){background-image:url("album_strip.webp");background-size:500% 100%;background-repeat:no-repeat}
+.song-art.art-a{background-position:0% 50%}
+.song-art.art-b{background-position:25% 50%}
+.song-art.art-c{background-position:50% 50%}
+.song-art.art-d{background-position:75% 50%}
+.song-art.art-e{background-position:100% 50%}
+.song-art:not(.actual)>svg.icon{opacity:0}
