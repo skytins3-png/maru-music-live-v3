@@ -168,3 +168,10 @@ select{appearance:auto}
 .demo-flag{background:#442d16;border:1px solid #ad893e;color:#ffd68c;border-radius:7px;padding:8px;margin:8px 0;font-size:11px}
 @media(max-width:360px){.home-tile{min-height:120px}.home-tile strong{font-size:18px}.hero{height:185px}.brand h1{font-size:23px}.song-card{gap:7px}.song-art{height:65px;width:65px}.song-main h3{font-size:15px}.song-controls button{padding:4px}}
 @media(min-width:561px){.phone{box-shadow:0 0 0 1px #415577,0 0 55px #183b85;margin-top:0}}
+
+.exact-home{position:relative;width:100%;margin:0 auto 5px;overflow:hidden;border-radius:0 0 15px 15px}
+.exact-home img{width:100%;height:auto;display:block;user-select:none;-webkit-user-drag:none}
+.exact-home button{position:absolute;border:0;background:transparent;opacity:0;cursor:pointer}
+.exact-home button:focus-visible{outline:3px solid #25c6f6;opacity:.6;background:#26bfe420}
+#page-home{padding:0 7px 14px}
+#page-home .intro-note{padding:0 8px;margin:5px 0}

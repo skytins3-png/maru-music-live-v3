@@ -89,19 +89,15 @@ const picture=(s,i=0,large=false)=>{
 };
 const demoBanner=()=>demoMode&&(tracks.length===0||stories.length===0)?'<div class="demo-flag">디자인 시연용 예시입니다. 실제 음원·조회수·댓글 데이터가 아닙니다.</div>':"";
 function renderHome(){
- $("page-home").innerHTML='<section class="hero"><div class="brand"><div class="brand-badge">'+icon("mic")+
-  '</div><div><h1>MARU RADIO</h1><small>노래 & 사연 센터</small></div></div>'
-  +'<button class="icon-btn hero-settings" data-go="profile" aria-label="설정">'+icon("settings")+'</button>'
-  +'<div class="hero-mic"><div class="mic-body"></div><div class="mic-stand"></div></div></section>'
-  +'<div class="home-grid">'
-  +tile("songs","music","노래 보관함","저장된 노래 보기","tile-red")
-  +tile("upload","cloud","노래 업로드","노래 올리기","tile-blue")
-  +tile("downloads","download","노래 다운로드","내 기기에 저장","tile-green")
-  +tile("story-compose","envelope","사연 보내기","이야기 · 신청곡","tile-purple")
-  +'</div><button class="popular" data-action="top5">'+icon("flame")+'<strong>인기 노래 TOP 5</strong><span class="chev">❯</span></button>'
-  +(tracks.length===0?'<p class="intro-note">실제 등록곡 0곡 · 노래를 가져오면 인기 목록에 표시됩니다.</p>':
-    '<p class="intro-note">보관 '+tracks.length+'곡 · 서버 전송 확인 '+tracks.filter(s=>s.uploadState==="UPLOADED").length+'곡</p>')
-  +'<div class="status-note">갤럭시 한 대로 관리 · 원곡 보존 · 승인 전 외부 비공개</div>';
+ $("page-home").innerHTML='<div class="exact-home"><img src="../reference_home.webp" alt="MARU RADIO 노래와 사연 센터 홍보 디자인">'
+  +'<button aria-label="설정" data-go="profile" style="left:87%;top:0%;width:13%;height:9%"></button>'
+  +'<button aria-label="노래 보관함" data-go="songs" style="left:0%;top:34%;width:49%;height:24%"></button>'
+  +'<button aria-label="노래 업로드" data-go="upload" style="left:51%;top:34%;width:49%;height:24%"></button>'
+  +'<button aria-label="노래 다운로드" data-go="downloads" style="left:0%;top:59.5%;width:49%;height:24.5%"></button>'
+  +'<button aria-label="사연 보내기" data-go="story-compose" style="left:51%;top:59.5%;width:49%;height:24.5%"></button>'
+  +'<button aria-label="인기 노래 TOP 5" data-action="top5" style="left:0%;top:87.4%;width:100%;height:11%"></button></div>'
+  +(tracks.length===0?'<p class="intro-note">등록곡 0곡 · 노래를 가져오면 실제 목록에 표시됩니다.</p>':
+    '<p class="intro-note">보관 '+tracks.length+'곡 · 서버 전송 확인 '+tracks.filter(s=>s.uploadState==="UPLOADED").length+'곡</p>');
 }
 function tile(dest,glyph,title,subtitle,cls){
  return '<button class="home-tile '+cls+'" data-go="'+dest+'">'+icon(glyph,"big")+
