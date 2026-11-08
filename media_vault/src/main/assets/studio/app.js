@@ -6,7 +6,7 @@ const escapeHTML=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;
 const call=(name,...args)=>{try{return native&&typeof native[name]==="function"?native[name](...args):null;}catch(e){notify("기기 연결 오류: "+e.message);return null;}};
 let tracks=[],stories=[],page="home",selectedSong=null,selectedStory=null,trackTab="전체",
     songLimit=20,
-    storyTab="전체",detailTab="댓글",downloadTab="다운로드 목록",replyTo=0,storyReplyTo=0,
+    storyTab="전체",detailTab="댓글",downloadTab="다운로드 목록",scoreSearch="",scoreOnly=false,replyTo=0,storyReplyTo=0,
     query="",uploadId=null,fileLabel="음원 파일을 선택하세요",storyFileLabel="선택한 첨부파일 없음",
     demoMode=false,serverInfo="",toastTimer=null;
 const sunoCandidates=[["민도윤","주머니 속 봄바람","4b58c565-0bac-4013-af8f-644859fd2b99","ca389620-8e87-4bb8-a578-332d0be4c61b"],["서하린","今晚就跟你走","d00fe0b8-3183-4433-a20f-4715c0de25dc","4f303942-fb43-4c83-8095-1571adde72ef"],["차나린","心跳刚刚好","436d6af2-7848-4924-b8fd-54ef68a537e2","5c61b0b7-a0b7-49b2-a4e7-aa2b7eee33ee"],["백소윤","阳光跟着我们跑","6d23642d-1690-4efd-a170-2773f54dd151","9c02bd0a-660d-435d-adbb-dfcded4bc850"],["류서빈","내 이름을 다시 부른다","1e22cca9-d19a-46f5-ae95-c0b6562dc86c","6035ff19-89de-4982-a7b7-132aedce7be9"],["남예린","귤빛 오후","ebde698b-1f2e-43d4-b611-d815973ac52c","66dad43e-ac1d-40c5-b269-14af5132f181"],["오하늬","한 박자 느린 사랑","9f33236c-b039-4b6a-bd5c-9e7c56d5e1ae","5e2bb55b-d6bb-4697-a4e9-da524a63cb8d"],["임다온","꽃신 신고 마중 간다","d411dc55-677e-48f0-88a1-fd235ea756a6","e40615e3-19cb-4abc-be8e-08441300e22b"],["정유라","잠든 도시의 자장가","85970331-43ff-46e2-8be5-c63d0929a2c0","610a6f0a-2ff2-4563-9d1f-0c55e78622bd"]];
@@ -79,7 +79,7 @@ window.goBack=()=>{if(page==="detail")go("songs");else if(page==="story-detail")
 // The top-level go() declaration is already window.go. Never overwrite it.
 window.setDemo=on=>{demoMode=!!on;go("home");};
 function footer(){
- const active={"home":"home","songs":"songs","detail":"songs","upload":"songs","downloads":"songs",
+ const active={"home":"home","songs":"songs","detail":"songs","upload":"songs","downloads":"songs","scores":"songs",
    "stories":"stories","story-compose":"stories","story-detail":"stories","profile":"profile"}[page]||"home";
  $("bottom-nav").innerHTML=[["home","home","홈"],["songs","music","노래"],["stories","envelope","사연"],["profile","person","내정보"]]
   .map(([dest,glyph,label])=>'<button type="button" data-go="'+dest+'" class="'+(active===dest?"active":"")+'" aria-label="'+label+'">'+icon(glyph)+'<span>'+label+'</span></button>').join("");
@@ -105,7 +105,7 @@ function render(){
  document.querySelectorAll(".screen").forEach(el=>el.classList.toggle("active",el.id==="page-"+page));
  footer();
  const fn={"home":renderHome,"songs":renderSongs,"detail":renderDetail,
-  "upload":renderUpload,"downloads":renderDownloads,"story-compose":renderStoryCompose,
+  "upload":renderUpload,"downloads":renderDownloads,"scores":renderScores,"story-compose":renderStoryCompose,
   "stories":renderStories,"story-detail":renderStoryDetail,"profile":renderProfile}[page];
  if(fn)fn();
  const el=$("page-"+page);if(el)el.scrollTop=0;
@@ -127,6 +127,7 @@ function renderHome(){
   +'<button aria-label="노래 다운로드" data-go="downloads" style="left:0%;top:59.5%;width:49%;height:24.5%"></button>'
   +'<button aria-label="사연 보내기" data-go="story-compose" style="left:51%;top:59.5%;width:49%;height:24.5%"></button>'
   +'<button aria-label="인기 노래 TOP 5" data-action="top5" style="left:0%;top:87.4%;width:100%;height:11%"></button></div>'
+  +'<div class="panel" style="margin-top:12px"><button class="primary-btn" data-go="scores">🎼 MARU 악보 관리 · 보기·등록·저장</button></div>'
   +(tracks.length===0?'<p class="intro-note">등록곡 0곡 · 노래를 가져오면 실제 목록에 표시됩니다.</p>':
     '<p class="intro-note">보관 '+tracks.length+'곡 · 서버 전송 확인 '+tracks.filter(s=>s.uploadState==="UPLOADED").length+'곡</p>');
 }
@@ -145,6 +146,7 @@ function renderSongs(){
  if(query)arr=arr.filter(t=>(t.title+" "+t.artist+" "+t.genre).toLowerCase().includes(query.toLowerCase()));
  $("page-songs").innerHTML=topbar("노래 보관함",'<button class="icon-btn" data-action="searchSong">'+icon("search")+'</button>')
   +'<div class="pills">'+["전체","인기","최신","내 노래"].map(p=>'<button data-action="songFilter" data-value="'+p+'" class="'+(trackTab===p?"active":"")+'">'+p+'</button>').join("")+'</div>'
+  +'<button class="secondary-btn" style="width:100%;margin:8px 0" data-go="scores">🎼 악보 관리 (PDF·사진)</button>'
   +'<div class="controls-row"><span class="tiny">보관 '+tracks.length+'곡 · '+escapeHTML(trackTab)+' 분류 · '+arr.length+'곡 표시</span>'
   +'<button class="line-btn" data-action="chooseLanguage">장르·언어 필터 ▾</button></div>'
   +(query?'<p class="tiny">검색: '+escapeHTML(query)+' <button class="line-btn" data-action="clearSearch">해제</button></p>':"")
@@ -228,6 +230,30 @@ function renderUpload(){
  +'<div class="status-note">먼저 내 보관함에 저장합니다. 외부 서버 업로드는 내정보에서 HTTPS 서버와 인증키를 설정한 후 진행합니다.</div>'
  +'<button class="primary-btn" type="submit">'+icon("cloud")+' 업로드 준비 완료 · 보관함 등록</button></form>'
  +'<button class="secondary-btn" style="width:100%;margin-top:12px" data-action="publishSong">HTTPS 서버 업로드 (승인된 원곡)</button>';
+}
+// Each score is attached to a real song and remains private until the owner exports it.
+function renderScores(){
+ const existing=tracks.filter(t=>t.hasScore);
+ let visible=tracks.filter(t=>!scoreOnly||t.hasScore);
+ if(scoreSearch)visible=visible.filter(t=>(String(t.title||"")+" "+String(t.artist||"")).toLowerCase().includes(scoreSearch.toLowerCase()));
+ const rows=visible.map(t=>
+   '<article class="song-card">'
+  +'<div class="song-art art-a">'+icon("sheet")+'</div>'
+  +'<div class="song-main"><h3>'+escapeHTML(t.title)+'</h3>'
+  +'<p class="tiny">'+escapeHTML(t.artist||"가수 미등록")+' · '+(t.hasScore?"악보 연결됨":"악보 미등록")+'</p></div>'
+  +'<div class="song-controls"><button data-action="scoreAttach" data-id="'+t.id+'" aria-label="악보 등록">'+icon("file")+'</button>'
+  +(t.hasScore?'<button data-action="score" data-id="'+t.id+'" aria-label="악보 열기">'+icon("sheet")+'</button>':'')+'</div></article>'
+  +(t.hasScore?'<div class="row" style="justify-content:flex-end;flex-wrap:wrap;margin-bottom:9px"><button class="secondary-btn" data-action="score" data-id="'+t.id+'">악보 보기</button>'
+  +'<button class="secondary-btn" data-action="scoreExport" data-id="'+t.id+'">악보 파일 저장</button></div>':'')
+ ).join("");
+ $("page-scores").innerHTML=topbar("악보 관리",'<button class="icon-btn" data-action="scoreSearch">'+icon("search")+'</button>',"songs")
+  +'<div class="panel"><h3>🎼 MARU 악보 보관함</h3><p class="tiny">악보를 노래와 연결하고 PDF·JPG·PNG·WEBP를 볼 수 있습니다. 파일은 원래 저장공간에 남고, 악보를 선택해 내 기기에 내보낼 수 있습니다.</p>'
+  +'<div class="row" style="justify-content:space-between"><strong>노래 '+tracks.length+'곡 · 연결 악보 '+existing.length+'개</strong></div>'
+  +'<button class="secondary-btn" data-action="scoreOnly" style="width:100%;margin-top:8px">'+(scoreOnly?"전체 곡 보기":"악보 등록된 곡만 보기")+'</button>'
+  +(scoreSearch?'<p class="tiny">검색: '+escapeHTML(scoreSearch)+'</p>':'')+'</div>'
+  +(visible.length?'<div class="song-list">'+rows+'</div>':
+     '<div class="empty">등록된 노래 또는 검색된 악보가 없습니다.<p>먼저 노래 보관함에서 원곡을 가져온 뒤 악보를 등록하세요.</p><button class="primary-btn" data-go="songs">노래 보관함 열기</button></div>')
+  +'<div class="status-note">현재는 PDF·악보 사진 보관과 보기 기능입니다. MP3만으로 악보를 자동 채보하는 AI 기능은 포함되지 않습니다.</div>';
 }
 function renderDownloads(){
  const songs=tracks.slice();
@@ -331,7 +357,7 @@ function renderProfile(){
  +'<div class="panel"><div class="storage-line">'+icon("drive")+'<div class="right"><strong>내 저장공간</strong>'
  +'<div class="tiny">'+used+'GB / '+total+'GB · 등록 '+(info.songCount||0)+'곡</div>'
  +'<div class="progress" style="margin-top:8px"><span style="width:'+(info.total?Math.min(100,(info.used/info.total*100)):0)+'%"></span></div></div></div></div>'
- +'<section class="panel"><div class="profile-row" data-go="downloads">'+icon("download")+'<span>다운로드 · 저장 위치</span> ❯</div>'
+ +'<section class="panel"><div class="profile-row" data-go="scores">🎼 <span>악보 관리 · PDF·이미지</span> ❯</div><div class="profile-row" data-go="downloads">'+icon("download")+'<span>다운로드 · 저장 위치</span> ❯</div>'
  +'<div class="profile-row" data-go="upload">'+icon("cloud")+'<span>내 업로드 관리</span> ❯</div>'
  +'<div class="profile-row" data-go="stories">'+icon("envelope")+'<span>사연 보관함</span> ❯</div>'
  +'<div class="profile-row" data-action="toggleDemo">'+icon("image")+'<span>마케팅 디자인 미리보기</span><span class="hint">'+(demoMode?"ON":"OFF")+'</span> ❯</div></section>'
@@ -405,6 +431,13 @@ document.addEventListener("click",e=>{
  if(act==="preview"){call("preview",id);return;}
  if(act==="stop"){call("stop");notify("재생 정지");return;}
  if(act==="score"){call("viewScore",id);return;}
+ if(act==="scoreAttach"){call("pickScore",id);return;}
+ if(act==="scoreExport"){call("exportScore",id);return;}
+ if(act==="scoreSearch"){
+    const next=window.prompt("악보 검색: 노래 제목 또는 가수",scoreSearch);
+    if(next!==null){scoreSearch=next.trim();go("scores");}return;
+ }
+ if(act==="scoreOnly"){scoreOnly=!scoreOnly;go("scores");return;}
  if(act==="share"){call("shareSong",id);return;}
  if(act==="favorite"){const msg=call("favorite",id);readData();renderDetail();notify(msg);return;}
  if(act==="chooseUpload"){call("chooseSong");return;}
