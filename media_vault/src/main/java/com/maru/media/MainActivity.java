@@ -22,7 +22,7 @@ import java.util.*;
  */
 public final class MainActivity extends Activity {
  private static final int PICK_TREE=120, PICK_AUDIO=121, PICK_MANIFEST=122,
-                          EXPORT=123, PICK_SCORE=124, PICK_STORY_FILE=125, EXPORT_STORY=126;
+                          EXPORT=123, PICK_SCORE=124, PICK_STORY_FILE=125, EXPORT_STORY=126,PICK_COVER=127;
  private final int bg=0xff081524, card=0xff122b3d, white=0xfff6fbff, teal=0xff60e7d5;
  private final Handler ui=new Handler(Looper.getMainLooper());
  private VaultDb db;
@@ -30,7 +30,7 @@ public final class MainActivity extends Activity {
  private TextView status,summary;
  private MediaPlayer media;
  private VaultDb.Track exportTarget;
- private long scoreTarget=-1;
+ private long scoreTarget=-1,coverTarget=-1;
  private String storyAttachment="",storyNickDraft="",storyBodyDraft="";
  private String pendingStoryExport="";
  private int visible=35;
@@ -209,7 +209,8 @@ public final class MainActivity extends Activity {
    btn(main,"⬆ MP3·M4A·ZIP 파일 가져오기",this::startFiles);
    btn(main,"📋 107곡 검증목록 JSON 적용",this::startManifest);
    Spinner categories=new Spinner(this);
-   ArrayList<String> filters=new ArrayList<>(Arrays.asList(CatalogLogic.LANGUAGES));
+   ArrayList<String> filters=new ArrayList<>(Arrays.asList("인기","최신","내 노래"));
+   filters.addAll(Arrays.asList(CatalogLogic.LANGUAGES));
    for(String g:CatalogLogic.GENRES)if(!"미확인".equals(g))filters.add(g);
    ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,filters);
    categories.setAdapter(adapter);categories.setSelection(Math.max(0,filters.indexOf(currentFilter)));
@@ -225,7 +226,11 @@ public final class MainActivity extends Activity {
    });
    EditText search=edit(main,"곡명 검색 (입력 후 검색 버튼)",searchTerm,1);
    btn(main,"검색",()->{searchTerm=search.getText().toString().trim();visible=35;renderSongs();});
-   List<VaultDb.Track> all=db.tracks(currentFilter),display=new ArrayList<>();
+   String filter=(currentFilter.equals("인기")||currentFilter.equals("최신")||currentFilter.equals("내 노래"))
+      ?"전체":currentFilter;
+   List<VaultDb.Track> all=db.tracks(filter),display=new ArrayList<>();
+   if(currentFilter.equals("인기"))Collections.sort(all,(x,y)->Integer.compare(y.views,x.views));
+   else if(currentFilter.equals("최신"))Collections.sort(all,(x,y)->Long.compare(y.id,x.id));
    for(VaultDb.Track t:all){
      if(searchTerm.isEmpty()||(t.title+t.filename).toLowerCase(Locale.ROOT).contains(searchTerm.toLowerCase(Locale.ROOT)))
        display.add(t);
@@ -236,7 +241,18 @@ public final class MainActivity extends Activity {
      VaultDb.Track t=display.get(i);
      LinearLayout tile=vertical();tile.setPadding(dp(12),dp(10),dp(12),dp(10));tile.setBackground(round(0xff18304c,0xff0d1e36,17));
      LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));main.addView(tile,lp);
-     TextView heading=label("♫  "+t.title,18);heading.setTypeface(null,Typeface.BOLD);tile.addView(heading);
+     LinearLayout songHeader=new LinearLayout(this);songHeader.setOrientation(0);tile.addView(songHeader);
+     TextView coverIcon=label("♫",23);coverIcon.setGravity(Gravity.CENTER);coverIcon.setTextColor(teal);
+     coverIcon.setBackground(round(0xff264860,0xff0b2d3e,13));
+     songHeader.addView(coverIcon,new LinearLayout.LayoutParams(dp(54),dp(54)));
+     TextView heading=label(t.title,18);heading.setTypeface(null,Typeface.BOLD);
+     LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(0,-2,1);hp.setMargins(dp(9),dp(8),0,0);songHeader.addView(heading,hp);
+     if(t.coverUri!=null&&!t.coverUri.isEmpty()){
+       songHeader.removeView(coverIcon);
+       ImageView thumb=new ImageView(this);thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+       thumb.setImageURI(Uri.parse(t.coverUri));
+       songHeader.addView(thumb,0,new LinearLayout.LayoutParams(dp(54),dp(54)));
+     }
      paragraph(tile,t.language+" · "+t.genre+" · "+(t.size/(1024*1024))+"MB · 조회 "+t.views+" · ♡ "+t.liked+" · "+t.uploadState);
      LinearLayout actions=new LinearLayout(this);actions.setOrientation(0);tile.addView(actions);
      Button play=new Button(this);play.setText("▶ 미리듣기");play.setAllCaps(false);actions.addView(play,new LinearLayout.LayoutParams(0,dp(43),1));
@@ -264,6 +280,15 @@ public final class MainActivity extends Activity {
    VaultDb.Track t=db.get(id);if(t==null)return;
    ScrollView scroll=new ScrollView(this);LinearLayout box=vertical();box.setPadding(dp(12),dp(8),dp(12),dp(10));scroll.addView(box);
    box.addView(label(t.title,18));
+   if(t.coverUri!=null&&!t.coverUri.isEmpty()){
+     ImageView art=new ImageView(this);art.setScaleType(ImageView.ScaleType.CENTER_CROP);
+     art.setImageURI(Uri.parse(t.coverUri));
+     box.addView(art,new LinearLayout.LayoutParams(-1,dp(180)));
+   }else{
+     TextView missing=label("♫  앨범 표지 미등록",18);missing.setGravity(Gravity.CENTER);
+     missing.setBackground(round(0xff1a3c52,0xff0a2238,18));
+     box.addView(missing,new LinearLayout.LayoutParams(-1,dp(130)));
+   }
    paragraph(box,t.language+" / "+t.genre+" · 이 기기 조회 "+t.views+"회 · 내 좋아요 "+t.liked);
    paragraph(box,"공개 서버 상태: "+("UPLOADED".equals(t.uploadState)?"업로드 전송 완료":"미업로드"));
    btn(box,"▶ 미리보기",()->preview(t));
@@ -272,6 +297,7 @@ public final class MainActivity extends Activity {
    btn(box,"💬 댓글·답글 보기·작성",()->comments(id));
    btn(box,"공유",()->shareSong(t));
    btn(box,"🎼 악보 첨부 또는 보기",()->score(id));
+   btn(box,"🖼 앨범 표지 사진 첨부·변경",()->pickCover(id));
    btn(box,"🎶 장르 변경",()->chooseGenre(id));
    btn(box,"✎ 제목 수정",()->rename(id));
    btn(box,t.rightsOk==1?"✓ 업로드 권한 확인됨 (변경)":"업로드 권한 확인 (원곡 소유)",()->toggleRights(id));
@@ -332,6 +358,14 @@ public final class MainActivity extends Activity {
      if(!body.getText().toString().trim().isEmpty())db.addSongReply(id,parent,name.getText().toString(),body.getText().toString());
      notice("답글을 이 기기에 저장했습니다.");
    }).setNegativeButton("취소",null).show();
+ }
+ private void pickCover(long id){
+   coverTarget=id;
+   Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+   i.addCategory(Intent.CATEGORY_OPENABLE);
+   i.setType("image/*");
+   i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+   try{startActivityForResult(i,PICK_COVER);}catch(Exception e){notice("표지 사진 선택 불가");}
  }
  private void score(long id){
    VaultDb.Track t=db.get(id);if(t==null)return;
@@ -615,6 +649,12 @@ public final class MainActivity extends Activity {
      if(data.getData()!=null&&scoreTarget>0){
        persistRead(data.getData());db.update(scoreTarget,"score_uri",data.getData().toString());
        notice("악보 등록 완료");scoreTarget=-1;
+     }
+   }else if(request==PICK_COVER){
+     if(data.getData()!=null&&coverTarget>0){
+       persistRead(data.getData());
+       db.update(coverTarget,"cover_uri",data.getData().toString());
+       notice("앨범 표지 사진 등록 완료");coverTarget=-1;
      }
    }else if(request==PICK_STORY_FILE){
      if(data.getData()!=null){

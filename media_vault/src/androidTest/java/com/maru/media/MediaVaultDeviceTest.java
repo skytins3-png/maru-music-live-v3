@@ -50,7 +50,7 @@ public final class MediaVaultDeviceTest {
    onView(withText("상세 · 댓글")).perform(scrollTo(),click());
    for(String label:new String[]{
      "▶ 미리보기","⬇ 파일 저장 / 다운로드","💬 댓글·답글 보기·작성",
-     "🎼 악보 첨부 또는 보기","공유","🎶 장르 변경","✎ 제목 수정"
+     "🎼 악보 첨부 또는 보기","🖼 앨범 표지 사진 첨부·변경","공유","🎶 장르 변경","✎ 제목 수정"
    })onView(withText(label)).check(matches(isAssignableFrom(android.widget.Button.class)));
    onView(withText("닫기")).perform(click());
  }

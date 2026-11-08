@@ -5,10 +5,10 @@ import android.database.sqlite.*;
 import org.json.*;
 import java.util.*;
 public final class VaultDb extends SQLiteOpenHelper {
- public static final String TRACK_FIELDS="_id,title,filename,uri,sha,size,language,genre,artist,score_uri,views,liked,rights_ok,upload_state";
- public VaultDb(Context ctx){super(ctx,"maru_media_private_v1.db",null,2);}
+ public static final String TRACK_FIELDS="_id,title,filename,uri,sha,size,language,genre,artist,score_uri,views,liked,rights_ok,upload_state,cover_uri";
+ public VaultDb(Context ctx){super(ctx,"maru_media_private_v1.db",null,3);}
  @Override public void onCreate(SQLiteDatabase d){
-   d.execSQL("CREATE TABLE tracks(_id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,filename TEXT,uri TEXT NOT NULL,sha TEXT NOT NULL UNIQUE,size INTEGER DEFAULT 0,language TEXT NOT NULL,genre TEXT NOT NULL DEFAULT '미확인',artist TEXT DEFAULT '',score_uri TEXT DEFAULT '',views INTEGER DEFAULT 0,liked INTEGER DEFAULT 0,rights_ok INTEGER DEFAULT 0,upload_state TEXT DEFAULT 'LOCAL')");
+   d.execSQL("CREATE TABLE tracks(_id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,filename TEXT,uri TEXT NOT NULL,sha TEXT NOT NULL UNIQUE,size INTEGER DEFAULT 0,language TEXT NOT NULL,genre TEXT NOT NULL DEFAULT '미확인',artist TEXT DEFAULT '',score_uri TEXT DEFAULT '',views INTEGER DEFAULT 0,liked INTEGER DEFAULT 0,rights_ok INTEGER DEFAULT 0,upload_state TEXT DEFAULT 'LOCAL',cover_uri TEXT DEFAULT '')");
    d.execSQL("CREATE INDEX idx_tracks_language ON tracks(language)");
    d.execSQL("CREATE TABLE comments(_id INTEGER PRIMARY KEY AUTOINCREMENT,track_id INTEGER NOT NULL,author TEXT,body TEXT,created_at INTEGER)");
    d.execSQL("CREATE TABLE stories(_id INTEGER PRIMARY KEY AUTOINCREMENT,author TEXT,body TEXT,attachment_uri TEXT,status TEXT NOT NULL DEFAULT '검토대기',created_at INTEGER, views INTEGER DEFAULT 0, liked INTEGER DEFAULT 0, scheduled_at TEXT DEFAULT '')");
@@ -25,6 +25,7 @@ public final class VaultDb extends SQLiteOpenHelper {
      d.execSQL("CREATE INDEX IF NOT EXISTS idx_story_comments_story ON story_comments(story_id)");
      d.execSQL("CREATE TABLE IF NOT EXISTS song_comment_replies(_id INTEGER PRIMARY KEY AUTOINCREMENT,track_id INTEGER NOT NULL,parent_id INTEGER NOT NULL,author TEXT,body TEXT,created_at INTEGER)");
    }
+   if(oldVersion<3)d.execSQL("ALTER TABLE tracks ADD COLUMN cover_uri TEXT DEFAULT ''");
  }
  public synchronized long insertTrack(String title,String fileName,String uri,String sha,long size,String language){
    if(!CatalogLogic.sha256(sha))throw new IllegalArgumentException("sha256");
@@ -52,7 +53,7 @@ public final class VaultDb extends SQLiteOpenHelper {
    try(Cursor c=getReadableDatabase().rawQuery("SELECT 1 FROM tracks WHERE sha=? LIMIT 1",new String[]{sha})){return c.moveToFirst();}
  }
  public synchronized void update(long id,String field,String value){
-   if(!Arrays.asList("title","language","genre","artist","score_uri","upload_state").contains(field))throw new IllegalArgumentException("field");
+   if(!Arrays.asList("title","language","genre","artist","score_uri","upload_state","cover_uri").contains(field))throw new IllegalArgumentException("field");
    ContentValues v=new ContentValues();v.put(field,CatalogLogic.cleanText(value,250));getWritableDatabase().update("tracks",v,"_id=?",new String[]{String.valueOf(id)});
  }
  public synchronized void flag(long id,String field,int value){
@@ -164,10 +165,10 @@ public final class VaultDb extends SQLiteOpenHelper {
    return changed;
  }
  public static final class Track {
-   public final long id,size;public final String title,filename,uri,sha,language,genre,artist,scoreUri,uploadState;
+   public final long id,size;public final String title,filename,uri,sha,language,genre,artist,scoreUri,uploadState,coverUri;
    public final int views,liked,rightsOk;
    Track(Cursor c){id=c.getLong(0);title=c.getString(1);filename=c.getString(2);uri=c.getString(3);sha=c.getString(4);size=c.getLong(5);
-     language=c.getString(6);genre=c.getString(7);artist=c.getString(8);scoreUri=c.getString(9);views=c.getInt(10);liked=c.getInt(11);rightsOk=c.getInt(12);uploadState=c.getString(13);}
+     language=c.getString(6);genre=c.getString(7);artist=c.getString(8);scoreUri=c.getString(9);views=c.getInt(10);liked=c.getInt(11);rightsOk=c.getInt(12);uploadState=c.getString(13);coverUri=c.getString(14);}
  }
  public static final class Comment {
    public final long id,parentId;public final String author,body;
