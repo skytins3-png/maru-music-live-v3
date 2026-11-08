@@ -67,7 +67,7 @@ jobs:
             # Always capture screenshots, even if an instrumentation assertion fails.
             # That lets QA inspect the failure rather than guessing from the test log.
             for name in 01-home 02-songs 03-song-detail 04-upload 05-downloads 06-story-compose 07-stories 08-story-detail 09-profile 10-scores; do adb exec-out run-as com.maru.media.previewscore20261109 cat "files/eight-screens/$name.png" > "eight-screen-screenshots/$name.png" && test -s "eight-screen-screenshots/$name.png" || exit 1; done
-            python3 -c 'from pathlib import Path; import hashlib; p=sorted(Path("eight-screen-screenshots").glob("[0-9][0-9]-*.png")); assert len(p)==10, f"Missing screens: {len(p)}"; assert all(x.read_bytes().startswith(bytes([137,80,78,71,13,10,26,10])) for x in p); hashes={hashlib.sha256(x.read_bytes()).hexdigest() for x in p}; assert len(hashes)==9, "Some screen captures are identical: wrong menu or compositor not updated"; print("Validated",len(p),"distinct real Android screen captures")'
+            python3 -c 'from pathlib import Path; import hashlib; p=sorted(Path("eight-screen-screenshots").glob("[0-9][0-9]-*.png")); assert len(p)==10, f"Missing screens: {len(p)}"; assert all(x.read_bytes().startswith(bytes([137,80,78,71,13,10,26,10])) for x in p); hashes={hashlib.sha256(x.read_bytes()).hexdigest() for x in p}; assert len(hashes)==10, "Some screen captures are identical: wrong menu or compositor not updated"; print("Validated",len(p),"distinct real Android screen captures")'
             grep -q 'OK (' eight-screen-screenshots/instrumentation.txt
             ! grep -q 'FAILURES!!!' eight-screen-screenshots/instrumentation.txt
       - name: Signed APK and permission checks
