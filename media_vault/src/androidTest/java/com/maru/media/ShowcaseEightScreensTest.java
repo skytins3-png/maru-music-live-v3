@@ -94,7 +94,7 @@ public class ShowcaseEightScreensTest {
    for(int i=0;i<100;i++){
      status=eval("document.querySelectorAll('.screen').length+':'+document.querySelectorAll('#bottom-nav button').length+':'+Math.round(document.querySelector('.phone')?.getBoundingClientRect().height||0)");
      String[] p=status.replace("\"","").split(":");
-     if(p.length==3&&"9".equals(p[0])&&"4".equals(p[1])&&Integer.parseInt(p[2])>500){
+     if(p.length==3&&"10".equals(p[0])&&"4".equals(p[1])&&Integer.parseInt(p[2])>500){
        // The photo asset is decoded asynchronously by WebView; DOM navigation alone is insufficient.
        for(int w=0;w<40;w++){
          if("true".equals(eval("document.querySelector('.exact-home img')?.complete && document.querySelector('.exact-home img')?.naturalWidth>150")))break;
@@ -115,14 +115,14 @@ public class ShowcaseEightScreensTest {
  @Test public void allEightScreensHaveActiveUIAndAreCaptured()throws Exception{
    ready();
    String loaded=eval("document.querySelectorAll('.screen').length");
-   assertTrue(Integer.parseInt(loaded)>=8);
+   assertTrue(Integer.parseInt(loaded)>=10);
    assertEquals("4",eval("document.querySelectorAll('#bottom-nav button').length"));
    screenshot("01-home");
-   for(String page:new String[]{"songs","upload","downloads","story-compose","stories","profile"}){
+   for(String page:new String[]{"songs","upload","downloads","scores","story-compose","stories","profile"}){
      show(page);
      String content=eval("document.querySelector('#page-"+page+"').innerText.length");
      assertTrue(page+" content must be real text",Integer.parseInt(content)>35);
-     String filename=page.equals("songs")?"02-songs":page.equals("upload")?"04-upload":page.equals("downloads")?"05-downloads":
+     String filename=page.equals("songs")?"02-songs":page.equals("upload")?"04-upload":page.equals("downloads")?"05-downloads":page.equals("scores")?"10-scores":
        page.equals("story-compose")?"06-story-compose":page.equals("stories")?"07-stories":"09-profile";
      screenshot(filename);
    }
@@ -153,6 +153,13 @@ public class ShowcaseEightScreensTest {
    assertEquals("true",eval("downloadTab='Suno 후보 9곡';window.go('downloads');document.querySelector('#page-downloads').innerText.includes('추모곡')"));
    assertEquals("true",eval("document.querySelectorAll('#page-downloads [data-action=\"rateSuno\"]').length===18"));
  }
+ @Test public void scoreCatalogHasRealLinksOnly()throws Exception{
+  ready();
+  assertEquals("true",eval("window.go('scores');document.querySelector('#page-scores').innerText.includes('악보 관리')"));
+  assertEquals("true",eval("document.querySelector('#page-scores').innerText.includes('MP3만으로 악보를 자동 채보')"));
+  assertEquals("true",eval("typeof Maru.pickScore==='function' && typeof Maru.viewScore==='function' && typeof Maru.exportScore==='function'"));
+  assertEquals("true",eval("window.go('home');document.querySelector('#page-home [data-go=\"scores\"]')!==null"));
+ }
  @Test public void nativeBridgePreservesActualPrivateData()throws Exception{
    ready();
    assertEquals("true",eval("typeof window.Maru.tracks==='function'"));
@@ -160,6 +167,8 @@ public class ShowcaseEightScreensTest {
    assertEquals("true",eval("typeof window.Maru.download==='function'"));
    assertEquals("true",eval("typeof window.Maru.submitStory==='function'"));
    assertEquals("true",eval("typeof window.Maru.chooseSong==='function'"));
+   assertEquals("true",eval("typeof window.Maru.exportScore==='function'"));
+   assertEquals("true",eval("typeof window.Maru.pickScore==='function'"));
    String before=eval("JSON.parse(Maru.stories()).length");
    String result=eval("Maru.submitStory('QA검수','안드로이드에서 실제 사연을 저장한 가상 테스트 내용입니다','','private').includes('접수번호')");
    assertEquals("true",result);
