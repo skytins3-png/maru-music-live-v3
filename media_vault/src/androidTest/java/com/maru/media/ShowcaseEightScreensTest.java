@@ -23,7 +23,9 @@ public class ShowcaseEightScreensTest {
    AtomicReference<WebView> ref=new AtomicReference<>();
    rule.getScenario().onActivity(a->{
      ViewGroup root=a.findViewById(android.R.id.content);
-     ref.set((WebView)root.getChildAt(0));
+     android.view.View first=root.getChildAt(0);
+     if(first instanceof WebView)ref.set((WebView)first);
+     else if(first instanceof ViewGroup)ref.set((WebView)((ViewGroup)first).getChildAt(0));
    });
    WebView web=ref.get();assertNotNull(web);
    CountDownLatch latch=new CountDownLatch(1);
@@ -36,7 +38,9 @@ public class ShowcaseEightScreensTest {
    AtomicReference<WebView> webRef=new AtomicReference<>();
    rule.getScenario().onActivity(a->{
      ViewGroup root=a.findViewById(android.R.id.content);
-     webRef.set((WebView)root.getChildAt(0));
+     android.view.View first=root.getChildAt(0);
+     if(first instanceof WebView)webRef.set((WebView)first);
+     else if(first instanceof ViewGroup)webRef.set((WebView)((ViewGroup)first).getChildAt(0));
    });
    CountDownLatch painted=new CountDownLatch(1);
    WebView web=webRef.get();

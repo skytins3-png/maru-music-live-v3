@@ -297,7 +297,7 @@ function renderProfile(){
  +'<div class="panel"><div class="field"><label>HTTPS 방송 서버 주소</label><input id="serverUrl" class="textinput" placeholder="https://example.com" value="'+escapeHTML(serverInfo)+'"></div>'
  +'<div class="field"><label>운영자 인증키 (앱 종료 시 삭제)</label><input type="password" class="textinput" id="serverToken" placeholder="인증키 입력"></div>'
  +'<button class="secondary-btn" style="width:100%" data-action="saveServer">서버 연결 정보 저장</button></div>'
- +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.1</span> ❯</div>'
+ +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.2</span> ❯</div>'
  +'<div class="profile-row" data-action="stop">'+icon("music")+'<span>음원 재생 정지</span> ❯</div></div>'
  +'<div class="panel"><h3>노래·사연 목록 백업·복구</h3>'
  +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="exportMetadata">목록 백업(JSON)</button>'
@@ -394,7 +394,7 @@ document.addEventListener("click",e=>{
  if(act==="restoreMetadata"){call("restoreMetadata");return;}
  if(act==="saveServer"){notify(call("setServer",$("serverUrl").value,$("serverToken").value));return;}
  if(act==="toggleDemo"){demoMode=!demoMode;notify(demoMode?"디자인 시연 켜짐: 실제 데이터가 아닙니다.":"디자인 시연 꺼짐");renderProfile();return;}
- if(act==="about"){notify("MARU RADIO V1.1.1 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
+ if(act==="about"){notify("MARU RADIO V1.1.2 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
  if(act==="logout"){call("logout");return;}
 });
 document.addEventListener("input",e=>{
