@@ -34,10 +34,21 @@ public class ShowcaseEightScreensTest {
  }
  private void screenshot(String name)throws Exception{
    Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
-   File dir=new File(context.getExternalFilesDir(null),"eight-screens");
+   File dir=new File(context.getFilesDir(),"eight-screens");
    assertTrue(dir.exists()||dir.mkdirs());
    Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
    assertNotNull("Virtual Android screen capture required",shot);
+   if("01-home".equals(name)){
+     int colorfulPixels=0;
+     for(int yy=shot.getHeight()/6;yy<shot.getHeight()*4/5;yy+=Math.max(1,shot.getHeight()/28)){
+       for(int xx=shot.getWidth()/9;xx<shot.getWidth()*8/9;xx+=Math.max(1,shot.getWidth()/22)){
+         int color=shot.getPixel(xx,yy);
+         int red=android.graphics.Color.red(color),green=android.graphics.Color.green(color),blue=android.graphics.Color.blue(color);
+         if((red>135&&red>green*1.2&&blue>55)||(blue>145&&blue>red*1.25&&green>45))colorfulPixels++;
+       }
+     }
+     assertTrue("App home screenshot has no colored menu tiles: "+colorfulPixels,colorfulPixels>=9);
+   }
    try(FileOutputStream out=new FileOutputStream(new File(dir,name+".png"))){
      assertTrue(shot.compress(Bitmap.CompressFormat.PNG,100,out));
    }finally{shot.recycle();}
@@ -67,14 +78,16 @@ public class ShowcaseEightScreensTest {
      show(page);
      String content=eval("document.querySelector('#page-"+page+"').innerText.length");
      assertTrue(page+" content must be real text",Integer.parseInt(content)>35);
-     screenshot("0"+(new String[]{"songs","upload","downloads","story-compose","stories","profile"}.length)+page.replace("-","_"));
+     String filename=page.equals("songs")?"02-songs":page.equals("upload")?"04-upload":page.equals("downloads")?"05-downloads":
+       page.equals("story-compose")?"06-story-compose":page.equals("stories")?"07-stories":"09-profile";
+     screenshot(filename);
    }
    // Demo data is clearly marked. It never writes fake statistics to local DB.
    assertEquals("true",eval("window.setDemo(true);window.go('songs');document.querySelector('.demo-flag')!==null"));
    assertEquals("true",eval("window.go('detail',-1);document.querySelector('#page-detail').innerText.includes('그리운 사람')"));
    screenshot("03-song-detail");
    assertEquals("true",eval("window.go('story-detail',-1);document.querySelector('#page-story-detail').innerText.includes('바람소리')"));
-   screenshot("09-story-detail");
+   screenshot("08-story-detail");
  }
  @Test public void nativeBridgePreservesActualPrivateData()throws Exception{
    ready();
