@@ -32,20 +32,51 @@ public final class LibraryImporter {
    stats.last=name;
    if(progress!=null)progress.update(stats.scanned,stats.inserted,stats.duplicate,name);
  }
- private static String sha(InputStream input)throws Exception{
-   MessageDigest dig=MessageDigest.getInstance("SHA-256");
-   byte[] buf=new byte[65536];int n;long bytes=0;
-   while((n=input.read(buf))!=-1){
-     bytes+=n;
-     if(bytes>MAX_AUDIO_BYTES)throw new IOException("개별 음원 55MB 제한");
-     dig.update(buf,0,n);
+ /**
+  * One-pass import, not merely a temporary content:// pointer. The user's original
+  * source is left untouched; a private managed file survives source removal.
+  */
+ private void importManaged(String name,Uri original)throws Exception{
+   File directory=new File(context.getFilesDir(),"music");
+   if(!directory.exists()&&!directory.mkdirs())throw new IOException("음원 보관 폴더 생성 실패");
+   String extension=name.toLowerCase(Locale.ROOT).endsWith(".m4a")?".m4a":".mp3";
+   String uuid=UUID.randomUUID().toString();
+   File temp=new File(directory,uuid+".part");
+   File target=new File(directory,uuid+extension);
+   long count=0;
+   String sha;
+   try{
+     MessageDigest digest=MessageDigest.getInstance("SHA-256");
+     try(InputStream in=new BufferedInputStream(context.getContentResolver().openInputStream(original));
+         OutputStream out=new BufferedOutputStream(new FileOutputStream(temp))){
+       if(in==null)throw new IOException("원본 파일 열기 실패");
+       byte[] buf=new byte[65536];int n;
+       while((n=in.read(buf))!=-1){
+         count+=n;
+         if(count>MAX_AUDIO_BYTES)throw new IOException("음원은 55MB 이하만 등록할 수 있습니다.");
+         out.write(buf,0,n);digest.update(buf,0,n);
+       }
+     }
+     if(count<=0)throw new IOException("빈 음원은 등록할 수 없습니다.");
+     sha=CatalogLogic.hashHex(digest.digest());
+     if(db.bySha(sha)){stats.duplicate++;return;}
+     if(!temp.renameTo(target))throw new IOException("보관 파일 확정 실패");
+     long added=db.insertTrack(CatalogLogic.base(name),name,Uri.fromFile(target).toString(),sha,count,CatalogLogic.group(name));
+     if(added<0){stats.duplicate++;return;}
+     stats.inserted++;
+   }finally{
+     if(temp.exists())temp.delete();
+     if(target.exists()&&!db.bySha(shaOfUriSafe(target)))target.delete();
    }
-   return CatalogLogic.hashHex(dig.digest());
  }
- private void store(String name,Uri uri,String hex,long bytes){
-   if(db.bySha(hex)){stats.duplicate++;return;}
-   long id=db.insertTrack(CatalogLogic.base(name),name,uri.toString(),hex,bytes,CatalogLogic.group(name));
-   if(id<0)stats.duplicate++;else stats.inserted++;
+ private String shaOfUriSafe(File file){
+   // Only used for cleanup in unexpected insert failures; normal inserts do not need a second hash.
+   try(InputStream in=new BufferedInputStream(new FileInputStream(file))){
+     MessageDigest digest=MessageDigest.getInstance("SHA-256");
+     byte[] b=new byte[65536];int n;
+     while((n=in.read(b))!=-1)digest.update(b,0,n);
+     return CatalogLogic.hashHex(digest.digest());
+   }catch(Exception e){return "";}
  }
  public void fromAudioUris(List<Uri> files){
    for(Uri uri:files){
@@ -55,14 +86,7 @@ public final class LibraryImporter {
        if(CatalogLogic.zip(name))fromZip(uri);
        else if(CatalogLogic.audio(name)){
          stats.scanned++;
-         long bytes=size(uri);
-         if(bytes>MAX_AUDIO_BYTES)throw new IOException("개별 음원 55MB 제한");
-         String hash;
-         try(InputStream in=context.getContentResolver().openInputStream(uri)){
-           if(in==null)throw new IOException("파일 열기 실패");
-           hash=sha(in);
-         }
-         store(name,uri,hash,bytes);
+         importManaged(name,uri);
        }
      }catch(Exception ex){stats.invalid++;}
      update(name);
@@ -89,15 +113,8 @@ public final class LibraryImporter {
        try{
          if(CatalogLogic.zip(name))fromZip(child);
          else{
-           long bytes=cur.isNull(3)?0:cur.getLong(3);
            stats.scanned++;
-           if(bytes>MAX_AUDIO_BYTES)throw new IOException("파일 크기 제한");
-           String hash;
-           try(InputStream in=context.getContentResolver().openInputStream(child)){
-             if(in==null)throw new IOException("읽기 권한 없음");
-             hash=sha(in);
-           }
-           store(name,child,hash,bytes);
+           importManaged(name,child);
          }
        }catch(Exception e){stats.invalid++;}
        update(name);
