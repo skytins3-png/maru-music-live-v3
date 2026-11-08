@@ -123,6 +123,13 @@ public final class VaultMetadataArchive {
          v.put("language",group);
          v.put("views",Math.max(0,t.optInt("views",0)));
          v.put("liked",t.optInt("liked",0)!=0?1:0);
+         if(t.has("is_original")){
+           v.put("is_original",t.optInt("is_original",0)!=0?1:0);
+           for(String field:new String[]{"lyricist","composer","style_finisher","suno_assist"})
+             v.put(field,CatalogLogic.cleanText(t.optString(field,""),100));
+         }
+         if(t.has("artist_group_auto"))
+           v.put("artist_group_auto",t.optInt("artist_group_auto",0)!=0?1:0);
          // Existing local upload rights and remote-published flags must not be silently restored.
          d.update("tracks",v,"_id=?",new String[]{String.valueOf(id)});
          result.tracksRestored++;
