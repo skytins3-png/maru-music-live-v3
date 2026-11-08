@@ -133,6 +133,26 @@ public class ShowcaseEightScreensTest {
    assertEquals("true",eval("window.go('story-detail',-1);document.querySelector('#page-story-detail').classList.contains('active') && document.querySelector('#page-story-detail').innerText.includes('바람소리')"));
    screenshot("08-story-detail");
  }
+ @Test public void candidateVersionSelectionSurvivesAppDatabaseReload()throws Exception{
+   ready();
+   assertEquals("true",eval("typeof Maru.rateCandidate==='function'&&typeof Maru.candidateReviews==='function'"));
+   assertEquals("true",eval("Maru.rateCandidate(0,1,3).length>0"));
+   assertEquals("true",eval("Maru.rateCandidate(0,2,5).includes('2번')"));
+   assertEquals("true",eval("JSON.parse(Maru.candidateReviews())['0'].winner===2"));
+   // A tie never silently selects a random version.
+   assertEquals("true",eval("Maru.rateCandidate(0,1,5).includes('동점')"));
+   assertEquals("true",eval("JSON.parse(Maru.candidateReviews())['0'].winner===0"));
+   assertEquals("true",eval("Maru.rateCandidate(0,1,4).includes('2번')"));
+   assertEquals("true",eval("JSON.parse(Maru.candidateReviews())['0'].winner===2"));
+   // Re-open same SQLite database from another helper instance.
+   Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+   VaultDb reopened=new VaultDb(ctx);
+   assertEquals(2,reopened.candidateReviews().getJSONObject("0").getInt("winner"));
+   reopened.close();
+   // The UI must communicate exclusion and must not represent a Suno account scrape.
+   assertEquals("true",eval("downloadTab='Suno 후보 9곡';window.go('downloads');document.querySelector('#page-downloads').innerText.includes('추모곡')"));
+   assertEquals("true",eval("document.querySelectorAll('#page-downloads [data-action=\"rateSuno\"]').length===18"));
+ }
  @Test public void nativeBridgePreservesActualPrivateData()throws Exception{
    ready();
    assertEquals("true",eval("typeof window.Maru.tracks==='function'"));
