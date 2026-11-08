@@ -23,6 +23,33 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public final class MediaVaultDeviceTest {
+ private void takeQaScreenshot(String name) throws Exception{
+   final android.content.Context ctx=
+     androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
+   android.graphics.Bitmap screenshot=
+     androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+   assertNotNull("Test must capture an actual live app screen",screenshot);
+   java.io.File folder=new java.io.File(ctx.getExternalFilesDir(null),"qa");
+   assertTrue(folder.exists()||folder.mkdirs());
+   try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(folder,name))){
+     assertTrue(screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));
+   }finally{screenshot.recycle();}
+ }
+ @Test public void referenceSongListAndDetailScreenshots() throws Exception{
+   activity.getScenario().onActivity(a->{
+     VaultDb db=new VaultDb(a);
+     String sha="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+     if(!db.bySha(sha))db.insertTrack("화면 확인용 가상곡","test-reference.mp3",
+          "file:///absent/example.mp3",sha,1200000,"한국노래");
+   });
+   onView(withContentDescription("nav-songs")).perform(click());
+   onView(withText("최신")).perform(click());
+   takeQaScreenshot("qa-song-list.png");
+   onView(withText("화면 확인용 가상곡")).perform(scrollTo(),click());
+   onView(withText("곡 상세")).check(matches(isDisplayed()));
+   takeQaScreenshot("qa-song-detail.png");
+ }
+
  @Rule public ActivityScenarioRule<MainActivity> activity=new ActivityScenarioRule<>(MainActivity.class);
 
  @Test public void homeHasAllFourMainTiles(){

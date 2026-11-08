@@ -62,16 +62,12 @@ jobs:
             mkdir -p qa-screenshots
             adb exec-out screencap -p > qa-screenshots/home.png
             gradle --no-daemon :media_vault:connectedDebugAndroidTest
+            adb pull /sdcard/Android/data/com.maru.media.privatevault.v20261108/files/qa/qa-song-list.png qa-screenshots/songs-list.png || true
+            adb pull /sdcard/Android/data/com.maru.media.privatevault.v20261108/files/qa/qa-song-detail.png qa-screenshots/song-detail.png || true
             adb shell am force-stop com.maru.media.privatevault.v20261108
             adb shell am start -W -n com.maru.media.privatevault.v20261108/com.maru.media.MainActivity
-            sleep 2
+            sleep 3
             adb exec-out screencap -p > qa-screenshots/home-after-tests.png
-            adb shell input tap 390 1680 || true
-            sleep 2
-            adb exec-out screencap -p > qa-screenshots/songs-list.png || true
-            adb shell input tap 300 430 || true
-            sleep 2
-            adb exec-out screencap -p > qa-screenshots/song-detail.png || true
       - name: Upload test screenshot and reports, including on failure
         if: always()
         uses: actions/upload-artifact@v4
