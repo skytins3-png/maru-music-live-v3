@@ -10,6 +10,7 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - maru-private:/data
+      - maru-clamdb:/var/lib/clamav
     read_only: true
     tmpfs:
       - /tmp:size=128m,mode=1777
@@ -22,3 +23,4 @@ services:
       retries: 3
 volumes:
   maru-private: {}
+  maru-clamdb: {}
