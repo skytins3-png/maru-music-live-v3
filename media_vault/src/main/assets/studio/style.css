@@ -5,7 +5,7 @@ button,input,textarea,select{font:inherit}
 button{cursor:pointer;color:inherit}
 .icon{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:0;display:inline-block;vertical-align:middle;flex-shrink:0}
 .icon.big{width:35px;height:35px}
-.phone{width:100%;height:100dvh;background:radial-gradient(ellipse at 50% 0%,#0b2141,#06152a 64%,#031022);position:relative;max-width:560px;margin:auto;overflow:hidden}
+.phone{width:100%;height:100vh;height:100dvh;background:radial-gradient(ellipse at 50% 0%,#0b2141,#06152a 64%,#031022);position:relative;max-width:560px;margin:auto;overflow:hidden}
 .screen{position:absolute;top:0;bottom:var(--navh);left:0;right:0;display:none;overflow:auto;padding:0 13px 18px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .screen.no-nav{bottom:0;padding-bottom:22px}
 .screen::-webkit-scrollbar{display:none}

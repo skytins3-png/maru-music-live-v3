@@ -42,12 +42,23 @@ public class ShowcaseEightScreensTest {
      assertTrue(shot.compress(Bitmap.CompressFormat.PNG,100,out));
    }finally{shot.recycle();}
  }
- private void show(String target)throws Exception{
+ private void ready() throws Exception{
+   String status="";
+   for(int i=0;i<100;i++){
+     status=eval("document.querySelectorAll('.screen').length+':'+document.querySelectorAll('#bottom-nav button').length+':'+Math.round(document.querySelector('.phone')?.getBoundingClientRect().height||0)");
+     String[] p=status.replace("\"","").split(":");
+     if(p.length==3&&"9".equals(p[0])&&"4".equals(p[1])&&Integer.parseInt(p[2])>500)return;
+     Thread.sleep(200);
+   }
+   fail("Visible WebView UI failed to load on emulator: "+status);
+ }
+  private void show(String target)throws Exception{
    String result=eval("window.go("+org.json.JSONObject.quote(target)+");document.querySelector('#page-"+target+"').classList.contains('active')");
    assertEquals("true",result);
    Thread.sleep(450);
  }
  @Test public void allEightScreensHaveActiveUIAndAreCaptured()throws Exception{
+   ready();
    String loaded=eval("document.querySelectorAll('.screen').length");
    assertTrue(Integer.parseInt(loaded)>=8);
    assertEquals("4",eval("document.querySelectorAll('#bottom-nav button').length"));
@@ -66,6 +77,7 @@ public class ShowcaseEightScreensTest {
    screenshot("09-story-detail");
  }
  @Test public void nativeBridgePreservesActualPrivateData()throws Exception{
+   ready();
    assertEquals("true",eval("typeof window.Maru.tracks==='function'"));
    assertEquals("true",eval("typeof window.Maru.stories==='function'"));
    assertEquals("true",eval("typeof window.Maru.download==='function'"));
