@@ -25,6 +25,12 @@ jobs:
       - name: Install server dependencies (test only; no public deployment)
         working-directory: media_service
         run: npm install --no-audit --no-fund
+      - name: JavaScript syntax and web menu/detail contract
+        working-directory: media_service
+        run: |
+          node --check public/app.js
+          node --check public/admin.js
+          python3 tests/ui_contract.py
       - name: Unit/integration HTTP tests
         working-directory: media_service
         run: npm test
