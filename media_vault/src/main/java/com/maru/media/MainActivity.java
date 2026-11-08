@@ -125,6 +125,15 @@ public final class MainActivity extends Activity {
    cover.setClipToOutline(true);
    MicHeroView studio=new MicHeroView(this);
    cover.addView(studio,new FrameLayout.LayoutParams(-1,-1));
+   try(java.io.InputStream in=getAssets().open("studio_mic.jpg")){
+     Bitmap bitmap=BitmapFactory.decodeStream(in);
+     if(bitmap!=null){
+       ImageView photo=new ImageView(this);photo.setImageBitmap(bitmap);
+       photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setAlpha(0.86f);
+       FrameLayout.LayoutParams img=new FrameLayout.LayoutParams(dp(194),-1,Gravity.RIGHT);
+       cover.addView(photo,img);
+     }
+   }catch(Exception ignored){}
    LinearLayout overlay=vertical();overlay.setPadding(dp(17),dp(16),dp(8),dp(6));
    FrameLayout.LayoutParams overlayP=new FrameLayout.LayoutParams(dp(270),-2,Gravity.TOP|Gravity.LEFT);
    cover.addView(overlay,overlayP);
