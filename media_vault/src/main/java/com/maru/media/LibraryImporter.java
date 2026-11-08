@@ -39,7 +39,7 @@ public final class LibraryImporter {
  private void importManaged(String name,Uri original)throws Exception{
    File directory=new File(context.getFilesDir(),"music");
    if(!directory.exists()&&!directory.mkdirs())throw new IOException("음원 보관 폴더 생성 실패");
-   String extension=name.toLowerCase(Locale.ROOT).endsWith(".m4a")?".m4a":".mp3";
+   String extension=AudioHeader.extension(name);
    String uuid=UUID.randomUUID().toString();
    File temp=new File(directory,uuid+".part");
    File target=new File(directory,uuid+extension);
@@ -59,6 +59,7 @@ public final class LibraryImporter {
        }
      }
      if(count<=0)throw new IOException("빈 음원은 등록할 수 없습니다.");
+     if(!AudioHeader.valid(temp,name))throw new IOException("오디오 파일의 실제 형식과 확장자가 일치하지 않습니다.");
      sha=CatalogLogic.hashHex(digest.digest());
      if(db.bySha(sha)){stats.duplicate++;return;}
      if(!temp.renameTo(target))throw new IOException("보관 파일 확정 실패");
@@ -138,7 +139,7 @@ public final class LibraryImporter {
          String name=original.substring(original.lastIndexOf('/')+1);
          if(!CatalogLogic.audio(name))continue;
          stats.scanned++;
-         String ext=name.toLowerCase(Locale.ROOT).endsWith(".m4a")?".m4a":".mp3";
+         String ext=AudioHeader.extension(name);
          File target=new File(directory,UUID.randomUUID().toString()+ext);
          MessageDigest digest=MessageDigest.getInstance("SHA-256");
          long copied=0;
@@ -150,6 +151,7 @@ public final class LibraryImporter {
              digest.update(buf,0,n);out.write(buf,0,n);
            }
          }catch(Exception e){target.delete();stats.invalid++;update(name);continue;}
+         if(!AudioHeader.valid(target,name)){target.delete();stats.invalid++;z.closeEntry();update(name);continue;}
          String hex=CatalogLogic.hashHex(digest.digest());
          if(db.bySha(hex)){target.delete();stats.duplicate++;}
          else{
