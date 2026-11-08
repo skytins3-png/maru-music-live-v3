@@ -81,3 +81,5 @@ jobs:
             eight-screen-screenshots/**
             media_vault/build/reports/**
             media_vault/build/outputs/androidTest-results/**
+            media_vault/src/main/assets/studio/**
+            media_vault/src/main/assets/reference_home.webp
