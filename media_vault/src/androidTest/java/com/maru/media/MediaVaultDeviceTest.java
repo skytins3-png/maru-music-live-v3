@@ -32,11 +32,12 @@ public final class MediaVaultDeviceTest {
    onView(withText("노래 다운로드")).check(matches(isDisplayed()));
    onView(withText("노래 보관함")).perform(click());
    onView(withText("노래 보관함")).check(matches(isDisplayed()));
-   onView(withText("사연")).perform(click());
+   onView(withContentDescription("nav-stories")).perform(click());
    onView(withText("사연 받기 · 관리")).check(matches(isDisplayed()));
-   onView(withText("업로드")).perform(click());
+   onView(withContentDescription("nav-home")).perform(click());
+   onView(withText("노래 업로드")).perform(click());
    onView(withText("노래 업로드")).check(matches(isDisplayed()));
-   onView(withText("설정")).perform(click());
+   onView(withContentDescription("nav-account")).perform(click());
    onView(withText("관리 · 설정")).check(matches(isDisplayed()));
  }
 
@@ -46,7 +47,7 @@ public final class MediaVaultDeviceTest {
      String sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
      if(!db.bySha(sha))db.insertTrack("가상 테스트곡","test.mp3","file:///absent/test.mp3",sha,9,"한국노래");
    });
-   onView(withText("노래")).perform(click());
+   onView(withContentDescription("nav-songs")).perform(click());
    onView(withText("가상 테스트곡")).perform(scrollTo(),click());
    onView(withText("곡 상세")).check(matches(isDisplayed()));
    onView(withText("다운로드")).check(matches(isDisplayed()));
@@ -55,7 +56,7 @@ public final class MediaVaultDeviceTest {
  }
 
  @Test public void storyAttachmentPickerPreservesTypedDraft(){
-   onView(withText("사연")).perform(click());
+   onView(withContentDescription("nav-stories")).perform(click());
    onView(withHint("사연 보낸 사람 닉네임")).perform(typeText("TestGuest"),closeSoftKeyboard());
    onView(withHint("사연 내용")).perform(typeText("Draft body stays when selecting attachment"),closeSoftKeyboard());
    Intents.init();
@@ -74,7 +75,7 @@ public final class MediaVaultDeviceTest {
       VaultDb db=new VaultDb(a);
       db.addStory("가상청취자","실제 방송으로 공개되지 않는 로컬 가상 사연","");
    });
-   onView(withText("사연")).perform(click());
+   onView(withContentDescription("nav-stories")).perform(click());
    onView(withText("접수 상세 · 승인/예약 준비")).perform(scrollTo(),click());
    for(String label:new String[]{
       "👁 사연 미리보기","♡ 좋아요","💬 댓글·답글","⬇ 사연 다운로드(TXT)",

@@ -111,6 +111,7 @@ public final class MainActivity extends Activity {
      TextView item=new TextView(this);item.setText(tabs[i]);item.setGravity(Gravity.CENTER);
      item.setTextSize(14);item.setTextColor(selected==targets[i]?0xff22bafc:0xffc9d2e5);
      item.setTypeface(null,selected==targets[i]?Typeface.BOLD:Typeface.NORMAL);
+     item.setContentDescription(new String[]{"nav-home","nav-songs","nav-stories","nav-account"}[i]);
      LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
      navBar.addView(item,p);item.setOnClickListener(v->switchTab(targets[idx]));
    }
