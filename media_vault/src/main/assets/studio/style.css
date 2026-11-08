@@ -198,3 +198,71 @@ select{appearance:auto}
 .detail-banner::after{z-index:0;pointer-events:none;}
 .detail-title{z-index:3}
 .detail-banner .play-central{z-index:3}
+
+/* Galaxy real-device fixes (2026-11-08): prevent Samsung WebView autosizing, keep
+   toolbar/cards compact, reserve actual Android status/navigation bars in native host. */
+html,body{font-size:14px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.phone,.screen{font-size:14px}
+.topbar{height:48px;margin-bottom:9px}
+.topbar h2{font-size:20px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .icon-btn{width:33px;height:39px}
+.topbar .placeholder{width:33px}
+:root{--navh:62px}
+.bottom-nav{padding:1px 6px 4px;border-radius:17px 17px 0 0}
+.bottom-nav button{font-size:11px;padding:3px 0;gap:2px;line-height:1.15}
+.bottom-nav .icon{width:21px;height:21px}
+.screen{padding:0 11px 17px}
+.pills{gap:5px;margin:0 0 9px}
+.pills button{font-size:12px;line-height:1.15;min-width:0;padding:9px 2px}
+.controls-row{margin:7px 0;gap:6px;align-items:flex-start;flex-wrap:wrap}
+.controls-row>.tiny{flex:1 1 55%;min-width:0;font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.controls-row .line-btn{flex:0 0 auto;font-size:11px;max-width:45%;text-align:right;white-space:normal}
+.song-list{gap:7px}
+.song-card{min-height:76px;border-radius:13px;padding:7px;gap:8px}
+.song-art{width:60px;height:60px;border-radius:9px}
+.song-art .icon{width:25px;height:25px}
+.song-main h3{font-size:14px;font-weight:750;line-height:1.3;margin:0 0 2px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.song-main .artist{font-size:11px;margin-bottom:2px}
+.song-stats{font-size:11px;gap:7px}
+.song-stats .icon{width:12px;height:12px}
+.song-controls{gap:0}
+.song-controls button{padding:4px}
+.song-controls .icon{width:18px;height:18px}
+.song-controls button.primary{height:31px;width:31px;display:grid;place-items:center}
+.song-controls button.primary .icon{width:19px;height:19px}
+.panel{padding:11px;border-radius:13px}
+.field{margin-bottom:11px}
+.field label{font-size:14px}
+.textinput,textarea,select{font-size:14px;padding:9px 10px}
+.filechoose{padding:8px;gap:6px}
+.filechoose .info strong{font-size:13px}
+.filechoose .info small{font-size:11px}
+.filechoose button{padding:7px 9px;font-size:12px}
+.primary-btn{font-size:15px;padding:11px;min-height:44px}
+.storage-line .tiny{font-size:12px}
+.storage-head{font-size:15px}
+.story-art{width:58px;height:64px}
+.story-card{min-height:80px;gap:7px}
+.story-card h3{font-size:13px}
+.detail-banner{height:175px;margin:0 -11px 8px}
+.detail-title h2{font-size:19px}
+.detail-title p{font-size:13px}
+.detail-counts{font-size:13px}
+.actions-row{gap:3px;margin:9px 0}
+.actions-row button{font-size:11px}
+.actions-row button .iconframe{width:48px;height:40px}
+.detail-tabs{height:44px}
+.detail-tabs button{font-size:12px}
+.comment-input{margin:8px -11px -17px;bottom:-17px}
+.song-art:not(.actual){background-image:none!important}
+.song-art:not(.actual)>svg.icon{opacity:1}
+/* Thumbnails without album metadata are explicit placeholders, not repeated fake album photos. */
+@media(max-width:380px){
+ .song-art{width:53px;height:53px}
+ .song-card{gap:6px;padding:6px}
+ .song-main h3{font-size:13px}
+ .song-controls button{padding:3px}
+ .pills button{font-size:11px}
+ .topbar h2{font-size:19px}
+ .song-stats{gap:4px}
+}

@@ -5,6 +5,7 @@ const icon=(name,cls="")=>'<svg aria-hidden="true" class="icon '+cls+'"><use hre
 const escapeHTML=v=>String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 const call=(name,...args)=>{try{return native&&typeof native[name]==="function"?native[name](...args):null;}catch(e){notify("기기 연결 오류: "+e.message);return null;}};
 let tracks=[],stories=[],page="home",selectedSong=null,selectedStory=null,trackTab="전체",
+    songLimit=20,
     storyTab="전체",detailTab="댓글",downloadTab="다운로드 목록",replyTo=0,storyReplyTo=0,
     query="",uploadId=null,fileLabel="음원 파일을 선택하세요",storyFileLabel="선택한 첨부파일 없음",
     demoMode=false,serverInfo="",toastTimer=null;
@@ -81,7 +82,7 @@ function render(){
 }
 const topbar=(title,right="",back="home")=>'<header class="topbar"><button class="icon-btn" data-go="'+back+'" aria-label="뒤로가기">'+icon("back")+'</button><h2>'+escapeHTML(title)+'</h2>'+(right||'<span class="placeholder"></span>')+'</header>';
 const picture=(s,i=0,large=false)=>{
- const cover=!demo(s)&&s&&s.hasCover?call("songCover",Number(s.id)):"";
+ const cover=!demo(s)&&s?call("songCover",Number(s.id)):"";
  const idx=(Math.abs(Number(s?.id||i))||i)%5;
  const style=cover?'style="background-image:url('+escapeHTML(cover)+');background-size:cover;background-position:center"':"";
  return '<div class="song-art '+(cover?"actual":"art-"+["a","b","c","d","e"][idx])+'" '+style+'>'
@@ -118,7 +119,8 @@ function renderSongs(){
   +'<button class="line-btn" data-action="chooseLanguage">장르·언어 필터 ▾</button></div>'
   +(query?'<p class="tiny">검색: '+escapeHTML(query)+' <button class="line-btn" data-action="clearSearch">해제</button></p>':"")
   +demoBanner()
-  +(arr.length?'<div class="song-list">'+arr.map((s,i)=>songRow(s,i)).join("")+'</div>':
+  +(arr.length?'<div class="song-list">'+arr.slice(0,songLimit).map((s,i)=>songRow(s,i)).join("")+'</div>'+
+   (arr.length>songLimit?'<button class="secondary-btn" data-action="moreSongs" style="width:100%;margin-bottom:9px">더 보기 ('+(arr.length-songLimit)+'곡)</button>':''):
      '<div class="empty">'+icon("music","big")+'<h3>노래 보관함이 비어 있어요</h3><p>원곡 MP3·ZIP을 가져오면 여기에 표시됩니다.</p>'
     +'<button class="primary-btn" data-action="importFiles">'+icon("cloud")+' 노래 가져오기</button>'
     +'<button class="secondary-btn" style="margin-top:10px" data-action="importFolder">폴더 불러오기</button></div>')
@@ -137,7 +139,7 @@ function songRow(s,i){
 function renderDetail(){
  const song=getSong(selectedSong);
  if(!song){go("songs");return;}
- const cover=!demo(song)&&song.hasCover?call("songCover",song.id):"";
+ const cover=!demo(song)?call("songCover",song.id):"";
  const detailStyle=cover?'style="background-image:url('+escapeHTML(cover)+')"':'';
  const comments=demo(song)?[]:JSON.parse(call("comments","song",song.id)||"[]");
  $("page-detail").innerHTML=topbar("곡 상세",'<button class="icon-btn" data-action="songOptions" aria-label="곡 관리">'+icon("more")+'</button>',"songs")
@@ -321,15 +323,16 @@ document.addEventListener("click",e=>{
  const act=target.action,id=Number(target.id),value=target.value;
  const song=getSong(id),story=getStory(id);
  if(["download","preview","score","favorite","share"].includes(act)&&demo(song)){notify("홍보용 시연 데이터입니다. 실제 곡을 등록하면 작동합니다.");return;}
+ if(act==="moreSongs"){songLimit+=20;renderSongs();return;}
  if(act==="top5"){trackTab="인기";go("songs");return;}
  if(act==="importFiles"){call("getFiles");return;}
  if(act==="importFolder"){call("getFolder");return;}
  if(act==="importManifest"){call("getManifest");return;}
- if(act==="songFilter"){trackTab=value;go("songs");return;}
+ if(act==="songFilter"){songLimit=20;trackTab=value;go("songs");return;}
  if(act==="storyFilter"){storyTab=value;go("stories");return;}
  if(act==="downloadTab"){downloadTab=value;go("downloads");return;}
  if(act==="detailTab"){detailTab=value;renderDetail();return;}
- if(act==="clearSearch"){query="";go("songs");return;}
+ if(act==="clearSearch"){songLimit=20;query="";go("songs");return;}
  if(act==="chooseLanguage"){
    let names=["전체","한국노래","중국노래","서양노래","일본노래","발라드","트로트","연주","록 발라드"];
    let chosen=window.prompt("분류를 입력하세요: "+names.join(" / "),trackTab);if(chosen&&names.includes(chosen)){trackTab=chosen;go("songs");}

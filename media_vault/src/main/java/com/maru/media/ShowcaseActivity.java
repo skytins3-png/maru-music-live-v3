@@ -58,6 +58,7 @@ public final class ShowcaseActivity extends Activity {
     s.setAllowUniversalAccessFromFileURLs(false);
     s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+    s.setTextZoom(100); // Avoid unexpected OS font auto-zoom
     s.setBlockNetworkLoads(true); // Only local packaged UI may access the native bridge.
     web.addJavascriptInterface(new Bridge(),"Maru");
     web.setWebChromeClient(new WebChromeClient());
@@ -65,7 +66,21 @@ public final class ShowcaseActivity extends Activity {
       @Override public boolean shouldOverrideUrlLoading(WebView v,String url){return true;}
       @Override public boolean shouldOverrideUrlLoading(WebView v,android.webkit.WebResourceRequest request){return true;}
     });
-    setContentView(web,new ViewGroup.LayoutParams(-1,-1));
+    android.widget.FrameLayout host=new android.widget.FrameLayout(this);
+    host.setBackgroundColor(0xff061527);
+    host.addView(web,new ViewGroup.LayoutParams(-1,-1));
+    if(android.os.Build.VERSION.SDK_INT>=35){
+      getWindow().setDecorFitsSystemWindows(false);
+      host.setOnApplyWindowInsetsListener((view,insets)->{
+        android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.statusBars()
+             |android.view.WindowInsets.Type.navigationBars());
+        host.setPadding(0,bars.top,0,bars.bottom);
+        return insets;
+      });
+    }else if(android.os.Build.VERSION.SDK_INT>=30){
+      getWindow().setDecorFitsSystemWindows(true);
+    }
+    setContentView(host,new ViewGroup.LayoutParams(-1,-1));
     web.loadUrl("file:///android_asset/studio/index.html");
   }
   private void callback(String js){ui.post(()->{
@@ -255,17 +270,45 @@ public final class ShowcaseActivity extends Activity {
     return j;
   }
   private String dataCover(long id){
-    VaultDb.Track t=db.get(id);
-    if(t==null||t.coverUri==null||t.coverUri.isEmpty())return "";
-    try(InputStream in=getContentResolver().openInputStream(Uri.parse(t.coverUri))){
+    VaultDb.Track track=db.get(id);
+    if(track==null)return "";
+    byte[] bytes=null;
+    if(track.coverUri!=null&&!track.coverUri.isEmpty()){
+      try(InputStream in=getContentResolver().openInputStream(Uri.parse(track.coverUri))){
+        if(in!=null){
+          ByteArrayOutputStream output=new ByteArrayOutputStream();
+          byte[] buf=new byte[8192];int size=0,n;
+          while((n=in.read(buf))!=-1&&size<4_000_000){size+=n;output.write(buf,0,n);}
+          if(size<=4_000_000)bytes=output.toByteArray();
+        }
+      }catch(Exception ignored){}
+    }
+    if(bytes==null){
+      android.media.MediaMetadataRetriever retriever=new android.media.MediaMetadataRetriever();
+      try{
+        retriever.setDataSource(this,Uri.parse(track.uri));
+        bytes=retriever.getEmbeddedPicture();
+      }catch(Exception ignored){}
+      finally{try{retriever.release();}catch(Exception ignored){}}
+    }
+    if(bytes==null||bytes.length==0)return "";
+    try{
+      BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;
+      BitmapFactory.decodeByteArray(bytes,0,bytes.length,bounds);
+      int maxSide=Math.max(bounds.outWidth,bounds.outHeight);
+      if(maxSide<=0)return "";
       BitmapFactory.Options o=new BitmapFactory.Options();
-      o.inSampleSize=4;
-      Bitmap bitmap=BitmapFactory.decodeStream(in,null,o);
+      o.inSampleSize=Math.max(1,Integer.highestOneBit(Math.max(1,maxSide/400)));
+      Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length,o);
       if(bitmap==null)return "";
-      Bitmap resized=Bitmap.createScaledBitmap(bitmap,240,160,true);bitmap.recycle();
-      ByteArrayOutputStream b=new ByteArrayOutputStream();
-      resized.compress(Bitmap.CompressFormat.JPEG,75,b);resized.recycle();
-      return "data:image/jpeg;base64,"+android.util.Base64.encodeToString(b.toByteArray(),android.util.Base64.NO_WRAP);
+      int w=bitmap.getWidth(),h=bitmap.getHeight();
+      float scale=Math.min(240f/w,180f/h);
+      Bitmap resized=Bitmap.createScaledBitmap(bitmap,Math.max(1,(int)(w*scale)),
+         Math.max(1,(int)(h*scale)),true);
+      if(resized!=bitmap)bitmap.recycle();
+      ByteArrayOutputStream out=new ByteArrayOutputStream();
+      resized.compress(Bitmap.CompressFormat.JPEG,75,out);resized.recycle();
+      return "data:image/jpeg;base64,"+android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP);
     }catch(Exception ignored){return "";}
   }
   @Override public void onBackPressed(){
