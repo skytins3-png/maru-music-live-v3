@@ -403,7 +403,7 @@ public final class ShowcaseActivity extends Activity {
         j.put("songCount",db.count());
         j.put("uploadedCount",db.uploaded());
         j.put("storyCount",db.stories().size());
-        j.put("appVersion","1.1.0");
+        j.put("appVersion","1.1.1 QA 보관함");
       }catch(Exception ignored){}
       return j.toString();
     }
