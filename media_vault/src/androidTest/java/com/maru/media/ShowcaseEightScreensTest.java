@@ -52,8 +52,20 @@ public class ShowcaseEightScreensTest {
    Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
    File dir=new File(context.getFilesDir(),"eight-screens");
    assertTrue(dir.exists()||dir.mkdirs());
-   Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
-   assertNotNull("Virtual Android screen capture required",shot);
+   AtomicReference<android.app.Activity> activity=new AtomicReference<>();
+   rule.getScenario().onActivity(a->activity.set(a));
+   android.app.Activity current=activity.get();
+   assertNotNull(current);
+   ViewGroup window=current.findViewById(android.R.id.content);
+   int width=window.getWidth(),height=window.getHeight();
+   assertTrue("Activity view must be measurable",width>200&&height>400);
+   Bitmap shot=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+   CountDownLatch done=new CountDownLatch(1);
+   AtomicReference<Integer> result=new AtomicReference<>(-1);
+   android.view.PixelCopy.request(current.getWindow(),shot,status->{result.set(status);done.countDown();},
+       new android.os.Handler(android.os.Looper.getMainLooper()));
+   assertTrue("PixelCopy callback must finish",done.await(15,TimeUnit.SECONDS));
+   assertEquals("PixelCopy must get real app pixels",android.view.PixelCopy.SUCCESS,(int)result.get());
    {
      File rawFile=new File(dir,name+".png");
      try(FileOutputStream out=new FileOutputStream(rawFile)){
