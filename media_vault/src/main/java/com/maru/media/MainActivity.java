@@ -19,7 +19,7 @@ import java.util.*;
  */
 public final class MainActivity extends Activity {
  private static final int PICK_TREE=120, PICK_AUDIO=121, PICK_MANIFEST=122,
-                          EXPORT=123, PICK_SCORE=124, PICK_STORY_FILE=125;
+                          EXPORT=123, PICK_SCORE=124, PICK_STORY_FILE=125, EXPORT_STORY=126;
  private final int bg=0xff081524, card=0xff122b3d, white=0xfff6fbff, teal=0xff60e7d5;
  private final Handler ui=new Handler(Looper.getMainLooper());
  private VaultDb db;
@@ -28,7 +28,8 @@ public final class MainActivity extends Activity {
  private MediaPlayer media;
  private VaultDb.Track exportTarget;
  private long scoreTarget=-1;
- private String storyAttachment="";
+ private String storyAttachment="",storyNickDraft="",storyBodyDraft="";
+ private String pendingStoryExport="";
  private int visible=35;
  private String currentFilter="전체",searchTerm="";
  private int currentTab=0;
@@ -58,6 +59,7 @@ public final class MainActivity extends Activity {
  @Override public void onCreate(Bundle state){
    super.onCreate(state);getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);
    db=new VaultDb(this);
+   endpoint=getPreferences(MODE_PRIVATE).getString("endpoint","");
    ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(bg);
    root=vertical();root.setPadding(dp(16),dp(14),dp(16),dp(32));scroll.addView(root);setContentView(scroll);
    TextView title=label("MARU RADIO",29);title.setTypeface(null,Typeface.BOLD);title.setTextColor(teal);root.addView(title);
@@ -65,7 +67,7 @@ public final class MainActivity extends Activity {
    summary=label("",13);root.addView(summary);
    LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
    root.addView(nav);
-   String[] labels={"노래","사연","업로드","설정"};
+   String[] labels={"홈","노래","사연","업로드","설정"};
    for(int i=0;i<labels.length;i++){
      final int index=i;
      Button b=new Button(this);b.setAllCaps(false);b.setText(labels[i]);b.setTextSize(13);
@@ -81,10 +83,43 @@ public final class MainActivity extends Activity {
  }
  private void switchTab(int tab){
    initPage(tab);
-   if(tab==0)renderSongs();
-   else if(tab==1)renderStories();
-   else if(tab==2)renderUpload();
+   if(tab==0)renderHome();
+   else if(tab==1)renderSongs();
+   else if(tab==2)renderStories();
+   else if(tab==3)renderUpload();
    else renderSettings();
+ }
+ private void renderHome(){
+   initPage(0);
+   heading(main,"방송 관리 홈");
+   paragraph(main,"큰 메뉴 네 가지로 시작하고, 미리보기·댓글·조회수·좋아요·악보는 노래 상세에서 확인하세요.");
+   LinearLayout line1=new LinearLayout(this);line1.setOrientation(0);main.addView(line1);
+   homeTile(line1,"🎵 노래 보관함",()->switchTab(1));
+   homeTile(line1,"✉ 사연 받기",()->switchTab(2));
+   LinearLayout line2=new LinearLayout(this);line2.setOrientation(0);main.addView(line2);
+   homeTile(line2,"⬆ 노래 업로드",()->switchTab(3));
+   homeTile(line2,"⬇ 노래 다운로드",this::renderDownloads);
+   heading(main,"한눈에 보기");
+   paragraph(main,"노래 "+db.count()+"곡 · 서버 전송 확인 "+db.uploaded()+"곡 · 접수 사연 "+db.stories().size()+"건");
+   paragraph(main,"업로드 전 보안·저작권 승인, 공개 전 서버 배포 검증 필요. 이 기기 기록은 청취자 조회수가 아닙니다.");
+ }
+ private void homeTile(LinearLayout row,String text,Runnable work){
+   Button b=new Button(this);b.setAllCaps(false);b.setText(text);b.setTextSize(17);b.setTextColor(white);
+   b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(card));
+   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(106),1);
+   p.setMargins(dp(3),dp(7),dp(3),dp(7));row.addView(b,p);b.setOnClickListener(v->work.run());
+ }
+ private void renderDownloads(){
+   initPage(0);heading(main,"노래 다운로드 · 파일 저장");
+   paragraph(main,"내 보관함에서 선택한 원곡을 휴대폰 파일로 복사합니다. 서버 다운로드와는 별개입니다.");
+   btn(main,"전체 보관함에서 곡 찾기",()->switchTab(1));
+   List<VaultDb.Track> all=db.tracks("전체");
+   int shown=Math.min(60,all.size());
+   for(int i=0;i<shown;i++){
+     VaultDb.Track track=all.get(i);
+     btn(main,"⬇ "+track.title,()->download(track));
+   }
+   if(all.size()>shown)paragraph(main,"나머지 곡은 노래 보관함의 검색으로 선택하세요.");
  }
  private void startFolder(){
    Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -108,7 +143,7 @@ public final class MainActivity extends Activity {
    catch(SecurityException ignored){}catch(IllegalArgumentException ignored){}
  }
  private void renderSongs(){
-   initPage(0);
+   initPage(1);
    heading(main,"노래 보관함");
    paragraph(main,"폴더 또는 ZIP 선택 → SHA-256 중복 검사 → 제목별 임시 분류. 곡을 선택하면 댓글·악보 등 하위 기능이 열립니다.");
    btn(main,"🎵 폴더에서 노래 한꺼번에 가져오기",this::startFolder);
@@ -174,13 +209,20 @@ public final class MainActivity extends Activity {
    paragraph(box,"공개 서버 상태: "+("UPLOADED".equals(t.uploadState)?"업로드 전송 완료":"미업로드"));
    btn(box,"▶ 미리보기",()->preview(t));
    btn(box,"⬇ 파일 저장 / 다운로드",()->download(t));
-   btn(box,t.liked==1?"♥ 좋아요 취소":"♡ 좋아요",()->{db.flag(id,"liked",t.liked==1?0:1);details(id);});
-   btn(box,"💬 댓글 보기·작성",()->comments(id));
+   btn(box,t.liked==1?"♥ 좋아요 취소":"♡ 좋아요",()->{db.flag(id,"liked",t.liked==1?0:1);notice("내 좋아요 상태 변경 · 상세 화면을 다시 열면 반영됩니다.");});
+   btn(box,"💬 댓글·답글 보기·작성",()->comments(id));
+   btn(box,"공유",()->shareSong(t));
    btn(box,"🎼 악보 첨부 또는 보기",()->score(id));
    btn(box,"🎶 장르 변경",()->chooseGenre(id));
    btn(box,"✎ 제목 수정",()->rename(id));
    btn(box,t.rightsOk==1?"✓ 업로드 권한 확인됨 (변경)":"업로드 권한 확인 (원곡 소유)",()->toggleRights(id));
-   new AlertDialog.Builder(this).setTitle("노래 상세 기능").setView(scroll).setPositiveButton("닫기",(a,b)->{if(currentTab==0)renderSongs();}).show();
+   new AlertDialog.Builder(this).setTitle("노래 상세 기능").setView(scroll).setPositiveButton("닫기",(a,b)->{if(currentTab==1)renderSongs();}).show();
+ }
+ private void shareSong(VaultDb.Track t){
+   Intent share=new Intent(Intent.ACTION_SEND);
+   share.setType("text/plain");
+   share.putExtra(Intent.EXTRA_TEXT,"MARU 노래 보관함: "+t.title+" (앱 내부 등록곡 · 원본 재배포 링크는 아님)");
+   startActivity(Intent.createChooser(share,"곡 정보 공유"));
  }
  private void chooseGenre(long id){
    new AlertDialog.Builder(this).setTitle("장르를 실제 듣고 확인한 뒤 선택").setItems(CatalogLogic.GENRES,(d,which)->{
@@ -204,6 +246,11 @@ public final class MainActivity extends Activity {
    LinearLayout panel=vertical();panel.setPadding(dp(15),dp(8),dp(15),dp(8));
    paragraph(panel,"댓글은 이 휴대폰의 로컬 기록입니다. 서버 연결 전 다른 청취자에게 공개되지 않습니다.");
    for(String comment:db.comments(id))panel.addView(label("• "+comment,14));
+   for(VaultDb.Comment reply:db.songReplies(id)){
+     btn(panel,"↳ 답글 "+reply.author+": "+reply.body,()->songReply(id,reply.id));
+   }
+   paragraph(panel,"기존 댓글에 답글을 달려면 댓글을 길게 누르는 대신 아래 답글 버튼을 사용하세요.");
+   btn(panel,"↳ 첫 댓글에 답글 달기",()->songReply(id,0));
    EditText name=edit(panel,"닉네임","호스트",1);
    EditText body=edit(panel,"댓글 내용","",3);
    new AlertDialog.Builder(this).setTitle("댓글").setView(panel)
@@ -213,6 +260,14 @@ public final class MainActivity extends Activity {
          notice("댓글이 이 기기에 저장되었습니다.");
        }
      }).setNegativeButton("닫기",null).show();
+ }
+ private void songReply(long id,long parent){
+   LinearLayout p=vertical();p.setPadding(dp(15),dp(8),dp(15),dp(8));
+   EditText name=edit(p,"닉네임","호스트",1),body=edit(p,"답글 입력","",3);
+   new AlertDialog.Builder(this).setTitle("노래 댓글 답글").setView(p).setPositiveButton("저장",(d,w)->{
+     if(!body.getText().toString().trim().isEmpty())db.addSongReply(id,parent,name.getText().toString(),body.getText().toString());
+     notice("답글을 이 기기에 저장했습니다.");
+   }).setNegativeButton("취소",null).show();
  }
  private void score(long id){
    VaultDb.Track t=db.get(id);if(t==null)return;
@@ -251,12 +306,13 @@ public final class MainActivity extends Activity {
    },"maru-media-export").start();
  }
  private void renderStories(){
-   initPage(1);
+   initPage(2);
    heading(main,"사연 받기 · 관리");
    paragraph(main,"현재는 호스트 휴대폰 안에서 사연을 접수·승인합니다. 외부 청취자 웹 접수는 서버 연결 후 활성화됩니다.");
-   EditText nick=edit(main,"사연 보낸 사람 닉네임","",1);
-   EditText body=edit(main,"사연 내용","",4);
+   EditText nick=edit(main,"사연 보낸 사람 닉네임",storyNickDraft,1);
+   EditText body=edit(main,"사연 내용",storyBodyDraft,4);
    btn(main,"📎 사진·영상·음성·악보 첨부 (선택)",()->{
+     storyNickDraft=nick.getText().toString();storyBodyDraft=body.getText().toString();
      Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);
      i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
      startActivityForResult(i,PICK_STORY_FILE);
@@ -265,39 +321,98 @@ public final class MainActivity extends Activity {
    btn(main,"사연 접수",()->{
      if(body.getText().toString().trim().isEmpty()){notice("사연 내용을 입력하세요.");return;}
      db.addStory(nick.getText().toString(),body.getText().toString(),storyAttachment);
-     storyAttachment="";notice("사연이 검토대기로 저장되었습니다.");renderStories();
+     storyAttachment="";storyNickDraft="";storyBodyDraft="";
+     notice("사연이 검토대기로 저장되었습니다.");renderStories();
    });
    heading(main,"사연함 "+db.stories().size()+"건");
    for(VaultDb.Story s:db.stories()){
      LinearLayout tile=vertical();tile.setPadding(dp(10),dp(8),dp(10),dp(8));tile.setBackgroundColor(card);
      LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(4),0,dp(4));main.addView(tile,lp);
-     tile.addView(label(s.author+" · "+s.status,15));
+     tile.addView(label(s.author+" · "+s.status+(s.scheduledAt.isEmpty()?"":" · "+s.scheduledAt),15));
      tile.addView(label(s.body.length()>100?s.body.substring(0,100)+"…":s.body,13));
      btn(tile,"접수 상세 · 승인/예약 준비",()->storyDetail(s));
    }
  }
- private void storyDetail(VaultDb.Story s){
+ private void storyDetail(VaultDb.Story original){
+   db.storyViewed(original.id);
+   VaultDb.Story s=findStory(original.id);
+   if(s==null)return;
    ScrollView scroll=new ScrollView(this);
    LinearLayout box=vertical();box.setPadding(dp(16),dp(12),dp(16),dp(12));scroll.addView(box);
    box.addView(label(s.author+"님의 사연",17));box.addView(label(s.body,14));
-   paragraph(box,"상태: "+s.status);
-   if(s.attachment!=null&&!s.attachment.isEmpty())btn(box,"📎 첨부파일 열기",()->{
+   paragraph(box,"상태: "+s.status+" · 이 기기 조회수 "+s.views+" · 좋아요 "+s.liked);
+   if(!s.scheduledAt.isEmpty())paragraph(box,"방송 예약 메모: "+s.scheduledAt+" (자동 송출 아님)");
+   btn(box,"👁 사연 미리보기",()->new AlertDialog.Builder(this).setTitle(s.author+"님의 사연")
+      .setMessage(s.body).setPositiveButton("확인",null).show());
+   if(s.attachment!=null&&!s.attachment.isEmpty())btn(box,"📎 첨부파일 미리보기",()->{
      Intent i=new Intent(Intent.ACTION_VIEW);i.setDataAndType(Uri.parse(s.attachment),"*/*");
      i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
      try{startActivity(i);}catch(Exception e){notice("첨부파일 열기 실패");}
    });
-   btn(box,"승인",()->{db.storyStatus(s.id,"승인");notice("사연 승인 완료");renderStories();});
-   btn(box,"거절",()->{db.storyStatus(s.id,"거절");notice("사연 거절 처리");renderStories();});
-   btn(box,"방송완료 표시",()->{db.storyStatus(s.id,"방송완료");notice("방송완료 상태 저장");renderStories();});
-   btn(box,"대본 작가국으로 공유",()->{
+   btn(box,s.liked==1?"♥ 좋아요 취소":"♡ 좋아요",()->{
+     db.storyLike(s.id,s.liked!=1);notice("사연 좋아요 변경 · 다시 열면 반영됩니다.");
+   });
+   btn(box,"💬 댓글·답글",()->storyComments(s.id));
+   btn(box,"⬇ 사연 다운로드(TXT)",()->saveStory(s));
+   btn(box,"🕒 방송 예약 메모",()->scheduleStory(s.id));
+   btn(box,"✓ 사연 승인",()->{
+     db.storyStatus(s.id,"승인");notice("사연 승인 완료 · 서버 공개나 방송은 별도입니다.");renderStories();
+   });
+   btn(box,"✕ 거절",()->{db.storyStatus(s.id,"거절");notice("사연 거절 처리");renderStories();});
+   btn(box,"📻 방송완료 표시",()->{
+     db.storyStatus(s.id,"방송완료");notice("방송완료 메모 변경 (실제 송출 검증 아님)");renderStories();
+   });
+   btn(box,"📁 보관",()->{db.storyStatus(s.id,"보관");notice("사연 보관 완료");renderStories();});
+   btn(box,"↗ 대본 작가국으로 공유",()->{
      Intent send=new Intent(Intent.ACTION_SEND);send.setType("text/plain");
      send.putExtra(Intent.EXTRA_TEXT,"MARU 사연\n"+s.author+"\n"+s.body);
      startActivity(Intent.createChooser(send,"대본 작가국으로 공유"));
    });
-   new AlertDialog.Builder(this).setTitle("사연 상세").setView(scroll).setPositiveButton("닫기",(d,w)->renderStories()).show();
+   new AlertDialog.Builder(this).setTitle("사연 상세 · 하위 기능").setView(scroll)
+     .setPositiveButton("닫기",(d,w)->renderStories()).show();
+ }
+ private VaultDb.Story findStory(long id){
+   for(VaultDb.Story s:db.stories())if(s.id==id)return s;return null;
+ }
+ private void storyComments(long id){
+   LinearLayout panel=vertical();panel.setPadding(dp(15),dp(8),dp(15),dp(8));
+   paragraph(panel,"댓글은 현재 이 기기에서만 보관합니다.");
+   for(VaultDb.Comment c:db.storyComments(id)){
+     btn(panel,(c.parentId>0?"↳ ":"• ")+c.author+": "+c.body,()->writeStoryComment(id,c.id));
+   }
+   btn(panel,"+ 새 댓글",()->writeStoryComment(id,0));
+   new AlertDialog.Builder(this).setTitle("사연 댓글").setView(panel).setPositiveButton("닫기",null).show();
+ }
+ private void writeStoryComment(long id,long parent){
+   LinearLayout panel=vertical();panel.setPadding(dp(15),dp(10),dp(15),dp(10));
+   EditText name=edit(panel,"닉네임","호스트",1),body=edit(panel,"댓글 또는 답글","",3);
+   new AlertDialog.Builder(this).setTitle(parent>0?"답글 작성":"댓글 작성").setView(panel)
+     .setPositiveButton("저장",(d,w)->{
+       if(!body.getText().toString().trim().isEmpty())db.addStoryComment(id,parent,name.getText().toString(),body.getText().toString());
+       notice("댓글이 로컬 보관함에 저장되었습니다.");
+     }).setNegativeButton("취소",null).show();
+ }
+ private void scheduleStory(long id){
+   EditText input=new EditText(this);
+   input.setSingleLine(true);input.setHint("2026-11-09 19:00");
+   new AlertDialog.Builder(this).setTitle("방송 예약 메모 (자동 방송 아님)")
+     .setView(input).setPositiveButton("예약 메모 저장",(d,w)->{
+       String when=input.getText().toString().trim();
+       if(!when.matches("\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d")){
+         notice("날짜 형식 오류: YYYY-MM-DD HH:MM");return;
+       }
+       db.scheduleStory(id,when);notice("예약 메모만 저장됨: "+when);
+       renderStories();
+     }).setNegativeButton("취소",null).show();
+ }
+ private void saveStory(VaultDb.Story s){
+   pendingStoryExport="MARU RADIO 사연\n작성자: "+s.author+"\n상태: "+s.status+"\n\n"+s.body+"\n";
+   Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);
+   i.setType("text/plain");i.putExtra(Intent.EXTRA_TITLE,"MARU_STORY_"+s.id+".txt");
+   try{startActivityForResult(i,EXPORT_STORY);}catch(Exception e){notice("TXT 저장 화면을 열 수 없습니다.");}
  }
  private void renderUpload(){
-   initPage(2);
+   initPage(3);
    heading(main,"노래 업로드");
    paragraph(main,"중복 검사한 음원만 업로드할 수 있습니다. 서버 URL이 없으면 외부 전송되지 않습니다. 현재 공개 청취자 서버는 미연결입니다.");
    EditText url=edit(main,"HTTPS 업로드 서버 주소 (예: https://example.org)",endpoint,1);
@@ -341,7 +456,7 @@ public final class MainActivity extends Activity {
          try{
            if(UploadClient.upload(this,t,endpoint,adminToken)){
              db.update(t.id,"upload_state","UPLOADED");done++;
-           }
+           }else{failed++;error="서버가 업로드를 확인하지 않았습니다.";break;}
          }catch(Exception e){failed++;error=e.getMessage();break;}
        }
      }finally{
@@ -355,7 +470,7 @@ public final class MainActivity extends Activity {
    },"maru-media-upload").start();
  }
  private void renderSettings(){
-   initPage(3);
+   initPage(4);
    heading(main,"관리 · 설정");
    paragraph(main,"107곡 원본 → SHA-256 완전중복 제거 → 105곡 분류. 이 앱은 원곡을 삭제하거나 재인코딩하지 않습니다.");
    btn(main,"기기에서 원곡 ZIP 고르기",this::startFiles);
@@ -422,6 +537,14 @@ public final class MainActivity extends Activity {
      },"maru-manifest").start();
    }else if(request==EXPORT){
      if(exportTarget!=null&&data.getData()!=null)copyTo(exportTarget,data.getData());
+   }else if(request==EXPORT_STORY){
+     if(data.getData()!=null){
+       try(OutputStream out=getContentResolver().openOutputStream(data.getData())){
+         if(out==null)throw new IOException("파일을 열 수 없습니다.");
+         out.write(pendingStoryExport.getBytes(StandardCharsets.UTF_8));
+         out.flush();notice("사연 TXT 저장 완료");
+       }catch(Exception e){notice("사연 저장 오류: "+e.getMessage());}
+     }
    }else if(request==PICK_SCORE){
      if(data.getData()!=null&&scoreTarget>0){
        persistRead(data.getData());db.update(scoreTarget,"score_uri",data.getData().toString());
@@ -432,5 +555,5 @@ public final class MainActivity extends Activity {
    }
  }
  @Override protected void onPause(){super.onPause();stopPlayer();}
- @Override protected void onDestroy(){stopPlayer();if(db!=null)db.close();super.onDestroy();}
+ @Override protected void onDestroy(){stopPlayer();adminToken="";if(db!=null)db.close();super.onDestroy();}
 }

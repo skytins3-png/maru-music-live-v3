@@ -6,14 +6,26 @@ import org.json.*;
 import java.util.*;
 public final class VaultDb extends SQLiteOpenHelper {
  public static final String TRACK_FIELDS="_id,title,filename,uri,sha,size,language,genre,artist,score_uri,views,liked,rights_ok,upload_state";
- public VaultDb(Context ctx){super(ctx,"maru_media_private_v1.db",null,1);}
+ public VaultDb(Context ctx){super(ctx,"maru_media_private_v1.db",null,2);}
  @Override public void onCreate(SQLiteDatabase d){
    d.execSQL("CREATE TABLE tracks(_id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,filename TEXT,uri TEXT NOT NULL,sha TEXT NOT NULL UNIQUE,size INTEGER DEFAULT 0,language TEXT NOT NULL,genre TEXT NOT NULL DEFAULT '미확인',artist TEXT DEFAULT '',score_uri TEXT DEFAULT '',views INTEGER DEFAULT 0,liked INTEGER DEFAULT 0,rights_ok INTEGER DEFAULT 0,upload_state TEXT DEFAULT 'LOCAL')");
    d.execSQL("CREATE INDEX idx_tracks_language ON tracks(language)");
    d.execSQL("CREATE TABLE comments(_id INTEGER PRIMARY KEY AUTOINCREMENT,track_id INTEGER NOT NULL,author TEXT,body TEXT,created_at INTEGER)");
-   d.execSQL("CREATE TABLE stories(_id INTEGER PRIMARY KEY AUTOINCREMENT,author TEXT,body TEXT,attachment_uri TEXT,status TEXT NOT NULL DEFAULT '검토대기',created_at INTEGER)");
+   d.execSQL("CREATE TABLE stories(_id INTEGER PRIMARY KEY AUTOINCREMENT,author TEXT,body TEXT,attachment_uri TEXT,status TEXT NOT NULL DEFAULT '검토대기',created_at INTEGER, views INTEGER DEFAULT 0, liked INTEGER DEFAULT 0, scheduled_at TEXT DEFAULT '')");
+   d.execSQL("CREATE TABLE story_comments(_id INTEGER PRIMARY KEY AUTOINCREMENT,story_id INTEGER NOT NULL,parent_id INTEGER DEFAULT 0,author TEXT,body TEXT,created_at INTEGER)");
+   d.execSQL("CREATE INDEX idx_story_comments_story ON story_comments(story_id)");
+   d.execSQL("CREATE TABLE song_comment_replies(_id INTEGER PRIMARY KEY AUTOINCREMENT,track_id INTEGER NOT NULL,parent_id INTEGER NOT NULL,author TEXT,body TEXT,created_at INTEGER)");
  }
- @Override public void onUpgrade(SQLiteDatabase d,int oldVersion,int newVersion){}
+ @Override public void onUpgrade(SQLiteDatabase d,int oldVersion,int newVersion){
+   if(oldVersion<2){
+     d.execSQL("ALTER TABLE stories ADD COLUMN views INTEGER DEFAULT 0");
+     d.execSQL("ALTER TABLE stories ADD COLUMN liked INTEGER DEFAULT 0");
+     d.execSQL("ALTER TABLE stories ADD COLUMN scheduled_at TEXT DEFAULT ''");
+     d.execSQL("CREATE TABLE IF NOT EXISTS story_comments(_id INTEGER PRIMARY KEY AUTOINCREMENT,story_id INTEGER NOT NULL,parent_id INTEGER DEFAULT 0,author TEXT,body TEXT,created_at INTEGER)");
+     d.execSQL("CREATE INDEX IF NOT EXISTS idx_story_comments_story ON story_comments(story_id)");
+     d.execSQL("CREATE TABLE IF NOT EXISTS song_comment_replies(_id INTEGER PRIMARY KEY AUTOINCREMENT,track_id INTEGER NOT NULL,parent_id INTEGER NOT NULL,author TEXT,body TEXT,created_at INTEGER)");
+   }
+ }
  public synchronized long insertTrack(String title,String fileName,String uri,String sha,long size,String language){
    if(!CatalogLogic.sha256(sha))throw new IllegalArgumentException("sha256");
    ContentValues v=new ContentValues();
@@ -64,6 +76,18 @@ public final class VaultDb extends SQLiteOpenHelper {
    }
    return result;
  }
+ public synchronized long addSongReply(long track,long parent,String author,String body){
+   ContentValues v=new ContentValues();v.put("track_id",track);v.put("parent_id",parent);
+   v.put("author",CatalogLogic.cleanText(author,30));v.put("body",CatalogLogic.cleanText(body,700));
+   v.put("created_at",System.currentTimeMillis());
+   return getWritableDatabase().insert("song_comment_replies",null,v);
+ }
+ public synchronized List<Comment> songReplies(long track){
+   List<Comment> result=new ArrayList<>();
+   try(Cursor c=getReadableDatabase().rawQuery("SELECT _id,parent_id,author,body FROM song_comment_replies WHERE track_id=? ORDER BY _id ASC LIMIT 80",new String[]{String.valueOf(track)})){
+     while(c.moveToNext())result.add(new Comment(c.getLong(0),c.getLong(1),c.getString(2),c.getString(3)));
+   }return result;
+ }
  public synchronized long addStory(String author,String body,String uri){
    ContentValues v=new ContentValues();v.put("author",CatalogLogic.cleanText(author,30));
    v.put("body",CatalogLogic.cleanText(body,2800));v.put("attachment_uri",uri==null?"":uri);
@@ -71,13 +95,36 @@ public final class VaultDb extends SQLiteOpenHelper {
    return getWritableDatabase().insert("stories",null,v);
  }
  public synchronized void storyStatus(long id,String status){
-   if(!Arrays.asList("검토대기","승인","거절","방송완료").contains(status))throw new IllegalArgumentException("status");
+   if(!Arrays.asList("검토대기","승인","거절","예약","방송완료","보관").contains(status))throw new IllegalArgumentException("status");
    ContentValues v=new ContentValues();v.put("status",status);getWritableDatabase().update("stories",v,"_id=?",new String[]{String.valueOf(id)});
+ }
+ public synchronized void storyLike(long id,boolean liked){
+   ContentValues v=new ContentValues();v.put("liked",liked?1:0);
+   getWritableDatabase().update("stories",v,"_id=?",new String[]{String.valueOf(id)});
+ }
+ public synchronized void storyViewed(long id){
+   getWritableDatabase().execSQL("UPDATE stories SET views=views+1 WHERE _id=?",new Object[]{id});
+ }
+ public synchronized void scheduleStory(long id,String when){
+   ContentValues v=new ContentValues();
+   v.put("scheduled_at",CatalogLogic.cleanText(when,45));v.put("status","예약");
+   getWritableDatabase().update("stories",v,"_id=?",new String[]{String.valueOf(id)});
+ }
+ public synchronized long addStoryComment(long id,long parent,String name,String body){
+   ContentValues v=new ContentValues();v.put("story_id",id);v.put("parent_id",parent);
+   v.put("author",CatalogLogic.cleanText(name,30));v.put("body",CatalogLogic.cleanText(body,700));v.put("created_at",System.currentTimeMillis());
+   return getWritableDatabase().insert("story_comments",null,v);
+ }
+ public synchronized List<Comment> storyComments(long id){
+   ArrayList<Comment> out=new ArrayList<>();
+   try(Cursor c=getReadableDatabase().rawQuery("SELECT _id,parent_id,author,body FROM story_comments WHERE story_id=? ORDER BY _id ASC LIMIT 100",new String[]{String.valueOf(id)})){
+     while(c.moveToNext())out.add(new Comment(c.getLong(0),c.getLong(1),c.getString(2),c.getString(3)));
+   }return out;
  }
  public synchronized List<Story> stories(){
    ArrayList<Story> out=new ArrayList<>();
-   try(Cursor c=getReadableDatabase().rawQuery("SELECT _id,author,body,attachment_uri,status FROM stories ORDER BY _id DESC LIMIT 300",null)){
-     while(c.moveToNext())out.add(new Story(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4)));
+   try(Cursor c=getReadableDatabase().rawQuery("SELECT _id,author,body,attachment_uri,status,views,liked,scheduled_at FROM stories ORDER BY _id DESC LIMIT 300",null)){
+     while(c.moveToNext())out.add(new Story(c.getLong(0),c.getString(1),c.getString(2),c.getString(3),c.getString(4),c.getInt(5),c.getInt(6),c.getString(7)));
    }
    return out;
  }
@@ -115,8 +162,18 @@ public final class VaultDb extends SQLiteOpenHelper {
    Track(Cursor c){id=c.getLong(0);title=c.getString(1);filename=c.getString(2);uri=c.getString(3);sha=c.getString(4);size=c.getLong(5);
      language=c.getString(6);genre=c.getString(7);artist=c.getString(8);scoreUri=c.getString(9);views=c.getInt(10);liked=c.getInt(11);rightsOk=c.getInt(12);uploadState=c.getString(13);}
  }
+ public static final class Comment {
+   public final long id,parentId;public final String author,body;
+   Comment(long id,long parent,String author,String body){
+     this.id=id;this.parentId=parent;this.author=author;this.body=body;
+   }
+ }
  public static final class Story {
-   public final long id;public final String author,body,attachment,status;
-   Story(long id,String author,String body,String attachment,String status){this.id=id;this.author=author;this.body=body;this.attachment=attachment;this.status=status;}
+   public final long id;public final String author,body,attachment,status,scheduledAt;
+   public final int views,liked;
+   Story(long id,String author,String body,String attachment,String status,int views,int liked,String scheduledAt){
+     this.id=id;this.author=author;this.body=body;this.attachment=attachment;this.status=status;
+     this.views=views;this.liked=liked;this.scheduledAt=scheduledAt==null?"":scheduledAt;
+   }
  }
 }
