@@ -4,6 +4,7 @@ on:
     branches: [maru-eight-screen-20261108]
     paths:
       - '.github/workflows/build-maru-eight-apk.yml'
+      - 'media_vault/src/main/**'
   workflow_dispatch:
 permissions:
   contents: read
