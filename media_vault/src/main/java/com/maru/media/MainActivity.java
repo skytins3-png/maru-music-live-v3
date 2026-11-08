@@ -104,6 +104,35 @@ public final class MainActivity extends Activity {
  }
  private void renderNavigation(int selected){
    navBar.removeAllViews();
+   if(selected==0){
+     FrameLayout frame=new FrameLayout(this);
+     frame.setBackground(round(0xff172741,0xff0a1529,20));
+     frame.setClipToOutline(true);
+     try(java.io.InputStream in=getAssets().open("reference_nav_home.webp")){
+       Bitmap art=BitmapFactory.decodeStream(in);
+       if(art!=null){
+         ImageView image=new ImageView(this);image.setImageBitmap(art);
+         image.setScaleType(ImageView.ScaleType.FIT_XY);
+         frame.addView(image,new FrameLayout.LayoutParams(-1,-1));
+       }
+     }catch(Exception ignored){}
+     String[] labels={"홈","노래","사연","내정보"};
+     String[] ids={"nav-home","nav-songs","nav-stories","nav-account"};
+     int[] targets={0,1,2,4};
+     int width=Math.max(dp(220),getResources().getDisplayMetrics().widthPixels-dp(8));
+     int h=dp(64);
+     for(int i=0;i<4;i++){
+       final int dest=targets[i];
+       TextView area=new TextView(this);
+       area.setText(labels[i]);area.setTextColor(Color.TRANSPARENT);
+       area.setContentDescription(ids[i]);area.setGravity(Gravity.CENTER);
+       FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(width/4,h);
+       p.leftMargin=i*width/4;
+       frame.addView(area,p);area.setOnClickListener(v->switchTab(dest));
+     }
+     navBar.addView(frame,new LinearLayout.LayoutParams(-1,-1));
+     return;
+   }
    final String[] tabs={"⌂\n홈","♫\n노래","✉\n사연","♙\n내정보"};
    final int[] targets={0,1,2,4};
    for(int i=0;i<tabs.length;i++){
