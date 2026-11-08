@@ -84,6 +84,25 @@ public final class MediaVaultDeviceTest {
    onView(withText("닫기")).perform(click());
  }
 
+ @Test public void virtual107AudioBatchKeeps105Unique() throws Exception{
+   final Context ctx=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
+   File archive=new File(ctx.getCacheDir(),"qa-107-mock-audio.zip");
+   try(ZipOutputStream z=new ZipOutputStream(new FileOutputStream(archive))){
+     for(int i=0;i<107;i++){
+       int source=i<105?i:i-105;
+       String name=String.format(java.util.Locale.ROOT,"가상테스트_%03d.mp3",i);
+       byte[] audio=("ID3-QA-PRIVATE-TEST-ONLY-"+source).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+       z.putNextEntry(new ZipEntry(name));z.write(audio);z.closeEntry();
+     }
+   }
+   VaultDb db=new VaultDb(ctx);
+   LibraryImporter importer=new LibraryImporter(ctx,db,null);
+   importer.fromAudioUris(Collections.singletonList(Uri.fromFile(archive)));
+   assertEquals(107,importer.stats().scanned);
+   assertEquals(107,importer.stats().inserted+importer.stats().duplicate);
+   assertTrue("두 중복을 자동 제외",importer.stats().duplicate>=2);
+   assertEquals(0,importer.stats().invalid);
+ }
  @Test public void zipImporterDeduplicatesAndManifestApplies() throws Exception{
    final Context ctx=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
    File f=new File(ctx.getCacheDir(),"qa-duplicates.zip");
