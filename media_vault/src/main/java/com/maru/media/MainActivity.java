@@ -230,68 +230,115 @@ public final class MainActivity extends Activity {
    return mime.isEmpty()||mime.equals("application/octet-stream")||mime.startsWith("image/")
        ||mime.startsWith("audio/")||mime.equals("video/mp4")||mime.equals("application/pdf");
  }
+
  private void renderSongs(){
    initPage(1);
-   heading(main,"노래 보관함");
-   paragraph(main,"폴더 또는 ZIP 선택 → SHA-256 중복 검사 → 제목별 임시 분류. 곡을 선택하면 댓글·악보 등 하위 기능이 열립니다.");
-   btn(main,"🎵 폴더에서 노래 한꺼번에 가져오기",this::startFolder);
-   btn(main,"⬆ MP3·M4A·ZIP 파일 가져오기",this::startFiles);
-   btn(main,"📋 107곡 검증목록 JSON 적용",this::startManifest);
+   LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
+   main.addView(top,new LinearLayout.LayoutParams(-1,dp(59)));
+   TextView back=bigLabel("‹",33);top.addView(back,new LinearLayout.LayoutParams(dp(42),-2));
+   back.setOnClickListener(v->switchTab(0));
+   TextView name=bigLabel("노래 보관함",22);name.setGravity(Gravity.CENTER);
+   top.addView(name,new LinearLayout.LayoutParams(0,-2,1));
+   TextView searchIcon=bigLabel("⌕",29);searchIcon.setGravity(Gravity.CENTER);
+   top.addView(searchIcon,new LinearLayout.LayoutParams(dp(42),-2));
+   searchIcon.setOnClickListener(v->new AlertDialog.Builder(this).setItems(
+       new String[]{"노래 검색","폴더에서 가져오기","MP3·ZIP 가져오기","107곡 검증목록 적용"},
+       (d,index)->{
+         if(index==0)searchPopup();
+         else if(index==1)startFolder();
+         else if(index==2)startFiles();
+         else startManifest();
+       }).show());
+   LinearLayout pills=new LinearLayout(this);pills.setOrientation(0);
+   main.addView(pills,new LinearLayout.LayoutParams(-1,dp(58)));
+   for(String value:new String[]{"전체","인기","최신","내 노래"}){
+     TextView p=label(value,14);p.setGravity(Gravity.CENTER);p.setTextColor(white);
+     boolean chosen=currentFilter.equals(value);
+     p.setBackground(round(chosen?0xff21bcf5:0xff202f49,chosen?0xff0968ee:0xff15223c,28));
+     LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(39),1);
+     lp.setMargins(dp(2),dp(4),dp(2),dp(6));pills.addView(p,lp);
+     p.setOnClickListener(v->{currentFilter=value;visible=35;renderSongs();});
+   }
    Spinner categories=new Spinner(this);
-   ArrayList<String> filters=new ArrayList<>(Arrays.asList("인기","최신","내 노래"));
-   filters.addAll(Arrays.asList(CatalogLogic.LANGUAGES));
-   for(String g:CatalogLogic.GENRES)if(!"미확인".equals(g))filters.add(g);
+   ArrayList<String> filters=new ArrayList<>(Arrays.asList("전체","한국노래","중국노래","서양노래","일본노래","검토필요"));
+   for(String genre:CatalogLogic.GENRES)if(!"미확인".equals(genre))filters.add(genre);
    ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,filters);
-   categories.setAdapter(adapter);categories.setSelection(Math.max(0,filters.indexOf(currentFilter)));
-   main.addView(categories);
-   categories.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){
-     boolean initial=true;
-     @Override public void onItemSelected(android.widget.AdapterView<?> p,View v,int position,long id){
-       String val=filters.get(position);
-       if(initial){initial=false;return;}
-       currentFilter=val;visible=35;renderSongs();
-     }
-     @Override public void onNothingSelected(android.widget.AdapterView<?> p){}
-   });
-   EditText search=edit(main,"곡명 검색 (입력 후 검색 버튼)",searchTerm,1);
-   btn(main,"검색",()->{searchTerm=search.getText().toString().trim();visible=35;renderSongs();});
-   String filter=(currentFilter.equals("인기")||currentFilter.equals("최신")||currentFilter.equals("내 노래"))
-      ?"전체":currentFilter;
-   List<VaultDb.Track> all=db.tracks(filter),display=new ArrayList<>();
+   categories.setAdapter(adapter);
+   categories.setSelection(Math.max(0,filters.indexOf(currentFilter)));
+   // Genre selection is available without cluttering the primary photo-style tabs.
+   TextView controls=label("분류: "+(filters.contains(currentFilter)?currentFilter:"전체")
+        +"    ·    보관 "+db.count()+"곡    ·    "+(searchTerm.isEmpty()?"전체 보기":"검색: "+searchTerm),12);
+   controls.setTextColor(0xff93b9d3);
+   controls.setGravity(Gravity.CENTER_VERTICAL);main.addView(controls);
+   controls.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("노래 분류")
+      .setItems(filters.toArray(new String[0]),(d,idx)->{currentFilter=filters.get(idx);visible=35;renderSongs();}).show());
+   List<VaultDb.Track> all=db.tracks(filters.contains(currentFilter)?currentFilter:"전체");
    if(currentFilter.equals("인기"))Collections.sort(all,(x,y)->Integer.compare(y.views,x.views));
-   else if(currentFilter.equals("최신"))Collections.sort(all,(x,y)->Long.compare(y.id,x.id));
-   for(VaultDb.Track t:all){
-     if(searchTerm.isEmpty()||(t.title+t.filename).toLowerCase(Locale.ROOT).contains(searchTerm.toLowerCase(Locale.ROOT)))
-       display.add(t);
+   if(currentFilter.equals("최신"))Collections.sort(all,(x,y)->Long.compare(y.id,x.id));
+   List<VaultDb.Track> display=new ArrayList<>();
+   for(VaultDb.Track track:all){
+     if(searchTerm.isEmpty()||(track.title+" "+track.artist+" "+track.filename)
+       .toLowerCase(Locale.ROOT).contains(searchTerm.toLowerCase(Locale.ROOT)))display.add(track);
    }
-   heading(main,"분류된 곡 "+display.size()+"곡 / 전체 "+db.count()+"곡");
-   int limit=Math.min(visible,display.size());
+   if(display.isEmpty()){
+     LinearLayout empty=vertical();empty.setPadding(dp(10),dp(28),dp(10),dp(10));
+     main.addView(empty);
+     TextView icon=bigLabel("♫",42);icon.setTextColor(teal);icon.setGravity(Gravity.CENTER);empty.addView(icon);
+     TextView msg=label("아직 등록된 노래가 없습니다.",16);msg.setGravity(Gravity.CENTER);empty.addView(msg);
+     btn(empty,"MP3 · ZIP 가져오기",this::startFiles);
+     btn(empty,"원곡 폴더 불러오기",this::startFolder);
+     return;
+   }
+   int limit=Math.min(display.size(),visible);
    for(int i=0;i<limit;i++){
-     VaultDb.Track t=display.get(i);
-     LinearLayout tile=vertical();tile.setPadding(dp(12),dp(10),dp(12),dp(10));tile.setBackground(round(0xff18304c,0xff0d1e36,17));
-     LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));main.addView(tile,lp);
-     LinearLayout songHeader=new LinearLayout(this);songHeader.setOrientation(0);tile.addView(songHeader);
-     TextView coverIcon=label("♫",23);coverIcon.setGravity(Gravity.CENTER);coverIcon.setTextColor(teal);
-     coverIcon.setBackground(round(0xff264860,0xff0b2d3e,13));
-     songHeader.addView(coverIcon,new LinearLayout.LayoutParams(dp(54),dp(54)));
-     TextView heading=label(t.title,18);heading.setTypeface(null,Typeface.BOLD);
-     LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(0,-2,1);hp.setMargins(dp(9),dp(8),0,0);songHeader.addView(heading,hp);
-     if(t.coverUri!=null&&!t.coverUri.isEmpty()){
-       songHeader.removeView(coverIcon);
-       ImageView thumb=new ImageView(this);thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-       thumb.setImageURI(Uri.parse(t.coverUri));
-       songHeader.addView(thumb,0,new LinearLayout.LayoutParams(dp(54),dp(54)));
-     }
-     paragraph(tile,t.language+" · "+t.genre+" · "+(t.size/(1024*1024))+"MB · 조회 "+t.views+" · ♡ "+t.liked+" · "+t.uploadState);
-     LinearLayout actions=new LinearLayout(this);actions.setOrientation(0);tile.addView(actions);
-     Button play=new Button(this);play.setText("▶ 미리듣기");play.setAllCaps(false);actions.addView(play,new LinearLayout.LayoutParams(0,dp(43),1));
-     play.setOnClickListener(v->preview(t));
-     Button more=new Button(this);more.setText("상세 · 댓글");more.setAllCaps(false);actions.addView(more,new LinearLayout.LayoutParams(0,dp(43),1));
-     more.setOnClickListener(v->details(t.id));
+     VaultDb.Track track=display.get(i);
+     LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.HORIZONTAL);
+     card.setGravity(Gravity.CENTER_VERTICAL);card.setPadding(dp(7),dp(8),dp(6),dp(8));
+     card.setBackground(round(0xff182a43,0xff0d1d34,19));
+     LinearLayout.LayoutParams outer=new LinearLayout.LayoutParams(-1,dp(93));
+     outer.setMargins(0,dp(3),0,dp(3));main.addView(card,outer);
+     FrameLayout cover=artwork(track,70);
+     card.addView(cover,new LinearLayout.LayoutParams(dp(70),dp(70)));
+     TextView start=bigLabel("▶",15);start.setGravity(Gravity.CENTER);start.setBackground(round(0xcc061a31,0xcc061a31,30));
+     FrameLayout.LayoutParams startP=new FrameLayout.LayoutParams(dp(30),dp(30),Gravity.RIGHT|Gravity.BOTTOM);
+     cover.addView(start,startP);start.setOnClickListener(v->preview(track));
+     LinearLayout info=vertical();info.setPadding(dp(9),0,0,0);
+     card.addView(info,new LinearLayout.LayoutParams(0,-2,1));
+     TextView title=bigLabel(track.title,16);title.setSingleLine(true);
+     title.setEllipsize(android.text.TextUtils.TruncateAt.END);info.addView(title);
+     TextView singer=label(track.artist.isEmpty()?"등록 음원":track.artist,13);
+     singer.setTextColor(0xffd2d5e0);info.addView(singer);
+     TextView count=label("◉ "+track.views+"    ♥ "+track.liked,12);
+     count.setTextColor(0xffb8c8da);info.addView(count);
+     TextView down=bigLabel("↓",28);down.setGravity(Gravity.CENTER);
+     down.setTextColor(white);
+     card.addView(down,new LinearLayout.LayoutParams(dp(37),dp(55)));
+     down.setOnClickListener(v->download(track));
+     info.setOnClickListener(v->details(track.id));
+     card.setOnClickListener(v->details(track.id));
    }
-   if(display.size()>limit)btn(main,"더 보기 ("+(display.size()-limit)+"곡 남음)",()->{visible+=35;renderSongs();});
+   if(display.size()>limit)btn(main,"더 보기 ("+(display.size()-limit)+"곡)",()->{visible+=35;renderSongs();});
  }
- private void preview(VaultDb.Track t){
+ private FrameLayout artwork(VaultDb.Track t,int size){
+   FrameLayout frame=new FrameLayout(this);
+   frame.setBackground(round(0xff955c7b,0xff222e54,12));
+   frame.setClipToOutline(true);
+   if(t.coverUri!=null&&!t.coverUri.isEmpty()){
+     ImageView art=new ImageView(this);art.setScaleType(ImageView.ScaleType.CENTER_CROP);
+     art.setImageURI(Uri.parse(t.coverUri));frame.addView(art,new FrameLayout.LayoutParams(-1,-1));
+   }else{
+     TextView icon=bigLabel("♫",size>100?68:26);icon.setGravity(Gravity.CENTER);
+     icon.setTextColor(0xfffce0ba);frame.addView(icon,new FrameLayout.LayoutParams(-1,-1));
+   }
+   return frame;
+ }
+ private void searchPopup(){
+   EditText input=new EditText(this);input.setSingleLine(true);input.setText(searchTerm);input.setHint("곡 이름 또는 가수");
+   new AlertDialog.Builder(this).setTitle("노래 검색").setView(input)
+     .setPositiveButton("검색",(d,w)->{searchTerm=input.getText().toString().trim();renderSongs();})
+     .setNegativeButton("취소",null).show();
+ }
+  private void preview(VaultDb.Track t){
    stopPlayer();
    try{
      media=new MediaPlayer();
@@ -305,34 +352,134 @@ public final class MainActivity extends Activity {
    }catch(Exception e){notice("재생 실패: "+e.getMessage());stopPlayer();}
  }
  private void stopPlayer(){if(media!=null){MediaPlayer x=media;media=null;try{x.reset();}catch(Exception ignored){}x.release();}}
+
  private void details(long id){
    VaultDb.Track t=db.get(id);if(t==null)return;
-   ScrollView scroll=new ScrollView(this);LinearLayout box=vertical();box.setPadding(dp(12),dp(8),dp(12),dp(10));scroll.addView(box);
-   box.addView(label(t.title,18));
-   if(t.coverUri!=null&&!t.coverUri.isEmpty()){
-     ImageView art=new ImageView(this);art.setScaleType(ImageView.ScaleType.CENTER_CROP);
-     art.setImageURI(Uri.parse(t.coverUri));
-     box.addView(art,new LinearLayout.LayoutParams(-1,dp(180)));
-   }else{
-     TextView missing=label("♫  앨범 표지 미등록",18);missing.setGravity(Gravity.CENTER);
-     missing.setBackground(round(0xff1a3c52,0xff0a2238,18));
-     box.addView(missing,new LinearLayout.LayoutParams(-1,dp(130)));
+   final Dialog dialog=new Dialog(this,android.R.style.Theme_Material_NoActionBar_Fullscreen);
+   LinearLayout shell=vertical();shell.setBackgroundColor(0xff081524);
+   LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
+   shell.addView(top,new LinearLayout.LayoutParams(-1,dp(58)));
+   TextView back=bigLabel("‹",32);back.setGravity(Gravity.CENTER);
+   top.addView(back,new LinearLayout.LayoutParams(dp(55),-1));back.setOnClickListener(v->dialog.dismiss());
+   TextView heading=bigLabel("곡 상세",21);heading.setGravity(Gravity.CENTER);
+   top.addView(heading,new LinearLayout.LayoutParams(0,-1,1));
+   TextView menu=bigLabel("⋮",28);menu.setGravity(Gravity.CENTER);
+   top.addView(menu,new LinearLayout.LayoutParams(dp(55),-1));
+   ScrollView scroller=new ScrollView(this);scroller.setFillViewport(true);
+   shell.addView(scroller,new LinearLayout.LayoutParams(-1,0,1));
+   LinearLayout body=vertical();body.setPadding(dp(10),0,dp(10),dp(12));scroller.addView(body);
+   FrameLayout banner=artwork(t,190);
+   LinearLayout.LayoutParams artParam=new LinearLayout.LayoutParams(-1,dp(187));
+   artParam.setMargins(dp(2),0,dp(2),dp(7));body.addView(banner,artParam);
+   TextView play=bigLabel("▶",31);play.setGravity(Gravity.CENTER);
+   play.setBackground(round(0xdd071628,0xdd071628,40));
+   FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(dp(60),dp(60),Gravity.CENTER);
+   banner.addView(play,pp);play.setOnClickListener(v->preview(t));
+   LinearLayout info=vertical();info.setPadding(dp(16),dp(7),0,dp(8));
+   FrameLayout.LayoutParams tip=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);
+   banner.addView(info,tip);
+   TextView name=bigLabel(t.title,24);info.addView(name);
+   TextView artist=label(t.artist.isEmpty()?"등록된 내 음원":t.artist,15);info.addView(artist);
+   TextView counts=label("◉  "+t.views+" 조회     ♥  "+t.liked+" 좋아요",15);
+   counts.setGravity(Gravity.CENTER);body.addView(counts);
+   LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.CENTER);
+   body.addView(actions,new LinearLayout.LayoutParams(-1,dp(79)));
+   iconAction(actions,"↓","다운로드",()->download(t));
+   iconAction(actions,"♬","악보 보기",()->score(id));
+   iconAction(actions,"⇧","공유",()->shareSong(t));
+   boolean saved=getPreferences(MODE_PRIVATE).getBoolean("favourite-"+t.sha,false);
+   iconAction(actions,saved?"★":"☆","보관함 추가",()->{
+     boolean next=!getPreferences(MODE_PRIVATE).getBoolean("favourite-"+t.sha,false);
+     getPreferences(MODE_PRIVATE).edit().putBoolean("favourite-"+t.sha,next).apply();
+     notice(next?"즐겨찾기에 추가했습니다.":"즐겨찾기를 해제했습니다.");
+     dialog.dismiss();details(id);
+   });
+   LinearLayout tabs=new LinearLayout(this);tabs.setBackground(round(0xff1b2c44,0xff0e1d32,25));
+   body.addView(tabs,new LinearLayout.LayoutParams(-1,dp(53)));
+   LinearLayout content=vertical();body.addView(content,new LinearLayout.LayoutParams(-1,-2));
+   String[] labels={"댓글","곡정보","관련 노래"};
+   for(int i=0;i<labels.length;i++){
+     final int index=i;
+     TextView tab=label(labels[i],16);tab.setTextColor(i==0?0xff4bc3f7:white);
+     tab.setGravity(Gravity.CENTER);
+     tabs.addView(tab,new LinearLayout.LayoutParams(0,-1,1));
+     tab.setOnClickListener(v->showDetailTab(content,id,index));
    }
-   paragraph(box,t.language+" / "+t.genre+" · 이 기기 조회 "+t.views+"회 · 내 좋아요 "+t.liked);
-   paragraph(box,"공개 서버 상태: "+("UPLOADED".equals(t.uploadState)?"업로드 전송 완료":"미업로드"));
-   btn(box,"▶ 미리보기",()->preview(t));
-   btn(box,"⬇ 파일 저장 / 다운로드",()->download(t));
-   btn(box,t.liked==1?"♥ 좋아요 취소":"♡ 좋아요",()->{db.flag(id,"liked",t.liked==1?0:1);notice("내 좋아요 상태 변경 · 상세 화면을 다시 열면 반영됩니다.");});
-   btn(box,"💬 댓글·답글 보기·작성",()->comments(id));
-   btn(box,"공유",()->shareSong(t));
-   btn(box,"🎼 악보 첨부 또는 보기",()->score(id));
-   btn(box,"🖼 앨범 표지 사진 첨부·변경",()->pickCover(id));
-   btn(box,"🎶 장르 변경",()->chooseGenre(id));
-   btn(box,"✎ 제목 수정",()->rename(id));
-   btn(box,t.rightsOk==1?"✓ 업로드 권한 확인됨 (변경)":"업로드 권한 확인 (원곡 소유)",()->toggleRights(id));
-   new AlertDialog.Builder(this).setTitle("노래 상세 기능").setView(scroll).setPositiveButton("닫기",(a,b)->{if(currentTab==1)renderSongs();}).show();
+   showDetailTab(content,id,0);
+   TextView manage=label("운영자 관리 · 장르/악보/표지/권한",13);
+   manage.setTextColor(teal);manage.setGravity(Gravity.CENTER);body.addView(manage);
+   manage.setOnClickListener(v->new AlertDialog.Builder(this).setItems(new String[]{
+     "앨범 표지 첨부","악보 첨부/보기","장르 수정","제목 수정","업로드 권한 확인","내 좋아요"
+   },(d,index)->{
+      if(index==0)pickCover(id);
+      else if(index==1)score(id);
+      else if(index==2)chooseGenre(id);
+      else if(index==3)rename(id);
+      else if(index==4)toggleRights(id);
+      else{db.flag(id,"liked",t.liked==1?0:1);dialog.dismiss();details(id);}
+   }).show());
+   dialog.setContentView(shell);
+   if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,-1);
+   dialog.show();
  }
- private void shareSong(VaultDb.Track t){
+ private void iconAction(LinearLayout row,String icon,String label,Runnable click){
+   LinearLayout c=vertical();c.setGravity(Gravity.CENTER);
+   row.addView(c,new LinearLayout.LayoutParams(0,-1,1));
+   TextView image=bigLabel(icon,25);image.setGravity(Gravity.CENTER);
+   image.setBackground(round(0xff253752,0xff15243a,16));
+   c.addView(image,new LinearLayout.LayoutParams(dp(56),dp(42)));
+   TextView t=label(label,12);t.setGravity(Gravity.CENTER);c.addView(t);
+   c.setOnClickListener(v->click.run());
+ }
+ private void showDetailTab(LinearLayout host,long id,int tab){
+   host.removeAllViews();
+   VaultDb.Track track=db.get(id);if(track==null)return;
+   if(tab==1){
+     heading(host,"곡정보");
+     paragraph(host,"장르: "+track.genre+" · 분류: "+track.language);
+     paragraph(host,"음원: "+track.filename+" · "+(track.size/1048576)+"MB");
+     paragraph(host,"조회수는 현재 이 기기에서 미리듣기한 횟수입니다.");
+     return;
+   }
+   if(tab==2){
+     heading(host,"관련 노래");
+     int n=0;
+     for(VaultDb.Track song:db.tracks(track.language)){
+       if(song.id==id)continue;
+       btn(host,song.title,()->details(song.id));if(++n>=5)break;
+     }
+     if(n==0)paragraph(host,"같은 분류의 다른 노래가 없습니다.");
+     return;
+   }
+   heading(host,"댓글 ("+db.comments(id).size()+")");
+   for(VaultDb.Comment c:db.songCommentDetails(id)){
+     LinearLayout card=vertical();card.setPadding(dp(12),dp(9),dp(12),dp(7));
+     card.setBackground(round(0xff172940,0xff0b1a2c,13));
+     LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
+     cp.setMargins(0,dp(3),0,dp(5));host.addView(card,cp);
+     TextView author=bigLabel("✿  "+c.author,14);card.addView(author);
+     card.addView(label(c.body,15));
+     TextView answer=label("↳ 답글",13);answer.setTextColor(teal);card.addView(answer);
+     answer.setOnClickListener(v->songReply(id,c.id));
+     for(VaultDb.Comment reply:db.songReplies(id)){
+       if(reply.parentId==c.id)card.addView(label("↳ "+reply.author+": "+reply.body,13));
+     }
+   }
+   LinearLayout entry=new LinearLayout(this);entry.setGravity(Gravity.CENTER_VERTICAL);
+   host.addView(entry,new LinearLayout.LayoutParams(-1,dp(69)));
+   EditText input=new EditText(this);input.setSingleLine(true);input.setHint("댓글을 남겨주세요...");
+   input.setTextColor(white);input.setHintTextColor(0xff9da7ba);input.setTextSize(14);
+   entry.addView(input,new LinearLayout.LayoutParams(0,-2,1));
+   TextView send=bigLabel("➤",25);send.setTextColor(0xff30aaf9);send.setGravity(Gravity.CENTER);
+   entry.addView(send,new LinearLayout.LayoutParams(dp(50),dp(55)));
+   send.setOnClickListener(v->{
+     String typed=input.getText().toString().trim();
+     if(typed.isEmpty()){notice("댓글을 입력하세요.");return;}
+     db.addComment(id,"호스트",typed);
+     showDetailTab(host,id,0);
+   });
+ }
+  private void shareSong(VaultDb.Track t){
    Intent share=new Intent(Intent.ACTION_SEND);
    share.setType("text/plain");
    share.putExtra(Intent.EXTRA_TEXT,"MARU 노래 보관함: "+t.title+" (앱 내부 등록곡 · 원본 재배포 링크는 아님)");
