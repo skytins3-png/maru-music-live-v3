@@ -33,6 +33,17 @@ public final class ShowcaseActivity extends Activity {
           EXPORT_METADATA=710,RESTORE_METADATA=711,EXPORT_SCORE=712;
   private final Handler ui=new Handler(Looper.getMainLooper());
   private WebView web; private VaultDb db; private MediaPlayer player;
+  private long previewTrackId=-1;
+  private boolean previewReady=false;
+  private String previewTitle="";
+  private void reportPlayback(String status){
+    callback("window.maruPlaybackChanged&&window.maruPlaybackChanged("+
+      previewTrackId+","+JSONObject.quote(status)+","+JSONObject.quote(previewTitle)+");");
+  }
+  private void releasePlayback(){
+    if(player!=null){try{player.release();}catch(Exception ignored){}player=null;}
+    previewTrackId=-1;previewTitle="";previewReady=false;
+  }
   private long uploadId=-1,selectedTrack=-1,saveTrack=-1,exportScoreTrack=-1;
   private Uri storyFile;
   private String endpoint="",token="";
@@ -355,7 +366,7 @@ public final class ShowcaseActivity extends Activity {
     callback("window.goBack&&window.goBack();");
   }
   @Override protected void onDestroy(){
-    if(player!=null){try{player.release();}catch(Exception ignored){}player=null;}
+    releasePlayback();
     if(web!=null){web.removeJavascriptInterface("Maru");web.destroy();web=null;}
     if(db!=null)db.close();
     token="";
@@ -526,18 +537,56 @@ public final class ShowcaseActivity extends Activity {
     @JavascriptInterface public void viewed(String kind,long id){if("story".equals(kind))db.storyViewed(id);else db.view(id);}
     @JavascriptInterface public void download(long id){VaultDb.Track t=db.get(id);ui.post(()->selectSave(t));}
     @JavascriptInterface public void preview(long id){
-      VaultDb.Track t=db.get(id);if(t==null)return;
+      VaultDb.Track t=db.get(id);
+      if(t==null){say("미리듣기할 노래를 찾지 못했습니다.");return;}
       ui.post(()->{
         try{
-          if(player!=null){player.release();player=null;}
-          player=new MediaPlayer();player.setDataSource(ShowcaseActivity.this,Uri.parse(t.uri));
-          player.setOnPreparedListener(p->{p.start();db.view(id);say("♪ 재생 중: "+t.title);changed();});
-          player.setOnErrorListener((p,what,extra)->{say("재생할 수 없는 원곡입니다.");return true;});
-          player.prepareAsync();
-        }catch(Exception e){say("파일 재생 실패: "+e.getMessage());}
+          if(player!=null&&previewTrackId==id){
+            if(!previewReady){say("노래를 준비하고 있습니다.");return;}
+            if(player.isPlaying()){player.pause();reportPlayback("paused");}
+            else {player.start();reportPlayback("playing");}
+            return;
+          }
+          releasePlayback();
+          player=new MediaPlayer();
+          previewTrackId=id;previewTitle=t.title;previewReady=false;
+          reportPlayback("loading");
+          MediaPlayer current=player;
+          current.setDataSource(ShowcaseActivity.this,Uri.parse(t.uri));
+          current.setOnPreparedListener(p->{
+            if(player!=p)return;
+            previewReady=true;
+            p.start();
+            db.view(id);
+            reportPlayback("playing");
+          });
+          current.setOnCompletionListener(p->{
+            if(player==p){releasePlayback();reportPlayback("stopped");}
+          });
+          current.setOnErrorListener((p,what,extra)->{
+            if(player==p){releasePlayback();reportPlayback("error");}
+            say("원곡을 재생할 수 없습니다. 저장된 MP3·M4A·WAV 파일을 확인하세요.");
+            return true;
+          });
+          current.prepareAsync();
+        }catch(Exception e){
+          releasePlayback();reportPlayback("error");
+          say("미리듣기 실패: "+e.getMessage());
+        }
       });
     }
-    @JavascriptInterface public void stop(){ui.post(()->{if(player!=null){try{player.stop();}catch(Exception ignored){}player.release();player=null;}say("재생 정지");});}
+    @JavascriptInterface public void togglePlayback(){
+      ui.post(()->{
+        if(player==null||!previewReady){say("미리듣기할 곡을 먼저 선택하세요.");return;}
+        try{
+          if(player.isPlaying()){player.pause();reportPlayback("paused");}
+          else {player.start();reportPlayback("playing");}
+        }catch(Exception e){say("재생 상태 변경 실패");}
+      });
+    }
+    @JavascriptInterface public void stop(){
+      ui.post(()->{releasePlayback();reportPlayback("stopped");say("재생 정지");});
+    }
     @JavascriptInterface public String favorite(long id){
       VaultDb.Track t=db.get(id);if(t==null)return "곡을 찾을 수 없습니다.";
       boolean yes=!getPreferences(MODE_PRIVATE).getBoolean("favorite-"+t.sha,false);
@@ -588,7 +637,7 @@ public final class ShowcaseActivity extends Activity {
         j.put("songCount",db.count());
         j.put("uploadedCount",db.uploaded());
         j.put("storyCount",db.stories().size());
-        j.put("appVersion","1.1.6 악보 관리자");
+        j.put("appVersion","1.1.7 미리듣기·악보 표시 수정");
       }catch(Exception ignored){}
       return j.toString();
     }
