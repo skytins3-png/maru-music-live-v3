@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#081524">
+<title>MARU RADIO · 음악 & 사연</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<main class="wrap">
+  <header><div class="logo">◉ MARU RADIO</div><p>음악과 사연을 함께 나누는 곳</p></header>
+  <section class="tiles" id="menu" aria-label="메인 메뉴">
+    <button class="tile pink" data-page="songs"><span class="big">♫</span>노래 보관함<small>듣고 즐겨찾기</small></button>
+    <button class="tile blue" data-page="story"><span class="big">✉</span>사연 보내기<small>사연·사진·신청곡</small></button>
+    <button class="tile violet" data-page="submit"><span class="big">↑</span>노래 업로드<small>청취자 곡 접수</small></button>
+    <button class="tile green" data-page="downloads"><span class="big">↓</span>노래 다운로드<small>허용된 곡만</small></button>
+  </section>
+  <div class="status" id="notice" role="status">등록된 노래를 불러오는 중입니다.</div>
+  <section class="panel" id="songsPanel">
+    <div class="section-top"><h2>노래 보관함</h2><button class="small" id="refresh">새로고침</button></div>
+    <div class="filter">
+      <input id="search" placeholder="제목·가수 검색" aria-label="곡 검색">
+      <select id="language" aria-label="분류"><option value="">전체</option><option>한국노래</option><option>중국노래</option><option>서양노래</option><option>일본노래</option><option>검토필요</option><option>트로트</option><option>발라드</option><option>연주</option></select>
+    </div>
+    <div id="songList" class="songlist"></div>
+  </section>
+  <section class="panel hidden" id="detailPanel">
+    <button class="small" id="backToSongs">← 노래 목록</button>
+    <h2 id="detailTitle">노래 상세</h2><p id="detailMeta"></p>
+    <audio controls id="player" preload="none"></audio>
+    <div class="stats"><span id="statsViews">조회 0</span><span id="statsLikes">좋아요 0</span></div>
+    <div class="subactions">
+      <button id="likeBtn">♡ 좋아요</button>
+      <a id="downloadLink" href="#" download>↓ 다운로드</a>
+      <a id="scoreLink" href="#" target="_blank" rel="noopener">♫ 악보</a>
+      <button id="shareBtn">↗ 공유</button>
+    </div>
+    <h3>댓글</h3><div id="comments"></div>
+    <form id="commentForm">
+      <input id="commentAuthor" maxlength="32" placeholder="닉네임">
+      <textarea id="commentBody" maxlength="700" required placeholder="댓글을 작성해 주세요"></textarea>
+      <button type="submit">댓글 보내기 (검토 후 공개)</button>
+    </form>
+  </section>
+  <section class="panel hidden" id="storyPanel">
+    <h2>사연 보내기</h2>
+    <p>로그인 없이 접수할 수 있어요. 운영자의 확인 후 방송에 반영됩니다.</p>
+    <form id="storyForm" enctype="multipart/form-data">
+      <label>닉네임 <input name="author" maxlength="32" placeholder="방송용 닉네임" required></label>
+      <label>사연 내용 <textarea name="body" maxlength="2800" placeholder="이야기를 남겨 주세요" required></textarea></label>
+      <label>신청곡 (선택) <input name="songRequest" maxlength="130" placeholder="제목 또는 곡 링크"></label>
+      <label>사진·음성·영상·악보 (선택) <input type="file" name="attachment" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/mp4,video/mp4,application/pdf"></label>
+      <label class="check"><input type="checkbox" id="storyConsent" required>사연 공개와 방송 소개에 동의하며 개인 정보를 공개하지 않았습니다.</label>
+      <button type="submit">사연 접수</button>
+    </form>
+  </section>
+  <section class="panel hidden" id="submitPanel">
+    <h2>청취자 노래 업로드</h2><p>음원은 바로 공개되지 않으며 운영자 승인과 보안 검사를 거칩니다.</p>
+    <form id="songForm" enctype="multipart/form-data">
+      <label>곡 제목 <input name="title" maxlength="140" required></label>
+      <label>표시할 이름 <input name="artist" maxlength="40" placeholder="가명 또는 아티스트"></label>
+      <label>장르 <select name="genre"><option>미확인</option><option>발라드</option><option>트로트</option><option>연주</option><option>기타</option></select></label>
+      <label>노래 파일(MP3/M4A) <input type="file" name="audio" accept=".mp3,.m4a,audio/mpeg,audio/mp4" required></label>
+      <label class="check"><input type="checkbox" name="rights_confirmed" value="true" required>본인이 권리를 보유하고 업로드·방송 이용에 동의합니다.</label>
+      <button type="submit">노래 접수 (승인 대기)</button>
+    </form>
+  </section>
+  <section class="panel hidden" id="downloadsPanel">
+    <h2>다운로드 가능한 노래</h2><p>저작권자가 다운로드를 허용한 곡만 표시합니다.</p><div id="downloads"></div>
+  </section>
+  <footer>MARU RADIO · 음원/사연은 운영자 승인 후 공개됩니다. <a href="/admin.html">운영자</a></footer>
+</main>
+<script src="/app.js" defer></script></body></html>
