@@ -186,3 +186,15 @@ select{appearance:auto}
 .song-art:not(.actual)>svg.icon{opacity:0}
 
 .detail-banner{background-image:url("sunset.webp");background-size:cover;background-position:center}
+
+/* Mask the sample track title printed inside the marketing sunset crop so the user's
+   actual title is the only readable title on the live detail screen. */
+.detail-banner::before{
+  content:"";
+  position:absolute;left:0;right:0;bottom:0;height:118px;
+  background:linear-gradient(to bottom,rgba(6,19,36,0.88),#061323 33%,#061323 100%);
+  z-index:1;pointer-events:none;
+}
+.detail-banner::after{z-index:0;pointer-events:none;}
+.detail-title{z-index:3}
+.detail-banner .play-central{z-index:3}
