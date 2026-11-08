@@ -1,0 +1,57 @@
+name: Build MARU pure-Python Kivy Score APK
+on:
+  push:
+    branches: [maru-python-kivy-score-apk-20261109]
+    paths:
+      - 'python_score_apk/**'
+      - '.github/workflows/build-maru-python-score.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-python-android:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install OS dependencies for python-for-android
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip cmake autoconf automake libtool             pkg-config zlib1g-dev libncurses5 libncurses5-dev libtinfo5             libffi-dev libssl-dev libltdl-dev autopoint gettext
+      - name: Check Python syntax
+        run: |
+          python -m py_compile python_score_apk/*.py
+          python -m pip install --upgrade pip
+          python -m pip install buildozer 'cython==0.29.36' setuptools
+      - name: Build actual arm64 Android APK with Python runtime
+        working-directory: python_score_apk
+        env:
+          PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: '0'
+        run: |
+          buildozer -v android debug 2>&1 | tee buildozer-output.log
+          test -n "$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
+      - name: Verify compiled APK and package
+        working-directory: python_score_apk
+        run: |
+          APK="$(find bin -maxdepth 1 -name '*.apk' -print -quit)"
+          test -s "$APK"
+          unzip -t "$APK" | tail -2
+          sha256sum "$APK" > SHA256SUMS.txt
+          ls -lah "$APK"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MARU-PYTHON-SCORE-APK-or-build-log
+          path: |
+            python_score_apk/bin/*.apk
+            python_score_apk/buildozer-output.log
+            python_score_apk/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 14
