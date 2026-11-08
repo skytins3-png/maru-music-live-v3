@@ -365,6 +365,16 @@ public final class ShowcaseActivity extends Activity {
       },"maru-track-metadata").start();
     }
     /** Opens only an official Suno song page. Never logs in, scrapes or auto-downloads. */
+    /** Candidate ratings persist in the existing private on-device database. */
+    @JavascriptInterface public String rateCandidate(int idx,int version,int stars){
+      try{
+        String status=db.rateCandidate(idx,version,stars);
+        changed();return status;
+      }catch(Exception e){return "버전 평가 저장 실패. 평점을 1~5점으로 입력하세요.";}
+    }
+    @JavascriptInterface public String candidateReviews(){
+      return db.candidateReviews().toString();
+    }
     @JavascriptInterface public void openSuno(String songId){
       if(songId==null||!songId.matches("(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")){
         say("Suno 노래 주소가 올바르지 않습니다.");return;
@@ -518,7 +528,7 @@ public final class ShowcaseActivity extends Activity {
         j.put("songCount",db.count());
         j.put("uploadedCount",db.uploaded());
         j.put("storyCount",db.stories().size());
-        j.put("appVersion","1.1.4 개인 보관·Suno 후보");
+        j.put("appVersion","1.1.5 버전 비교·선택");
       }catch(Exception ignored){}
       return j.toString();
     }
