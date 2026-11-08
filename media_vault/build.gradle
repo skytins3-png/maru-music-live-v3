@@ -3,11 +3,11 @@ android {
   namespace 'com.maru.media'
   compileSdk 36
   defaultConfig {
-    applicationId 'com.maru.media.privatevault.personal20261108'
+    applicationId 'com.maru.media.privatevault.bestversion20261108'
     minSdk 26
     targetSdk 35
-    versionCode 8
-    versionName '1.1.4-personal'
+    versionCode 9
+    versionName '1.1.5-best-version'
     testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   }
   buildTypes { release { signingConfig signingConfigs.debug; minifyEnabled false } }
