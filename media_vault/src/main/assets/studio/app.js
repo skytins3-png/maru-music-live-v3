@@ -61,12 +61,12 @@ function go(dest,id){
    const found=getSong(id);
    if(!found){notify("노래를 찾지 못했습니다.");return;}
    selectedSong=Number(id);detailTab="댓글";replyTo=0;
-   if(!demo(found))call("viewed","song",Number(id));
+   if(!demo(found)){call("viewed","song",Number(id));readData();}
  }
  if(dest==="story-detail"){
    const found=getStory(id);if(!found){notify("사연을 찾지 못했습니다.");return;}
    selectedStory=Number(id);storyReplyTo=0;
-   if(!demo(found))call("viewed","story",Number(id));
+   if(!demo(found)){call("viewed","story",Number(id));readData();}
  }
  page=dest;render();
 }
@@ -330,7 +330,7 @@ document.addEventListener("click",e=>{
  if(act==="stop"){call("stop");notify("재생 정지");return;}
  if(act==="score"){call("viewScore",id);return;}
  if(act==="share"){call("shareSong",id);return;}
- if(act==="favorite"){notify(call("favorite",id));return;}
+ if(act==="favorite"){const msg=call("favorite",id);readData();renderDetail();notify(msg);return;}
  if(act==="chooseUpload"){call("chooseSong");return;}
  if(act==="chooseCover"){if(uploadId)call("pickArt",uploadId);else notify("먼저 음원 파일을 선택하세요.");return;}
  if(act==="chooseScore"){if(uploadId)call("pickScore",uploadId);else notify("먼저 음원 파일을 선택하세요.");return;}
@@ -341,8 +341,8 @@ document.addEventListener("click",e=>{
    if(demo(getSong(selectedSong))){notify("시연 데이터에는 댓글을 저장하지 않습니다.");return;}
    const content=$("songComment")?.value||"";
    if(content.trim().length<2){notify("댓글을 두 글자 이상 입력하세요.");return;}
-   notify(call("comment","song",selectedSong,replyTo,"호스트",content));
-   replyTo=0;return;
+   const msg=call("comment","song",selectedSong,replyTo,"호스트",content);
+   replyTo=0;readData();renderDetail();notify(msg);return;
  }
  if(act==="storyReply"){storyReplyTo=id;renderStoryDetail();return;}
  if(act==="storyCommentFocus"){$("storyCommentText")?.focus();return;}
@@ -350,16 +350,17 @@ document.addEventListener("click",e=>{
    if(demo(getStory(selectedStory))){notify("시연 데이터에는 댓글을 저장하지 않습니다.");return;}
    const content=$("storyCommentText")?.value||"";
    if(content.trim().length<2){notify("댓글을 두 글자 이상 입력하세요.");return;}
-   notify(call("comment","story",selectedStory,storyReplyTo,"호스트",content));storyReplyTo=0;return;
+   const msg=call("comment","story",selectedStory,storyReplyTo,"호스트",content);
+   storyReplyTo=0;readData();renderStoryDetail();notify(msg);return;
  }
- if(act==="storyLike"){if(!demo(story)){notify(call("like","story",id));}else notify("홍보용 시연 데이터입니다.");return;}
+ if(act==="storyLike"){if(!demo(story)){const msg=call("like","story",id);readData();renderStoryDetail();notify(msg);}else notify("홍보용 시연 데이터입니다.");return;}
  if(act==="shareStory"){
    if(story)navigator.clipboard?.writeText(story.author+"님의 사연\n"+story.body)
      .then(()=>notify("사연 내용을 복사했습니다.")).catch(()=>notify("복사할 수 없습니다."));return;
  }
- if(act==="storyState"){if(demo(story)){notify("시연 사연입니다.");return;}notify(call("storyStatus",id,value));return;}
+ if(act==="storyState"){if(demo(story)){notify("시연 사연입니다.");return;}const msg=call("storyStatus",id,value);readData();renderStoryDetail();notify(msg);return;}
  if(act==="storySchedule"){
-   const when=$("scheduleAt")?.value||"";notify(call("schedule",selectedStory,when));return;
+   const when=$("scheduleAt")?.value||"";const msg=call("schedule",selectedStory,when);readData();renderStoryDetail();notify(msg);return;
  }
  if(act==="storyManage"){$("page-story-detail").scrollTop=99999;return;}
  if(act==="songOptions"){
@@ -391,7 +392,7 @@ document.addEventListener("submit",e=>{
    const response=call("submitStory",String(f.get("nick")||""),String(f.get("body")||""),
       String(f.get("request")||""),String(f.get("privacy")||"public"));
    notify(response);
-   if(response&&response.startsWith("사연 접수번호")){storyFileLabel="선택한 첨부파일 없음";storyTab="전체";go("stories");}
+   if(response&&response.startsWith("사연 접수번호")){storyFileLabel="선택한 첨부파일 없음";storyTab="전체";readData();go("stories");}
  }
 });
 readData();render();
