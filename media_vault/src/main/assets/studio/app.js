@@ -15,15 +15,28 @@ const sunoCandidates=[["민도윤","주머니 속 봄바람","4b58c565-0bac-4013
 // No background download, private Suno scraping or memorial-song retrieval is performed.
 const candidateTitleKey=value=>String(value||"").normalize("NFKC").toLowerCase().replace(/[^0-9a-z가-힣一-鿿]/g,"");
 function renderSunoCandidates(){
- return '<div class="panel"><h3>신규 후보 9곡 · 추모곡 제외</h3>'
-  +'<p class="tiny">이 9곡은 기존 105곡 검사표에 제목이 없는 후보입니다. Suno 계정 전체를 자동 조회한 결과는 아닙니다. 같은 곡의 버전 둘 중 직접 듣고 좋은 하나만 선택하세요. 추모곡은 대상에서 제외했습니다.</p></div>'
+ let reviews={};
+ try{reviews=JSON.parse(call("candidateReviews")||"{}");}catch(e){}
+ return '<div class="panel"><h3>Suno 후보 9곡 · 2버전 비교</h3>'
+  +'<p class="tiny">추모곡 모든 언어 버전 다운로드 금지. 기존 105곡과 같은 제목은 우선 중복 확인합니다. Suno 공식 링크에서 두 버전을 직접 들어보고 1~5점으로 평가하세요. 점수가 높은 버전 하나만 우선 선택하며 동점은 보류합니다. AI 자동 청취 평가나 계정 자동 다운로드는 아닙니다.</p></div>'
   +'<div class="song-list">'+sunoCandidates.map((c,i)=>{
     const existing=tracks.some(t=>candidateTitleKey(t.title)===candidateTitleKey(c[1]));
+    const rating=reviews[String(i)]||{v1:0,v2:0,winner:0};
+    const winner=Number(rating.winner)||0;
+    const chosen=winner===1?c[2]:winner===2?c[3]:"";
+    const status=existing?'내 보관함에 동일 제목 있음 · 재다운로드 전 확인':
+        winner>0?'우선 선택 완료 · '+winner+'번 버전만 검토':'아직 최종 선택 안 됨';
     return '<div class="panel"><h3>'+(i+1)+'. '+escapeHTML(c[1])+'</h3>'
       +'<p class="tiny">AI 가수: '+escapeHTML(c[0])+'</p>'
-      +(existing?'<p class="tiny">내 보관함에 동일 제목이 있습니다. 먼저 원곡을 비교하세요.</p>':'<p class="tiny">등록 목록에 동일 제목 없음 · 다운로드 전 청취 비교 필요</p>')
-      +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="openSuno" data-songid="'+c[2]+'">Suno 버전 1 듣기</button>'
-      +'<button class="secondary-btn" data-action="openSuno" data-songid="'+c[3]+'">Suno 버전 2 듣기</button></div></div>';
+      +'<p class="tiny">'+status+'</p>'
+      +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="openSuno" data-songid="'+c[2]+'">버전 1 듣기</button>'
+      +'<button class="secondary-btn" data-action="openSuno" data-songid="'+c[3]+'">버전 2 듣기</button></div>'
+      +'<div class="row" style="flex-wrap:wrap;margin-top:8px">'
+      +'<button class="secondary-btn" data-action="rateSuno" data-index="'+i+'" data-version="1">버전 1 평점: '+(rating.v1?rating.v1+'/5':'미평가')+'</button>'
+      +'<button class="secondary-btn" data-action="rateSuno" data-index="'+i+'" data-version="2">버전 2 평점: '+(rating.v2?rating.v2+'/5':'미평가')+'</button></div>'
+      +(chosen&&!existing?'<button class="primary-btn" style="margin-top:8px" data-action="openSuno" data-songid="'+chosen+'">선정 '+winner+'번 Suno 공식 페이지 열기</button>':'')
+      +(winner===0&&rating.v1&&rating.v2?'<p class="tiny">동점 보류: 다시 비교해 평점을 조정해 주세요.</p>':'')
+      +'</div>';
   }).join("")+'</div>';
 }
 const demoSongs=[
@@ -326,7 +339,7 @@ function renderProfile(){
  +'<div class="panel"><div class="field"><label>HTTPS 방송 서버 주소</label><input id="serverUrl" class="textinput" placeholder="https://example.com" value="'+escapeHTML(serverInfo)+'"></div>'
  +'<div class="field"><label>운영자 인증키 (앱 종료 시 삭제)</label><input type="password" class="textinput" id="serverToken" placeholder="인증키 입력"></div>'
  +'<button class="secondary-btn" style="width:100%" data-action="saveServer">서버 연결 정보 저장</button></div>'
- +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.4</span> ❯</div>'
+ +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.5</span> ❯</div>'
  +'<div class="profile-row" data-action="stop">'+icon("music")+'<span>음원 재생 정지</span> ❯</div></div>'
  +'<div class="panel"><h3>곡정보·가수 분류</h3>'
  +'<p class="tiny">작사·작곡·스타일 완성 박영환 · Suno AI 도움</p>'
@@ -360,6 +373,15 @@ document.addEventListener("click",e=>{
  if(act==="moreSongs"){songLimit+=20;renderSongs();return;}
  if(act==="top5"){trackTab="인기";go("songs");return;}
  if(act==="identifyArtists"){call("identifyArtists");return;}
+ if(act==="rateSuno"){
+   const i=Number(target.index),ver=Number(target.version);
+   const entered=window.prompt("Suno 버전 "+ver+" 청취 평가 (1~5점)", "3");
+   if(entered===null)return;
+   const stars=Number(entered);
+   if(!Number.isInteger(stars)||stars<1||stars>5){notify("평점은 1~5 사이의 정수로 입력하세요.");return;}
+   const msg=call("rateCandidate",i,ver,stars);
+   renderDownloads();notify(msg||"평가 저장 결과를 확인할 수 없습니다.");return;
+ }
  if(act==="openSuno"){call("openSuno",String(target.songid||""));return;}
  if(act==="importFiles"){call("getFiles");return;}
  if(act==="importFolder"){call("getFolder");return;}
@@ -455,7 +477,7 @@ document.addEventListener("click",e=>{
  if(act==="restoreMetadata"){call("restoreMetadata");return;}
  if(act==="saveServer"){notify(call("setServer",$("serverUrl").value,$("serverToken").value));return;}
  if(act==="toggleDemo"){demoMode=!demoMode;notify(demoMode?"디자인 시연 켜짐: 실제 데이터가 아닙니다.":"디자인 시연 꺼짐");renderProfile();return;}
- if(act==="about"){notify("MARU RADIO V1.1.4 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
+ if(act==="about"){notify("MARU RADIO V1.1.5 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
  if(act==="logout"){call("logout");return;}
 });
 document.addEventListener("input",e=>{
