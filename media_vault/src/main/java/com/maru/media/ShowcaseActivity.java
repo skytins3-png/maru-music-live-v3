@@ -588,7 +588,7 @@ public final class ShowcaseActivity extends Activity {
         j.put("songCount",db.count());
         j.put("uploadedCount",db.uploaded());
         j.put("storyCount",db.stories().size());
-        j.put("appVersion","1.1.5 버전 비교·선택");
+        j.put("appVersion","1.1.6 악보 관리자");
       }catch(Exception ignored){}
       return j.toString();
     }
