@@ -104,11 +104,11 @@ public final class MainActivity extends Activity {
  }
  private void renderNavigation(int selected){
    navBar.removeAllViews();
-   if(selected==0){
+   if(selected==0||selected==1){
      FrameLayout frame=new FrameLayout(this);
      frame.setBackground(round(0xff172741,0xff0a1529,20));
      frame.setClipToOutline(true);
-     try(java.io.InputStream in=getAssets().open("reference_nav_home.webp")){
+     try(java.io.InputStream in=getAssets().open(selected==1?"reference_nav_songs.webp":"reference_nav_home.webp")){
        Bitmap art=BitmapFactory.decodeStream(in);
        if(art!=null){
          ImageView image=new ImageView(this);image.setImageBitmap(art);
