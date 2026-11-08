@@ -13,7 +13,7 @@ import java.util.zip.ZipInputStream;
 public final class LibraryImporter {
  public interface Progress { void update(int scanned,int inserted,int duplicated,String name); }
  public static final class Stats {
-   public int scanned,inserted,duplicate,invalid;
+   public int scanned,inserted,duplicate,invalid,manifestUpdated;
    public String last="";
  }
  private final Context context;
@@ -121,9 +121,20 @@ public final class LibraryImporter {
      if(raw==null)throw new IOException("ZIP을 열 수 없습니다");
      try(ZipInputStream z=new ZipInputStream(new BufferedInputStream(raw))){
        ZipEntry entry;
+       String catalogJson=null;
        while((entry=z.getNextEntry())!=null&&stats.scanned<MAX_TRACKS){
          if(entry.isDirectory())continue;
          String original=entry.getName().replace('\\','/');
+         if("MARU_CATALOG.json".equalsIgnoreCase(original)){
+           ByteArrayOutputStream json=new ByteArrayOutputStream();
+           byte[] buffer=new byte[8192];int n;
+           while((n=z.read(buffer))!=-1){
+             json.write(buffer,0,n);
+             if(json.size()>350000)throw new IOException("분류표 JSON 350KB 제한");
+           }
+           catalogJson=json.toString("UTF-8");
+           z.closeEntry();continue;
+         }
          String name=original.substring(original.lastIndexOf('/')+1);
          if(!CatalogLogic.audio(name))continue;
          stats.scanned++;
@@ -146,6 +157,10 @@ public final class LibraryImporter {
            if(added<0){target.delete();stats.duplicate++;}else stats.inserted++;
          }
          z.closeEntry();update(name);
+       }
+       if(catalogJson!=null){
+         try{stats.manifestUpdated+=db.importManifest(catalogJson);}
+         catch(IllegalArgumentException ex){stats.invalid++;}
        }
      }
    }
