@@ -9,6 +9,23 @@ let tracks=[],stories=[],page="home",selectedSong=null,selectedStory=null,trackT
     storyTab="전체",detailTab="댓글",downloadTab="다운로드 목록",replyTo=0,storyReplyTo=0,
     query="",uploadId=null,fileLabel="음원 파일을 선택하세요",storyFileLabel="선택한 첨부파일 없음",
     demoMode=false,serverInfo="",toastTimer=null;
+const sunoCandidates=[["민도윤","주머니 속 봄바람","4b58c565-0bac-4013-af8f-644859fd2b99","ca389620-8e87-4bb8-a578-332d0be4c61b"],["서하린","今晚就跟你走","d00fe0b8-3183-4433-a20f-4715c0de25dc","4f303942-fb43-4c83-8095-1571adde72ef"],["차나린","心跳刚刚好","436d6af2-7848-4924-b8fd-54ef68a537e2","5c61b0b7-a0b7-49b2-a4e7-aa2b7eee33ee"],["백소윤","阳光跟着我们跑","6d23642d-1690-4efd-a170-2773f54dd151","9c02bd0a-660d-435d-adbb-dfcded4bc850"],["류서빈","내 이름을 다시 부른다","1e22cca9-d19a-46f5-ae95-c0b6562dc86c","6035ff19-89de-4982-a7b7-132aedce7be9"],["남예린","귤빛 오후","ebde698b-1f2e-43d4-b611-d815973ac52c","66dad43e-ac1d-40c5-b269-14af5132f181"],["오하늬","한 박자 느린 사랑","9f33236c-b039-4b6a-bd5c-9e7c56d5e1ae","5e2bb55b-d6bb-4697-a4e9-da524a63cb8d"],["임다온","꽃신 신고 마중 간다","d411dc55-677e-48f0-88a1-fd235ea756a6","e40615e3-19cb-4abc-be8e-08441300e22b"],["정유라","잠든 도시의 자장가","85970331-43ff-46e2-8be5-c63d0929a2c0","610a6f0a-2ff2-4563-9d1f-0c55e78622bd"]];
+
+// Titles are only a first pass. SHA-256 and listening are required for real duplicate decisions.
+// No background download, private Suno scraping or memorial-song retrieval is performed.
+const candidateTitleKey=value=>String(value||"").normalize("NFKC").toLowerCase().replace(/[\\s\\p{P}\\p{S}]+/gu,"");
+function renderSunoCandidates(){
+ return '<div class="panel"><h3>신규 후보 9곡 · 추모곡 제외</h3>'
+  +'<p class="tiny">이 9곡은 기존 105곡 검사표에 제목이 없는 후보입니다. Suno 계정 전체를 자동 조회한 결과는 아닙니다. 같은 곡의 버전 둘 중 직접 듣고 좋은 하나만 선택하세요. 추모곡은 대상에서 제외했습니다.</p></div>'
+  +'<div class="song-list">'+sunoCandidates.map((c,i)=>{
+    const existing=tracks.some(t=>candidateTitleKey(t.title)===candidateTitleKey(c[1]));
+    return '<div class="panel"><h3>'+(i+1)+'. '+escapeHTML(c[1])+'</h3>'
+      +'<p class="tiny">AI 가수: '+escapeHTML(c[0])+'</p>'
+      +(existing?'<p class="tiny">내 보관함에 동일 제목이 있습니다. 먼저 원곡을 비교하세요.</p>':'<p class="tiny">등록 목록에 동일 제목 없음 · 다운로드 전 청취 비교 필요</p>')
+      +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="openSuno" data-songid="'+c[2]+'">Suno 버전 1 듣기</button>'
+      +'<button class="secondary-btn" data-action="openSuno" data-songid="'+c[3]+'">Suno 버전 2 듣기</button></div></div>';
+  }).join("")+'</div>';
+}
 const demoSongs=[
  {id:-1,title:"그리운 사람",artist:"아환",views:12548,liked:1236,genre:"발라드",language:"한국노래",size:7800000},
  {id:-2,title:"봄날의 추억",artist:"윤솔",views:8932,liked:892,genre:"발라드",language:"한국노래",size:6100000},
@@ -206,11 +223,13 @@ function renderDownloads(){
  const info=JSON.parse(call("deviceInfo")||"{}");
  const occupied=info.total?Math.round((info.used||0)/info.total*100):0;
  $("page-downloads").innerHTML=topbar("노래 다운로드","","home")
- +'<div class="pills">'+["다운로드 목록","오프라인 저장","저장 위치"].map(t=>'<button class="'+(downloadTab===t?"active":"")+'" data-action="downloadTab" data-value="'+t+'">'+t+'</button>').join("")+'</div>'
+ +'<div class="pills">'+["다운로드 목록","오프라인 저장","저장 위치","Suno 후보 9곡"].map(t=>'<button class="'+(downloadTab===t?"active":"")+'" data-action="downloadTab" data-value="'+t+'">'+t+'</button>').join("")+'</div>'
  +'<div class="panel"><div class="storage-line">'+icon("drive")+'<div class="right"><strong>기기 저장공간</strong>'
  +'<div class="tiny">사용 중 '+(info.used?Math.round(info.used/1073741824*10)/10:"?")+'GB / '+(info.total?Math.round(info.total/1073741824):"?")+'GB</div>'
  +'<div class="progress" style="margin-top:8px"><span style="width:'+occupied+'%"></span></div></div></div></div>'
- +(downloadTab==="저장 위치"?'<div class="panel"><h3>저장 위치</h3><p>노래에서 다운로드를 누르면 안드로이드 파일 저장 창이 열립니다. 휴대폰의 원하는 폴더를 선택할 수 있습니다.</p>'
+ +'<div class="panel"><h3>휴대폰 원곡 가져오기</h3><p class="tiny">FTF-Music / Download 폴더에서 기존 105곡을 가져오세요. 원본 파일은 보존하며 파일 내용 SHA-256이 같으면 중복 등록하지 않습니다.</p>'
+  +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="importFolder">음원 폴더 가져오기</button><button class="secondary-btn" data-action="importFiles">MP3·ZIP 선택</button></div></div>'
+ +(downloadTab==="Suno 후보 9곡"?renderSunoCandidates():downloadTab==="저장 위치"?'<div class="panel"><h3>저장 위치</h3><p>노래에서 다운로드를 누르면 안드로이드 파일 저장 창이 열립니다. 휴대폰의 원하는 폴더를 선택할 수 있습니다.</p>'
   +'<button class="secondary-btn" data-go="songs">노래 보관함 열기</button></div>':
   '<div class="row-between" style="margin:13px 0"><strong>'+ (downloadTab==="오프라인 저장"?"저장한 노래":"보관된 노래")+' ('+listed.length+')</strong>'
   +'<button class="line-btn" data-action="stop" aria-label="재생 정지">재생 정지</button></div>'
@@ -307,7 +326,7 @@ function renderProfile(){
  +'<div class="panel"><div class="field"><label>HTTPS 방송 서버 주소</label><input id="serverUrl" class="textinput" placeholder="https://example.com" value="'+escapeHTML(serverInfo)+'"></div>'
  +'<div class="field"><label>운영자 인증키 (앱 종료 시 삭제)</label><input type="password" class="textinput" id="serverToken" placeholder="인증키 입력"></div>'
  +'<button class="secondary-btn" style="width:100%" data-action="saveServer">서버 연결 정보 저장</button></div>'
- +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.2</span> ❯</div>'
+ +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.4</span> ❯</div>'
  +'<div class="profile-row" data-action="stop">'+icon("music")+'<span>음원 재생 정지</span> ❯</div></div>'
  +'<div class="panel"><h3>곡정보·가수 분류</h3>'
  +'<p class="tiny">작사·작곡·스타일 완성 박영환 · Suno AI 도움</p>'
@@ -341,6 +360,7 @@ document.addEventListener("click",e=>{
  if(act==="moreSongs"){songLimit+=20;renderSongs();return;}
  if(act==="top5"){trackTab="인기";go("songs");return;}
  if(act==="identifyArtists"){call("identifyArtists");return;}
+ if(act==="openSuno"){call("openSuno",String(target.songid||""));return;}
  if(act==="importFiles"){call("getFiles");return;}
  if(act==="importFolder"){call("getFolder");return;}
  if(act==="importManifest"){call("getManifest");return;}
@@ -435,7 +455,7 @@ document.addEventListener("click",e=>{
  if(act==="restoreMetadata"){call("restoreMetadata");return;}
  if(act==="saveServer"){notify(call("setServer",$("serverUrl").value,$("serverToken").value));return;}
  if(act==="toggleDemo"){demoMode=!demoMode;notify(demoMode?"디자인 시연 켜짐: 실제 데이터가 아닙니다.":"디자인 시연 꺼짐");renderProfile();return;}
- if(act==="about"){notify("MARU RADIO V1.1.2 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
+ if(act==="about"){notify("MARU RADIO V1.1.4 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
  if(act==="logout"){call("logout");return;}
 });
 document.addEventListener("input",e=>{
