@@ -98,13 +98,14 @@ public final class MediaVaultDeviceTest {
    LibraryImporter importer=new LibraryImporter(ctx,db,null);
    importer.fromAudioUris(Collections.singletonList(Uri.fromFile(f)));
    assertEquals(2,importer.stats().scanned);
-   assertEquals(1,importer.stats().inserted+importer.stats().duplicate);
+   assertEquals(2,importer.stats().inserted+importer.stats().duplicate);
    // One duplicate may exist already if the device ran this fixture before.
    assertTrue(db.bySha(sha));
    JSONObject manifest=new JSONObject();
    JSONObject track=new JSONObject().put("sha256",sha).put("languageGroup","중국노래").put("title","정확한 제목");
    manifest.put("tracks",new JSONArray().put(track));
    assertEquals(1,db.importManifest(manifest.toString()));
-   assertTrue(db.tracks("중국노래").toString().length()>0);
+   boolean found=false;for(VaultDb.Track t:db.tracks("중국노래"))if(t.sha.equals(sha)&&t.title.equals("정확한 제목"))found=true;
+   assertTrue(found);
  }
 }
