@@ -13,7 +13,7 @@ const sunoCandidates=[["민도윤","주머니 속 봄바람","4b58c565-0bac-4013
 
 // Titles are only a first pass. SHA-256 and listening are required for real duplicate decisions.
 // No background download, private Suno scraping or memorial-song retrieval is performed.
-const candidateTitleKey=value=>String(value||"").normalize("NFKC").toLowerCase().replace(/[\\s\\p{P}\\p{S}]+/gu,"");
+const candidateTitleKey=value=>String(value||"").normalize("NFKC").toLowerCase().replace(/[^0-9a-z가-힣一-鿿]/g,"");
 function renderSunoCandidates(){
  return '<div class="panel"><h3>신규 후보 9곡 · 추모곡 제외</h3>'
   +'<p class="tiny">이 9곡은 기존 105곡 검사표에 제목이 없는 후보입니다. Suno 계정 전체를 자동 조회한 결과는 아닙니다. 같은 곡의 버전 둘 중 직접 듣고 좋은 하나만 선택하세요. 추모곡은 대상에서 제외했습니다.</p></div>'
