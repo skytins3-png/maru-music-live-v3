@@ -21,7 +21,7 @@ const mediaDir=path.join(dir,'originals');
 const quarantine=path.join(dir,'quarantine');
 for(const d of [dir,mediaDir,quarantine])fs.mkdirSync(d,{recursive:true,mode:0o700});
 const dbFile=path.join(dir,'data.json');
-const makeDb=()=>({tracks:[],stories:[],comments:[],likes:[],views:[],audit:[]});
+const makeDb=()=>({tracks:[],stories:[],comments:[],likes:[],views:[],storyComments:[],storyLikes:[],storyViews:[],audit:[]});
 let db=makeDb();
 if(fs.existsSync(dbFile)){
  const parsed=JSON.parse(fs.readFileSync(dbFile,'utf8'));
@@ -100,6 +100,69 @@ function visibleTrack(t){
    views:t.views||0,likes:t.likes||0,downloads:t.downloads||0,downloadAllowed:t.downloadAllowed===true,hasScore:!!t.score,
    durationSeconds:t.durationSeconds||null};
 }
+
+/** Public radio stories are displayed only after express consent and host approval. */
+const visibleStory=s=>s.consent===true&&(s.status==='approved'||s.status==='broadcast');
+const storySummary=s=>({
+ id:s.id,author:s.author,body:s.body,requestTitle:s.requestTitle||'',
+ at:s.at,views:s.views||0,likes:s.likes||0,downloadAllowed:s.downloadAllowed===true,
+ status:s.status
+});
+app.get('/api/stories/public',(req,res)=>{
+ res.json({stories:db.stories.filter(visibleStory).slice(-100).reverse().map(storySummary)});
+});
+app.get('/api/stories/public/:id',(req,res)=>{
+ const s=db.stories.find(x=>x.id===req.params.id&&visibleStory(x));
+ if(!s)return res.sendStatus(404);
+ res.json(storySummary(s));
+});
+app.post('/api/story-view/:id',limiter('storyView',180,3600000),(req,res)=>{
+ const s=db.stories.find(x=>x.id===req.params.id&&visibleStory(x));
+ if(!s)return res.sendStatus(404);
+ const key=ipHash(req),now=Date.now();
+ const existing=db.storyViews.find(x=>x.story===s.id&&x.key===key);
+ if(!existing||now-existing.at>6*3600000){
+   s.views=(s.views||0)+1;
+   if(existing)existing.at=now;else db.storyViews.push({story:s.id,key,at:now});
+   db.storyViews=db.storyViews.filter(x=>x.at>now-24*3600000).slice(-20000);
+   persist();
+ }
+ res.json({views:s.views});
+});
+app.post('/api/story-like/:id',limiter('storyLike',50,3600000),(req,res)=>{
+ const s=db.stories.find(x=>x.id===req.params.id&&visibleStory(x));
+ if(!s)return res.sendStatus(404);
+ const key=ipHash(req);
+ const i=db.storyLikes.findIndex(x=>x.story===s.id&&x.key===key);
+ if(i<0){db.storyLikes.push({story:s.id,key});s.likes=(s.likes||0)+1;}
+ else{db.storyLikes.splice(i,1);s.likes=Math.max(0,(s.likes||0)-1);}
+ persist();res.json({likes:s.likes,liked:i<0});
+});
+app.get('/api/story-comments/:id',(req,res)=>{
+ const s=db.stories.find(x=>x.id===req.params.id&&visibleStory(x));
+ if(!s)return res.sendStatus(404);
+ res.json({comments:db.storyComments.filter(c=>c.story===s.id&&c.status==='public').slice(-100)
+  .map(c=>({id:c.id,parentId:c.parentId||null,author:c.author,body:c.body,at:c.at}))});
+});
+app.post('/api/story-comments/:id',limiter('storyComment',8,3600000),(req,res)=>{
+ const s=db.stories.find(x=>x.id===req.params.id&&visibleStory(x));
+ if(!s)return res.sendStatus(404);
+ const body=clean(req.body.body,700),author=clean(req.body.author,32)||'청취자',
+    parentId=clean(req.body.parentId,60);
+ if(body.length<2)return res.status(400).json({error:'댓글 내용을 입력해 주세요'});
+ if(parentId&&!db.storyComments.some(c=>c.id===parentId&&c.story===s.id&&c.status==='public'))
+    return res.status(400).json({error:'답글을 달 수 없는 댓글입니다'});
+ db.storyComments.push({id:crypto.randomUUID(),story:s.id,parentId:parentId||null,author,body,at:Date.now(),status:'pending'});
+ persist();res.status(201).json({status:'moderation-pending'});
+});
+app.get('/api/story-download/:id',(req,res)=>{
+ const s=db.stories.find(x=>x.id===req.params.id&&visibleStory(x)&&x.downloadAllowed===true);
+ if(!s)return res.sendStatus(404);
+ const text='MARU RADIO 사연\n작성자: '+s.author+'\n\n'+s.body+'\n';
+ res.set('Content-Type','text/plain; charset=utf-8');
+ res.set('Content-Disposition','attachment; filename="MARU-story-'+s.id+'.txt"');
+ res.send(text);
+});
 app.get('/api/tracks',(req,res)=>res.json({tracks:db.tracks.filter(t=>t.status==='public').slice(0,400).map(visibleTrack)}));
 app.get('/api/tracks/:id',(req,res)=>{
  const t=db.tracks.find(x=>x.id===req.params.id&&x.status==='public');
@@ -161,7 +224,8 @@ app.post('/api/stories',limiter('stories',5,3600000),upload.single('attachment')
   const body=clean(req.body.body,2800),author=clean(req.body.author,32)||'익명',
       requestTitle=clean(req.body.songRequest,130);
   if(body.length<5){if(req.file)fs.unlinkSync(req.file.path);return res.status(400).json({error:'사연이 짧습니다'});}
-  const story={id:crypto.randomUUID(),author,body,requestTitle,at:Date.now(),status:'pending',attachment:null};
+  if(req.body.publishConsent!=='true'){if(req.file)fs.unlinkSync(req.file.path);return res.status(400).json({error:'사연 방송 공개 동의가 필요합니다'});}
+  const story={id:crypto.randomUUID(),author,body,requestTitle,at:Date.now(),status:'pending',consent:true,attachment:null,views:0,likes:0,downloadAllowed:false};
   if(req.file){
     const ext=path.extname(req.file.originalname||'').toLowerCase();
     if(!['.mp3','.m4a','.mp4','.jpg','.jpeg','.png','.webp','.pdf'].includes(ext)||
@@ -259,20 +323,34 @@ app.post('/api/admin/tracks/:id/score',admin,upload.single('score'),(req,res)=>{
 });
 app.get('/api/admin/stories',admin,(req,res)=>res.json({stories:db.stories.map(s=>({
  id:s.id,author:s.author,body:s.body,requestTitle:s.requestTitle,status:s.status,
- hasAttachment:!!s.attachment,scanClean:s.attachment?s.attachment.scanned:true
+ hasAttachment:!!s.attachment,scanClean:s.attachment?s.attachment.scanned:true,
+ consent:s.consent===true,views:s.views||0,likes:s.likes||0,downloadAllowed:s.downloadAllowed===true
 }))}));
 app.post('/api/admin/stories/:id/review',admin,(req,res)=>{
  const s=db.stories.find(x=>x.id===req.params.id);if(!s)return res.sendStatus(404);
  const action=clean(req.body.action,12);
  if(!['approve','reject','broadcast'].includes(action))return res.sendStatus(400);
- if(action!=='reject'&&s.attachment&&!s.attachment.scanned)return res.status(409).json({error:'첨부 보안 검사 미통과'});
+ if(action!=='reject'&&(!s.consent||(s.attachment&&!s.attachment.scanned)))return res.status(409).json({error:'사연 동의 또는 첨부 보안 검사 미통과'});
  s.status=action==='approve'?'approved':action==='broadcast'?'broadcast':'rejected';
- db.audit.push({id:s.id,action:s.status,at:Date.now()});persist();res.json({status:s.status});
+ s.downloadAllowed=action!=='reject'&&req.body.downloadAllowed===true;
+ db.audit.push({id:s.id,action:s.status,at:Date.now()});persist();res.json({status:s.status,downloadAllowed:s.downloadAllowed});
 });
 app.get('/api/admin/comments',admin,(req,res)=>res.json({comments:db.comments.filter(c=>c.status==='pending')}));
 app.post('/api/admin/comments/:id/review',admin,(req,res)=>{
  const c=db.comments.find(x=>x.id===req.params.id);if(!c)return res.sendStatus(404);
  c.status=req.body.action==='approve'?'public':'rejected';persist();res.json({status:c.status});
+});
+app.get('/api/admin/story-comments',admin,(req,res)=>{
+ res.json({comments:db.storyComments.filter(x=>x.status==='pending')});
+});
+app.post('/api/admin/story-comments/:id/review',admin,(req,res)=>{
+ const c=db.storyComments.find(x=>x.id===req.params.id);
+ if(!c)return res.sendStatus(404);
+ const action=req.body.action;
+ if(action!=='approve'&&action!=='reject')return res.sendStatus(400);
+ c.status=action==='approve'?'public':'rejected';
+ db.audit.push({id:c.id,action:c.status,at:Date.now()});persist();
+ res.json({status:c.status});
 });
 app.get('/api/admin/attachment/:id',admin,(req,res)=>{
  const s=db.stories.find(x=>x.id===req.params.id);
