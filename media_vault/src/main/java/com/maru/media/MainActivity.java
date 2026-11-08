@@ -6,6 +6,7 @@ import android.content.*;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
 import android.graphics.*;
+import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.provider.DocumentsContract;
@@ -36,6 +37,10 @@ public final class MainActivity extends Activity {
  private String currentFilter="전체",searchTerm="";
  private int currentTab=0;
  private String endpoint="", adminToken=""; // Never persist the secret token.
+ private GradientDrawable round(int a,int b,int radius){
+   GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{a,b});
+   d.setCornerRadius(dp(radius));return d;
+ }
  private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
  private void notice(String text){ui.post(()->{if(status!=null)status.setText(text);});}
  private TextView label(String text,int size){TextView x=new TextView(this);x.setText(text);x.setTextSize(size);x.setTextColor(white);
@@ -62,21 +67,31 @@ public final class MainActivity extends Activity {
    super.onCreate(state);getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);
    db=new VaultDb(this);
    endpoint=getPreferences(MODE_PRIVATE).getString("endpoint","");
+   LinearLayout page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setBackgroundColor(bg);
    ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(bg);
-   root=vertical();root.setPadding(dp(16),dp(14),dp(16),dp(32));scroll.addView(root);setContentView(scroll);
-   TextView title=label("MARU RADIO",29);title.setTypeface(null,Typeface.BOLD);title.setTextColor(teal);root.addView(title);
-   root.addView(label("노래 · 사연 관리 센터 | 갤럭시 한 대",15));
+   root=vertical();root.setPadding(dp(16),dp(14),dp(16),dp(18));scroll.addView(root);
+   page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+   setContentView(page);
+   LinearLayout hero=vertical();hero.setPadding(dp(16),dp(10),dp(16),dp(14));
+   hero.setBackground(round(0xff122e4b,0xff071626,21));
+   LinearLayout.LayoutParams heroMargin=new LinearLayout.LayoutParams(-1,-2);
+   heroMargin.setMargins(0,0,0,dp(13));root.addView(hero,heroMargin);
+   TextView title=label("🎙  MARU RADIO",27);title.setTypeface(null,Typeface.BOLD);title.setTextColor(0xfff3fbff);hero.addView(title);
+   TextView sub=label("노래 & 사연 센터",17);sub.setTextColor(teal);hero.addView(sub);
+   paragraph(hero,"갤럭시 한 대로 관리 · 개인 보관함");
    summary=label("",13);root.addView(summary);
    LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
-   root.addView(nav);
+   nav.setPadding(dp(6),dp(5),dp(6),dp(6));nav.setBackground(round(0xff162c4b,0xff091727,15));
+   page.addView(nav,new LinearLayout.LayoutParams(-1,dp(64)));
    String[] labels={"홈","노래","사연","업로드","설정"};
    for(int i=0;i<labels.length;i++){
      final int index=i;
      Button b=new Button(this);b.setAllCaps(false);b.setText(labels[i]);b.setTextSize(13);
-     LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(50),1);nav.addView(b,p);
+     b.setTextColor(white);b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff17344e));
+     LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(52),1);p.setMargins(dp(2),0,dp(2),0);nav.addView(b,p);
      b.setOnClickListener(v->switchTab(index));
    }
-   status=label("비공개 보관함 · 서버 공개는 승인 후에만",13);status.setTextColor(teal);root.addView(status);
+   status=label("비공개 보관함 · 공개 전 운영자 승인 필수",12);status.setTextColor(teal);root.addView(status);
    main=vertical();root.addView(main);
    switchTab(0);
  }
@@ -94,22 +109,42 @@ public final class MainActivity extends Activity {
  private void renderHome(){
    initPage(0);
    heading(main,"방송 관리 홈");
-   paragraph(main,"큰 메뉴 네 가지로 시작하고, 미리보기·댓글·조회수·좋아요·악보는 노래 상세에서 확인하세요.");
+   paragraph(main,"노래와 사연을 간단하게 관리합니다. 상세 하위 기능은 항목을 눌러 확인하세요.");
    LinearLayout line1=new LinearLayout(this);line1.setOrientation(0);main.addView(line1);
    homeTile(line1,"🎵 노래 보관함",()->switchTab(1));
    homeTile(line1,"✉ 사연 받기",()->switchTab(2));
    LinearLayout line2=new LinearLayout(this);line2.setOrientation(0);main.addView(line2);
    homeTile(line2,"⬆ 노래 업로드",()->switchTab(3));
    homeTile(line2,"⬇ 노래 다운로드",this::renderDownloads);
+   btn(main,"🔥 내 기기 인기 노래 TOP 5",this::topFive);
    heading(main,"한눈에 보기");
-   paragraph(main,"노래 "+db.count()+"곡 · 서버 전송 확인 "+db.uploaded()+"곡 · 접수 사연 "+db.stories().size()+"건");
+   paragraph(main,"보관곡 "+db.count()+"곡 · 서버 업로드 확인 "+db.uploaded()+"곡 · 사연 "+db.stories().size()+"건");
    paragraph(main,"업로드 전 보안·저작권 승인, 공개 전 서버 배포 검증 필요. 이 기기 기록은 청취자 조회수가 아닙니다.");
  }
  private void homeTile(LinearLayout row,String text,Runnable work){
-   Button b=new Button(this);b.setAllCaps(false);b.setText(text);b.setTextSize(17);b.setTextColor(white);
-   b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(card));
-   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(106),1);
+   Button b=new Button(this);b.setAllCaps(false);b.setText(text);b.setTextSize(18);b.setTypeface(null,Typeface.BOLD);
+   b.setTextColor(white);
+   int first=0xffdb4678,second=0xff8a254e;
+   if(text.contains("업로드")){first=0xff299eeb;second=0xff1653ad;}
+   else if(text.contains("다운로드")){first=0xff23bf9e;second=0xff097667;}
+   else if(text.contains("사연")){first=0xff894fdd;second=0xff53279b;}
+   b.setBackground(round(first,second,21));
+   b.setElevation(dp(2));
+   LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(126),1);
    p.setMargins(dp(3),dp(7),dp(3),dp(7));row.addView(b,p);b.setOnClickListener(v->work.run());
+ }
+ private void topFive(){
+   List<VaultDb.Track> all=db.tracks("전체");
+   Collections.sort(all,(a,b)->Integer.compare(b.views,a.views));
+   LinearLayout panel=vertical();panel.setPadding(dp(12),dp(12),dp(12),dp(12));
+   paragraph(panel,"이 휴대폰에서 미리듣기한 횟수 기준입니다. 공개 서버 조회수가 아닙니다.");
+   if(all.isEmpty())panel.addView(label("아직 보관한 노래가 없습니다.",15));
+   for(int i=0;i<Math.min(5,all.size());i++){
+     VaultDb.Track t=all.get(i);
+     btn(panel,(i+1)+"위  "+t.title+" · "+t.views+"회",()->details(t.id));
+   }
+   new AlertDialog.Builder(this).setTitle("내 기기 인기 노래").setView(panel)
+     .setPositiveButton("닫기",null).show();
  }
  private void renderDownloads(){
    initPage(0);heading(main,"노래 다운로드 · 파일 저장");
@@ -199,10 +234,10 @@ public final class MainActivity extends Activity {
    int limit=Math.min(visible,display.size());
    for(int i=0;i<limit;i++){
      VaultDb.Track t=display.get(i);
-     LinearLayout tile=vertical();tile.setPadding(dp(10),dp(9),dp(10),dp(9));tile.setBackgroundColor(card);
+     LinearLayout tile=vertical();tile.setPadding(dp(12),dp(10),dp(12),dp(10));tile.setBackground(round(0xff18304c,0xff0d1e36,17));
      LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));main.addView(tile,lp);
-     tile.addView(label(t.title,16));
-     paragraph(tile,t.language+" · "+t.genre+" · "+(t.size/(1024*1024))+"MB · "+t.uploadState);
+     TextView heading=label("♫  "+t.title,18);heading.setTypeface(null,Typeface.BOLD);tile.addView(heading);
+     paragraph(tile,t.language+" · "+t.genre+" · "+(t.size/(1024*1024))+"MB · 조회 "+t.views+" · ♡ "+t.liked+" · "+t.uploadState);
      LinearLayout actions=new LinearLayout(this);actions.setOrientation(0);tile.addView(actions);
      Button play=new Button(this);play.setText("▶ 미리듣기");play.setAllCaps(false);actions.addView(play,new LinearLayout.LayoutParams(0,dp(43),1));
      play.setOnClickListener(v->preview(t));
