@@ -45,7 +45,7 @@ window.songChosen=(id,title)=>{
 window.storyFileChosen=file=>{storyFileLabel=file;const name=$("storyChosen");if(name)name.textContent=file;};
 window.goBack=()=>{if(page==="detail")go("songs");else if(page==="story-detail")go("stories");
  else if(page==="home")notify("MARU RADIO 홈입니다.");else go("home");};
-window.go=(dest,id)=>go(dest,id);
+// The top-level go() declaration is already window.go. Never overwrite it.
 window.setDemo=on=>{demoMode=!!on;go("home");};
 function footer(){
  const active={"home":"home","songs":"songs","detail":"songs","upload":"songs","downloads":"songs",
