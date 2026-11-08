@@ -62,10 +62,7 @@ jobs:
             mkdir -p eight-screen-screenshots
             adb exec-out screencap -p > eight-screen-screenshots/home.png
             gradle --no-daemon :media_vault:connectedDebugAndroidTest
-            for name in 01-home 02-songs 03-song-detail 04-upload 05-downloads 06-story-compose 07-stories 08-story-detail 09-profile; do
-              adb exec-out run-as com.maru.media.privatevault.v20261108 cat "files/eight-screens/$name.png" > "eight-screen-screenshots/$name.png"
-              test -s "eight-screen-screenshots/$name.png"
-            done
+            for name in 01-home 02-songs 03-song-detail 04-upload 05-downloads 06-story-compose 07-stories 08-story-detail 09-profile; do adb exec-out run-as com.maru.media.privatevault.v20261108 cat "files/eight-screens/$name.png" > "eight-screen-screenshots/$name.png" && test -s "eight-screen-screenshots/$name.png" || exit 1; done
             python3 -c 'from pathlib import Path; p=list(Path("eight-screen-screenshots").glob("*.png")); assert len(p)>=9, len(p); assert all(x.read_bytes().startswith(bytes([137,80,78,71,13,10,26,10])) for x in p); print("Validated",len(p),"Android screenshots")'
       - name: Signed APK and permission checks
         run: |
