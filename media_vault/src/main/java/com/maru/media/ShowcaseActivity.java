@@ -174,8 +174,8 @@ public final class ShowcaseActivity extends Activity {
             buffer.write(part,0,k);
             if(buffer.size()>6_000_000)throw new IOException("백업 파일은 6MB 이하만 가능합니다");
           }
-          VaultMetadataArchive.Result result=VaultMetadataArchive.importData(db,buffer.toString("UTF-8"));
-          say("목록 복구 완료: "+result.toString());changed();
+          VaultMetadataArchive.Result restoreResult=VaultMetadataArchive.importData(db,buffer.toString("UTF-8"));
+          say("목록 복구 완료: "+restoreResult.toString());changed();
         }catch(Exception e){say("목록 복구 실패: "+e.getMessage());}
       },"maru-metadata-restore").start();return;
     }
