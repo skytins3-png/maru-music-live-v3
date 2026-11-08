@@ -57,10 +57,12 @@ public final class ShowcaseActivity extends Activity {
     s.setAllowUniversalAccessFromFileURLs(false);
     s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+    s.setBlockNetworkLoads(true); // Only local packaged UI may access the native bridge.
     web.addJavascriptInterface(new Bridge(),"Maru");
     web.setWebChromeClient(new WebChromeClient());
     web.setWebViewClient(new WebViewClient(){
       @Override public boolean shouldOverrideUrlLoading(WebView v,String url){return true;}
+      @Override public boolean shouldOverrideUrlLoading(WebView v,android.webkit.WebResourceRequest request){return true;}
     });
     setContentView(web,new ViewGroup.LayoutParams(-1,-1));
     web.loadUrl("file:///android_asset/studio/index.html");
@@ -86,16 +88,23 @@ public final class ShowcaseActivity extends Activity {
   private void importFiles(List<Uri> files,boolean forUpload){
     say("음원 SHA-256 검사 중입니다. 중복 음원은 등록하지 않습니다.");
     new Thread(()->{
+      Set<Long> originalIds=new HashSet<>();
+      if(forUpload)for(VaultDb.Track item:db.tracks("전체"))originalIds.add(item.id);
       LibraryImporter worker=new LibraryImporter(getApplicationContext(),db,null);
       worker.fromAudioUris(files);
       LibraryImporter.Stats x=worker.stats();
       String status="검사 "+x.scanned+"곡 / 새 등록 "+x.inserted+"곡 / 중복 "+x.duplicate+"곡 / 오류 "+x.invalid+"곡";
-      if(forUpload && !files.isEmpty()){
-        List<VaultDb.Track> all=db.tracks("전체");
-        if(!all.isEmpty()){
-          VaultDb.Track newest=all.get(all.size()-1);
-          uploadId=newest.id;
-          callback("window.songChosen&&window.songChosen("+newest.id+","+JSONObject.quote(newest.title)+");");
+      if(forUpload){
+        VaultDb.Track firstAdded=null;
+        for(VaultDb.Track item:db.tracks("전체")){
+          if(!originalIds.contains(item.id)){firstAdded=item;break;}
+        }
+        if(firstAdded!=null){
+          uploadId=firstAdded.id;
+          callback("window.songChosen&&window.songChosen("+firstAdded.id+","+JSONObject.quote(firstAdded.title)+");");
+        }else{
+          uploadId=-1;
+          say("새 음원이 등록되지 않았습니다. 중복 파일이라면 기존 보관함에서 확인하세요.");
         }
       }
       say(status);changed();
