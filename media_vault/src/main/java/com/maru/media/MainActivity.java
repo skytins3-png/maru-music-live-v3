@@ -120,49 +120,50 @@ public final class MainActivity extends Activity {
    TextView t=label(s,sp);t.setTextColor(white);t.setTypeface(null,Typeface.BOLD);return t;
  }
  private void renderHome(){
+   // The artwork is cropped from the ORIGINAL reference image supplied
+   // for MARU RADIO; actual controls remain native and accessible.
    main.removeAllViews();
-   FrameLayout cover=new FrameLayout(this);
-   cover.setBackground(round(0xff061a34,0xff051024,23));
-   cover.setClipToOutline(true);
-   MicHeroView studio=new MicHeroView(this);
-   cover.addView(studio,new FrameLayout.LayoutParams(-1,-1));
-   try(java.io.InputStream in=getAssets().open("studio_mic.jpg")){
-     Bitmap bitmap=BitmapFactory.decodeStream(in);
-     if(bitmap!=null){
-       if(bitmap.getHeight()>20)bitmap=Bitmap.createBitmap(bitmap,0,Math.min(10,bitmap.getHeight()-1),
-         bitmap.getWidth(),bitmap.getHeight()-Math.min(10,bitmap.getHeight()-1));
-       ImageView photo=new ImageView(this);photo.setImageBitmap(bitmap);
-       photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setAlpha(0.72f);
-       FrameLayout.LayoutParams img=new FrameLayout.LayoutParams(dp(194),-1,Gravity.RIGHT);
-       cover.addView(photo,img);
+   final int width=Math.max(dp(220),getResources().getDisplayMetrics().widthPixels-dp(24));
+   final int height=Math.round(width*670f/410f);
+   FrameLayout imageScreen=new FrameLayout(this);
+   imageScreen.setClipToOutline(true);
+   imageScreen.setBackground(round(0xff06152b,0xff06152b,14));
+   try(java.io.InputStream in=getAssets().open("reference_home.webp")){
+     Bitmap visual=BitmapFactory.decodeStream(in);
+     if(visual!=null){
+       ImageView image=new ImageView(this);
+       image.setImageBitmap(visual);
+       image.setScaleType(ImageView.ScaleType.FIT_XY);
+       imageScreen.addView(image,new FrameLayout.LayoutParams(-1,-1));
      }
-   }catch(Exception ignored){}
-   LinearLayout overlay=vertical();overlay.setPadding(dp(17),dp(16),dp(8),dp(6));
-   FrameLayout.LayoutParams overlayP=new FrameLayout.LayoutParams(dp(270),-2,Gravity.TOP|Gravity.LEFT);
-   cover.addView(overlay,overlayP);
-   TextView title=bigLabel("🎙 MARU RADIO",26);
-   overlay.addView(title);
-   TextView sub=label("노래 & 사연 센터",17);sub.setTextColor(0xff67eaf2);overlay.addView(sub);
-   TextView setting=label("⚙",25);setting.setGravity(Gravity.CENTER);
-   FrameLayout.LayoutParams sp=new FrameLayout.LayoutParams(dp(42),dp(45),Gravity.TOP|Gravity.RIGHT);
-   cover.addView(setting,sp);setting.setOnClickListener(v->switchTab(4));
-   LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(203));hp.setMargins(0,dp(3),0,dp(8));
-   main.addView(cover,hp);
-   LinearLayout line1=new LinearLayout(this);line1.setOrientation(0);main.addView(line1);
-   homeTile(line1,"♫","노래 보관함","저장된 노래 보기",0xffdf427a,0xff982758,()->switchTab(1));
-   homeTile(line1,"☁","노래 업로드","노래 올리기",0xff1eafea,0xff1753b5,()->switchTab(3));
-   LinearLayout line2=new LinearLayout(this);line2.setOrientation(0);main.addView(line2);
-   homeTile(line2,"↓","노래 다운로드","내 기기에 저장",0xff23be93,0xff0b826a,this::renderDownloads);
-   homeTile(line2,"✉","사연 보내기","이야기 · 신청곡",0xff9653e5,0xff52259e,()->switchTab(2));
-   TextView popular=bigLabel("🔥  인기 노래 TOP 5                                ❯",19);
-   popular.setPadding(dp(16),dp(18),dp(10),dp(18));
-   popular.setBackground(round(0xff4a6593,0xff293b61,18));
-   LinearLayout.LayoutParams pop=new LinearLayout.LayoutParams(-1,-2);pop.setMargins(dp(2),dp(12),dp(2),dp(3));
-   main.addView(popular,pop);popular.setOnClickListener(v->topFive());
-   if(db.count()==0){
-     TextView empty=label("보관곡 0곡 · 원곡 ZIP을 가져오면 여기에 표시돼요.",11);
-     empty.setTextColor(0xff71869f);empty.setGravity(Gravity.CENTER);main.addView(empty);
+   }catch(Exception e){
+     // Never leave the page inoperable if an image asset fails to decode.
+     imageScreen.setBackground(round(0xff12365d,0xff071526,14));
    }
+   // Reference coordinates: source cropped from image at x=26..493, y=80..843.
+   // Native tap targets preserve working song/story/import/download actions.
+   homeTap(imageScreen,"설정",.835f,.004f,.995f,.105f,width,height,()->switchTab(4));
+   homeTap(imageScreen,"노래 보관함",.000f,.339f,.496f,.583f,width,height,()->switchTab(1));
+   homeTap(imageScreen,"노래 업로드",.510f,.339f,1f,.583f,width,height,()->switchTab(3));
+   homeTap(imageScreen,"노래 다운로드",.000f,.595f,.496f,.848f,width,height,this::renderDownloads);
+   homeTap(imageScreen,"사연 보내기",.510f,.595f,1f,.848f,width,height,()->switchTab(2));
+   homeTap(imageScreen,"인기 노래 TOP 5",.000f,.864f,1f,1f,width,height,this::topFive);
+   main.addView(imageScreen,new LinearLayout.LayoutParams(-1,height));
+ }
+ private void homeTap(FrameLayout parent,String label,float left,float top,float right,float bottom,
+                      int width,int height,Runnable action){
+   TextView touch=new TextView(this);
+   touch.setText(label);touch.setTextColor(Color.TRANSPARENT);
+   touch.setContentDescription(label);
+   touch.setGravity(Gravity.CENTER);touch.setBackgroundColor(Color.TRANSPARENT);
+   int l=Math.round(width*left),t=Math.round(height*top);
+   FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(
+      Math.max(dp(40),Math.round(width*(right-left))),
+      Math.max(dp(38),Math.round(height*(bottom-top))));
+   p.leftMargin=l;p.topMargin=t;
+   parent.addView(touch,p);
+   touch.setClickable(true);
+   touch.setOnClickListener(v->action.run());
  }
  private void homeTile(LinearLayout row,String pict,String name,String subtitle,int top,int bottom,Runnable run){
    LinearLayout tile=vertical();tile.setGravity(Gravity.CENTER);
