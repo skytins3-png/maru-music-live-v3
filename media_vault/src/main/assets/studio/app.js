@@ -20,8 +20,8 @@ const demoStories=[
  {id:-2,author:"별빛나무",body:"아버지께 드리는 신청곡. 늘 건강하시고 행복하게 노래 들어주세요.",status:"검토대기",views:2417,liked:132},
  {id:-3,author:"고마운 사람에게",body:"항상 곁에서 응원해준 친구에게 전하고 싶은 작은 이야기입니다.",status:"승인",views:6530,liked:318}
 ];
-function liveSongs(){return demoMode&&tracks.length===0?demoSongs:tracks;}
-function liveStories(){return demoMode&&stories.length===0?demoStories:stories;}
+function liveSongs(){return demoMode?demoSongs:tracks;}
+function liveStories(){return demoMode?demoStories:stories;}
 function demo(item){return item&&Number(item.id)<0;}
 function getSong(id){return liveSongs().find(t=>Number(t.id)===Number(id));}
 function getStory(id){return liveStories().find(s=>Number(s.id)===Number(id));}
@@ -87,7 +87,7 @@ const picture=(s,i=0,large=false)=>{
  return '<div class="song-art '+(cover?"actual":"art-"+["a","b","c","d","e"][idx])+'" '+style+'>'
   +(cover?"":icon("music"))+'</div>';
 };
-const demoBanner=()=>demoMode&&(tracks.length===0||stories.length===0)?'<div class="demo-flag">디자인 시연용 예시입니다. 실제 음원·조회수·댓글 데이터가 아닙니다.</div>':"";
+const demoBanner=()=>demoMode?'<div class="demo-flag">디자인 시연용 예시입니다. 실제 음원·조회수·댓글 데이터가 아닙니다.</div>':"";
 function renderHome(){
  $("page-home").innerHTML='<div class="exact-home"><img src="../reference_home.webp" alt="MARU RADIO 노래와 사연 센터 홍보 디자인">'
   +'<button aria-label="설정" data-go="profile" style="left:87%;top:0%;width:13%;height:9%"></button>'
