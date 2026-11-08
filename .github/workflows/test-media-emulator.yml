@@ -1,7 +1,7 @@
 name: MARU MEDIA Virtual Galaxy device UI checks
 on:
   push:
-    branches: [maru-media-qa-galaxy-20261108]
+    branches: [maru-reference-ui-20261108]
     paths:
       - 'media_vault/**'
       - 'settings.gradle'

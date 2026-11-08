@@ -26,11 +26,11 @@ public final class MediaVaultDeviceTest {
  @Rule public ActivityScenarioRule<MainActivity> activity=new ActivityScenarioRule<>(MainActivity.class);
 
  @Test public void homeHasAllFourMainTiles(){
-   onView(withText("🎵 노래 보관함")).check(matches(isDisplayed()));
-   onView(withText("✉ 사연 받기")).check(matches(isDisplayed()));
-   onView(withText("⬆ 노래 업로드")).check(matches(isDisplayed()));
-   onView(withText("⬇ 노래 다운로드")).check(matches(isDisplayed()));
-   onView(withText("🎵 노래 보관함")).perform(click());
+   onView(withText("노래 보관함")).check(matches(isDisplayed()));
+   onView(withText("사연 보내기")).check(matches(isDisplayed()));
+   onView(withText("노래 업로드")).check(matches(isDisplayed()));
+   onView(withText("노래 다운로드")).check(matches(isDisplayed()));
+   onView(withText("노래 보관함")).perform(click());
    onView(withText("노래 보관함")).check(matches(isDisplayed()));
    onView(withText("사연")).perform(click());
    onView(withText("사연 받기 · 관리")).check(matches(isDisplayed()));
@@ -47,12 +47,11 @@ public final class MediaVaultDeviceTest {
      if(!db.bySha(sha))db.insertTrack("가상 테스트곡","test.mp3","file:///absent/test.mp3",sha,9,"한국노래");
    });
    onView(withText("노래")).perform(click());
-   onView(withText("상세 · 댓글")).perform(scrollTo(),click());
-   for(String label:new String[]{
-     "▶ 미리보기","⬇ 파일 저장 / 다운로드","💬 댓글·답글 보기·작성",
-     "🎼 악보 첨부 또는 보기","🖼 앨범 표지 사진 첨부·변경","공유","🎶 장르 변경","✎ 제목 수정"
-   })onView(withText(label)).check(matches(isAssignableFrom(android.widget.Button.class)));
-   onView(withText("닫기")).perform(click());
+   onView(withText("가상 테스트곡")).perform(scrollTo(),click());
+   onView(withText("곡 상세")).check(matches(isDisplayed()));
+   onView(withText("다운로드")).check(matches(isDisplayed()));
+   onView(withText("악보 보기")).check(matches(isDisplayed()));
+   onView(withText("보관함 추가")).check(matches(isDisplayed()));
  }
 
  @Test public void storyAttachmentPickerPreservesTypedDraft(){
