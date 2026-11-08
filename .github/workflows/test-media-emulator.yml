@@ -33,19 +33,27 @@ jobs:
         run: gradle --no-daemon :media_vault:testDebugUnitTest
       - name: Compile APK and connected device tests
         run: gradle --no-daemon :media_vault:assembleDebug :media_vault:assembleDebugAndroidTest
+      - name: Enable hardware accelerated Android emulator
+        run: |
+          if [ -c /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "KVM not available: run will proceed with software acceleration fallback"
+          fi
       - name: Boot emulator, install APK, run UI+import tests, capture home screen
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 30
           target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_2
           cores: 2
           ram-size: 3072M
           heap-size: 512M
-          disk-size: 6000M
+          disk-size: 4000M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -accel auto
           script: |
             set -e
             adb install -r media_vault/build/outputs/apk/debug/media_vault-debug.apk
