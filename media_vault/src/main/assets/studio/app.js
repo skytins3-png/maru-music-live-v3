@@ -8,7 +8,7 @@ let tracks=[],stories=[],page="home",selectedSong=null,selectedStory=null,trackT
     songLimit=20,
     storyTab="전체",detailTab="댓글",downloadTab="다운로드 목록",scoreSearch="",scoreOnly=false,replyTo=0,storyReplyTo=0,
     query="",uploadId=null,fileLabel="음원 파일을 선택하세요",storyFileLabel="선택한 첨부파일 없음",
-    demoMode=false,serverInfo="",toastTimer=null;
+    demoMode=false,serverInfo="",toastTimer=null,playbackTrackId=-1,playbackState="stopped",playbackTitle="";
 const sunoCandidates=[["민도윤","주머니 속 봄바람","4b58c565-0bac-4013-af8f-644859fd2b99","ca389620-8e87-4bb8-a578-332d0be4c61b"],["서하린","今晚就跟你走","d00fe0b8-3183-4433-a20f-4715c0de25dc","4f303942-fb43-4c83-8095-1571adde72ef"],["차나린","心跳刚刚好","436d6af2-7848-4924-b8fd-54ef68a537e2","5c61b0b7-a0b7-49b2-a4e7-aa2b7eee33ee"],["백소윤","阳光跟着我们跑","6d23642d-1690-4efd-a170-2773f54dd151","9c02bd0a-660d-435d-adbb-dfcded4bc850"],["류서빈","내 이름을 다시 부른다","1e22cca9-d19a-46f5-ae95-c0b6562dc86c","6035ff19-89de-4982-a7b7-132aedce7be9"],["남예린","귤빛 오후","ebde698b-1f2e-43d4-b611-d815973ac52c","66dad43e-ac1d-40c5-b269-14af5132f181"],["오하늬","한 박자 느린 사랑","9f33236c-b039-4b6a-bd5c-9e7c56d5e1ae","5e2bb55b-d6bb-4697-a4e9-da524a63cb8d"],["임다온","꽃신 신고 마중 간다","d411dc55-677e-48f0-88a1-fd235ea756a6","e40615e3-19cb-4abc-be8e-08441300e22b"],["정유라","잠든 도시의 자장가","85970331-43ff-46e2-8be5-c63d0929a2c0","610a6f0a-2ff2-4563-9d1f-0c55e78622bd"]];
 
 // Titles are only a first pass. SHA-256 and listening are required for real duplicate decisions.
@@ -66,6 +66,23 @@ function notify(message){
  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("visible"),3400);
 }
 window.notifyNative=notify;
+window.maruPlaybackChanged=(id,status,title)=>{
+ playbackTrackId=Number(id);playbackState=String(status||"stopped");
+ playbackTitle=String(title||"");
+ const label=$("previewStatus");
+ if(label)label.textContent=playbackState==="playing"?"▶ 재생 중: "+playbackTitle:
+     playbackState==="paused"?"⏸ 일시정지: "+playbackTitle:
+     playbackState==="loading"?"노래 준비 중: "+playbackTitle:
+     playbackState==="error"?"재생 실패 · 원곡 확인":"선택한 곡 없음";
+ const toggle=$("pauseResumeButton");
+ if(toggle)toggle.textContent=playbackState==="playing"?"일시정지":"계속 듣기";
+ document.querySelectorAll("[data-action=preview]").forEach(button=>{
+   if(button.dataset.id===String(playbackTrackId)&&playbackState==="playing")button.textContent="⏸ 일시정지";
+   else if(button.dataset.id===String(playbackTrackId)&&playbackState==="loading")button.textContent="준비 중";
+   else button.textContent="▶ 미리듣기";
+ });
+};
+
 window.syncNative=()=>{readData();if(!["upload","story-compose"].includes(page))render();};
 window.songChosen=(id,title)=>{
  uploadId=Number(id);fileLabel=String(title||"선택됨");
@@ -179,7 +196,7 @@ function renderDetail(){
  +'<div class="detail-banner" '+detailStyle+'><button class="play-central" data-action="preview" data-id="'+song.id+'">'+icon("play")+'</button>'
  +'<div class="detail-title"><h2>'+escapeHTML(song.title)+'</h2><p>'+escapeHTML(song.artist||"가수 정보 없음")+'</p></div></div>'
  +'<div class="detail-counts"><span>'+icon("eye")+' '+(song.views||0).toLocaleString()+' 조회</span><span>'+icon("heart")+' '+(song.liked||0).toLocaleString()+' 좋아요</span></div>'
- +'<div class="actions-row">'+actionButton("download","다운로드","download",song.id)+actionButton("sheet","악보 보기","score",song.id)
+ +'<div class="actions-row">'+actionButton("download","다운로드","download",song.id)+(song.hasScore?actionButton("sheet","악보 열기","score",song.id):actionButton("sheet","악보 등록","scoreAttach",song.id))
  +actionButton("share","공유","share",song.id)+actionButton("bookmark","보관함 추가","favorite",song.id)+'</div>'
  +'<div class="detail-tabs">'+["댓글","곡정보","관련 노래"].map(t=>'<button data-action="detailTab" data-value="'+t+'" class="'+(detailTab===t?"active":"")+'">'+t+(t==="댓글"?" ("+comments.length+")":"")+'</button>').join("")+'</div>'
  +'<div id="detail-content">'+detailContent(song,comments)+'</div>';
@@ -247,7 +264,7 @@ function renderScores(){
   +'<button class="secondary-btn" data-action="scoreExport" data-id="'+t.id+'">악보 파일 저장</button></div>':'')
  ).join("");
  $("page-scores").innerHTML=topbar("악보 관리",'<button class="icon-btn" data-action="scoreSearch">'+icon("search")+'</button>',"songs")
-  +'<div class="panel"><h3>🎼 MARU 악보 보관함</h3><p class="tiny">악보를 노래와 연결하고 PDF·JPG·PNG·WEBP를 볼 수 있습니다. 파일은 원래 저장공간에 남고, 악보를 선택해 내 기기에 내보낼 수 있습니다.</p>'
+  +'<div class="panel"><h3>🎼 MARU 악보 보관함</h3><p class="tiny">악보는 MP3에서 자동으로 만들어지지 않습니다. PDF·JPG·PNG·WEBP 악보 파일을 곡마다 등록해야 표시돼요. 등록한 악보는 열거나 휴대폰에 저장할 수 있습니다.</p>'
   +'<div class="row" style="justify-content:space-between"><strong>노래 '+tracks.length+'곡 · 연결 악보 '+existing.length+'개</strong></div>'
   +'<button class="secondary-btn" data-action="scoreOnly" style="width:100%;margin-top:8px">'+(scoreOnly?"전체 곡 보기":"악보 등록된 곡만 보기")+'</button>'
   +(scoreSearch?'<p class="tiny">검색: '+escapeHTML(scoreSearch)+'</p>':'')+'</div>'
@@ -263,6 +280,12 @@ function renderDownloads(){
  const occupied=info.total?Math.round((info.used||0)/info.total*100):0;
  $("page-downloads").innerHTML=topbar("노래 다운로드","","home")
  +'<div class="pills">'+["다운로드 목록","오프라인 저장","저장 위치","Suno 후보 9곡"].map(t=>'<button class="'+(downloadTab===t?"active":"")+'" data-action="downloadTab" data-value="'+t+'">'+t+'</button>').join("")+'</div>'
+ +'<div class="panel" id="previewBar" style="margin:10px 0"><h3>🎧 다운로드 전 미리듣기</h3>'
+ +'<p class="tiny" id="previewStatus">'+escapeHTML(playbackState==="playing"?"▶ 재생 중: "+playbackTitle:
+        playbackState==="paused"?"⏸ 일시정지: "+playbackTitle:
+        playbackState==="loading"?"노래 준비 중: "+playbackTitle:"선택한 곡 없음")+'</p>'
+ +'<div class="row" style="flex-wrap:wrap;gap:7px"><button class="secondary-btn" data-action="togglePlayback" id="pauseResumeButton">'+(playbackState==="playing"?"일시정지":"계속 듣기")+'</button>'
+ +'<button class="secondary-btn" data-action="stop">■ 정지</button></div></div>'
  +'<div class="panel"><div class="storage-line">'+icon("drive")+'<div class="right"><strong>기기 저장공간</strong>'
  +'<div class="tiny">사용 중 '+(info.used?Math.round(info.used/1073741824*10)/10:"?")+'GB / '+(info.total?Math.round(info.total/1073741824):"?")+'GB</div>'
  +'<div class="progress" style="margin-top:8px"><span style="width:'+occupied+'%"></span></div></div></div></div>'
@@ -277,10 +300,19 @@ function renderDownloads(){
  +'<div class="status-note">원곡이 휴대폰 안에 존재해야 저장할 수 있습니다. 저작권과 다운로드 허용 범위를 확인하세요.</div>';
 }
 function downloadRow(s,i){
- return '<div class="song-card">'+picture(s,i)+'<div class="song-main"><h3>'+escapeHTML(s.title)+'</h3>'
- +'<div class="artist">'+escapeHTML(s.artist||"등록 음원")+'</div><div class="tiny">♫ '+(Number(s.size||0)/1048576).toFixed(1)+'MB · '+(s.downloaded?"저장됨":"내 보관함 원곡")+'</div></div>'
- +'<div class="song-controls"><button data-action="download" data-id="'+s.id+'" aria-label="파일 저장">'+icon("folder")+'</button>'
- +'<button data-action="openSong" data-id="'+s.id+'" aria-label="곡 상세">'+icon("more")+'</button></div></div>';
+ const current=playbackTrackId===Number(s.id);
+ const listen=current&&playbackState==="playing"?"⏸ 일시정지":
+              current&&playbackState==="loading"?"준비 중":"▶ 미리듣기";
+ const scoreButton=s.hasScore?'<button class="secondary-btn" data-action="score" data-id="'+s.id+'">🎼 악보 열기</button>':
+    '<button class="secondary-btn" data-action="scoreAttach" data-id="'+s.id+'">＋ 악보 등록</button>';
+ return '<div class="panel" style="padding:9px;margin-bottom:9px">'
+  +'<div class="song-card">'+picture(s,i)+'<div class="song-main"><h3>'+escapeHTML(s.title)+'</h3>'
+  +'<div class="artist">'+escapeHTML(s.artist||"가수 정보 없음")+'</div>'
+  +'<div class="tiny">♫ '+(Number(s.size||0)/1048576).toFixed(1)+'MB · '+(s.hasScore?"악보 있음":"악보 없음")+'</div></div></div>'
+  +'<div class="row" style="flex-wrap:wrap;gap:7px;margin-top:9px">'
+  +'<button class="secondary-btn" data-action="preview" data-id="'+s.id+'">'+listen+'</button>'
+  +'<button class="secondary-btn" data-action="download" data-id="'+s.id+'">⬇ 파일 저장</button>'
+  +scoreButton+'</div></div>';
 }
 function renderStoryCompose(){
  $("page-story-compose").innerHTML=topbar("사연 보내기","","stories")
@@ -365,7 +397,7 @@ function renderProfile(){
  +'<div class="panel"><div class="field"><label>HTTPS 방송 서버 주소</label><input id="serverUrl" class="textinput" placeholder="https://example.com" value="'+escapeHTML(serverInfo)+'"></div>'
  +'<div class="field"><label>운영자 인증키 (앱 종료 시 삭제)</label><input type="password" class="textinput" id="serverToken" placeholder="인증키 입력"></div>'
  +'<button class="secondary-btn" style="width:100%" data-action="saveServer">서버 연결 정보 저장</button></div>'
- +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.6</span> ❯</div>'
+ +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.7</span> ❯</div>'
  +'<div class="profile-row" data-action="stop">'+icon("music")+'<span>음원 재생 정지</span> ❯</div></div>'
  +'<div class="panel"><h3>곡정보·가수 분류</h3>'
  +'<p class="tiny">작사·작곡·스타일 완성 박영환 · Suno AI 도움</p>'
@@ -429,6 +461,7 @@ document.addEventListener("click",e=>{
  if(act==="openStory"){go("story-detail",id);return;}
  if(act==="download"){call("download",id);return;}
  if(act==="preview"){call("preview",id);return;}
+ if(act==="togglePlayback"){call("togglePlayback");return;}
  if(act==="stop"){call("stop");notify("재생 정지");return;}
  if(act==="score"){call("viewScore",id);return;}
  if(act==="scoreAttach"){call("pickScore",id);return;}
@@ -510,7 +543,7 @@ document.addEventListener("click",e=>{
  if(act==="restoreMetadata"){call("restoreMetadata");return;}
  if(act==="saveServer"){notify(call("setServer",$("serverUrl").value,$("serverToken").value));return;}
  if(act==="toggleDemo"){demoMode=!demoMode;notify(demoMode?"디자인 시연 켜짐: 실제 데이터가 아닙니다.":"디자인 시연 꺼짐");renderProfile();return;}
- if(act==="about"){notify("MARU RADIO V1.1.6 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
+ if(act==="about"){notify("MARU RADIO V1.1.7 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
  if(act==="logout"){call("logout");return;}
 });
 document.addEventListener("input",e=>{

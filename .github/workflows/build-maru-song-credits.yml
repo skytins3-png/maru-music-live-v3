@@ -1,7 +1,7 @@
-name: Build MARU V1.1.6 Personal Songs and Stories QA APK
+name: Build MARU V1.1.7 Personal Songs and Stories QA APK
 on:
   push:
-    branches: [maru-score-manager-20261108]
+    branches: [maru-preview-scorefix-20261109]
     paths:
       - "media_vault/**"
       - ".github/workflows/build-maru-song-credits.yml"
@@ -40,16 +40,16 @@ jobs:
           unzip -t "$apk" >/dev/null
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$apk"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | tee app-package.txt
-          grep -F "package: name='com.maru.media.scoremanager20261108'" app-package.txt
+          grep -F "package: name='com.maru.media.previewscore20261109'" app-package.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$apk" | tee permissions.txt
           ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|MANAGE_EXTERNAL_STORAGE' permissions.txt
           mkdir -p output
-          cp "$apk" output/MARU-VAULT-SONG-CREDITS-V1.1.6-QA.apk
+          cp "$apk" output/MARU-VAULT-SONG-CREDITS-V1.1.7-QA.apk
           (cd output && sha256sum *.apk > SHA256SUMS.txt)
           cp app-package.txt permissions.txt output/
           git rev-parse HEAD > output/GIT-COMMIT.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: MARU-RADIO-SONGS-STORIES-V1.1.6-QA-SIGNED-APK
+          name: MARU-RADIO-SONGS-STORIES-V1.1.7-QA-SIGNED-APK
           if-no-files-found: error
           path: output/*

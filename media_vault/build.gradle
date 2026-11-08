@@ -3,11 +3,11 @@ android {
   namespace 'com.maru.media'
   compileSdk 36
   defaultConfig {
-    applicationId 'com.maru.media.scoremanager20261108'
+    applicationId 'com.maru.media.previewscore20261109'
     minSdk 26
     targetSdk 35
-    versionCode 10
-    versionName '1.1.6-score-manager'
+    versionCode 11
+    versionName '1.1.7-preview-score-fix'
     testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   }
   buildTypes { release { signingConfig signingConfigs.debug; minifyEnabled false } }
