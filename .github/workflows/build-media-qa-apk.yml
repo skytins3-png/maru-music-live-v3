@@ -1,7 +1,7 @@
 name: Package MARU MEDIA QA installation candidate
 on:
   push:
-    branches: [maru-reference-ui-20261108]
+    branches: [maru-photo-exact-ui-20261108]
     paths:
       - 'media_vault/**'
       - 'settings.gradle'

@@ -6,8 +6,8 @@ android {
     applicationId 'com.maru.media.privatevault.v20261108'
     minSdk 26
     targetSdk 35
-    versionCode 3
-    versionName '1.0.3-reference-design'
+    versionCode 4
+    versionName '1.0.4-photo-reference'
     testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
   }
   buildTypes {
