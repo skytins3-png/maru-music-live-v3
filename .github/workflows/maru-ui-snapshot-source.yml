@@ -1,0 +1,24 @@
+name: Package MARU eight-screen browser UI for visual QA
+on:
+  push:
+    branches: [maru-eight-screen-20261108]
+    paths:
+      - '.github/workflows/maru-ui-snapshot-source.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-EIGHT-SCREEN-UI-SOURCES
+          if-no-files-found: error
+          path: |
+            media_vault/src/main/assets/reference_home.webp
+            media_vault/src/main/assets/studio/index.html
+            media_vault/src/main/assets/studio/style.css
+            media_vault/src/main/assets/studio/app.js
+            media_vault/src/main/assets/studio/album_strip.webp

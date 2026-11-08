@@ -1,0 +1,87 @@
+name: MARU MEDIA Virtual Galaxy device UI checks
+on:
+  push:
+    branches: [maru-reference-ui-20261108]
+    paths:
+      - 'media_vault/**'
+      - 'settings.gradle'
+      - '.github/workflows/test-media-emulator.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-on-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Host-side Java unit tests
+        run: gradle --no-daemon :media_vault:testDebugUnitTest
+      - name: Compile APK and connected device tests
+        run: gradle --no-daemon :media_vault:assembleDebug :media_vault:assembleDebugAndroidTest
+      - name: Enable hardware accelerated Android emulator
+        run: |
+          if [ -c /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "KVM not available: run will proceed with software acceleration fallback"
+          fi
+      - name: Boot emulator, install APK, run UI+import tests, capture home screen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disk-size: 4000M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -accel auto
+          script: |
+            set -e
+            adb install -r media_vault/build/outputs/apk/debug/media_vault-debug.apk
+            adb shell am start -W -n com.maru.media.privatevault.v20261108/com.maru.media.MainActivity
+            sleep 4
+            mkdir -p qa-screenshots
+            adb exec-out screencap -p > qa-screenshots/home.png
+            gradle --no-daemon :media_vault:connectedDebugAndroidTest
+            adb pull /sdcard/Android/data/com.maru.media.privatevault.v20261108/files/qa/qa-song-list.png qa-screenshots/songs-list.png || true
+            adb pull /sdcard/Android/data/com.maru.media.privatevault.v20261108/files/qa/qa-song-detail.png qa-screenshots/song-detail.png || true
+            adb shell am force-stop com.maru.media.privatevault.v20261108
+            adb shell am start -W -n com.maru.media.privatevault.v20261108/com.maru.media.MainActivity
+            sleep 3
+            adb exec-out screencap -p > qa-screenshots/home-after-tests.png
+      - name: Upload test screenshot and reports, including on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-MEDIA-QA-SCREENSHOTS-REPORTS
+          if-no-files-found: warn
+          path: |
+            qa-screenshots/**
+            media_vault/build/reports/**
+            media_vault/build/outputs/androidTest-results/**
+      - name: Verify APK no sensitive permissions
+        run: |
+          set -euo pipefail
+          APK=media_vault/build/outputs/apk/debug/media_vault-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/media-manifest.txt
+          ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|MANAGE_EXTERNAL_STORAGE' /tmp/media-manifest.txt

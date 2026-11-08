@@ -1,0 +1,26 @@
+services:
+  media:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # Not directly exposed to the public network.
+      # Configure a proper HTTPS reverse proxy on the hosting server.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - maru-private:/data
+      - maru-clamdb:/var/lib/clamav
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+volumes:
+  maru-private: {}
+  maru-clamdb: {}
