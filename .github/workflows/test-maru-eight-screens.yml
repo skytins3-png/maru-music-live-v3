@@ -33,6 +33,14 @@ jobs:
         run: node --check media_vault/src/main/assets/studio/app.js
       - name: Unit tests and APK compile
         run: gradle --no-daemon :media_vault:testDebugUnitTest :media_vault:assembleDebug :media_vault:assembleDebugAndroidTest
+      - name: Enable KVM hardware acceleration
+        run: |
+          if [ -c /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "KVM not exposed; Android device emulator may be slow"
+          fi
       - name: Device emulator test, menu tap, screenshot
         uses: reactivecircus/android-emulator-runner@v2
         with:
