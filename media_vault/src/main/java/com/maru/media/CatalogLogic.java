@@ -13,7 +13,7 @@ public final class CatalogLogic {
  public static boolean audio(String filename){
    if(filename==null)return false;
    String n=filename.toLowerCase(Locale.ROOT);
-   return n.endsWith(".mp3")||n.endsWith(".m4a");
+   return n.endsWith(".mp3")||n.endsWith(".m4a")||n.endsWith(".wav");
  }
  public static boolean zip(String filename){
    return filename!=null && filename.toLowerCase(Locale.ROOT).endsWith(".zip");
