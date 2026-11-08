@@ -30,10 +30,10 @@ import java.util.*;
 public final class ShowcaseActivity extends Activity {
   private static final int IMPORT=701,FOLDER=702,MANIFEST=703,UPLOAD_FILE=704,
           COVER=705,SCORE=706,STORY_FILE=707,SAVE_AUDIO=708,OPEN_STORY_FILE=709,
-          EXPORT_METADATA=710,RESTORE_METADATA=711;
+          EXPORT_METADATA=710,RESTORE_METADATA=711,EXPORT_SCORE=712;
   private final Handler ui=new Handler(Looper.getMainLooper());
   private WebView web; private VaultDb db; private MediaPlayer player;
-  private long uploadId=-1,selectedTrack=-1,saveTrack=-1;
+  private long uploadId=-1,selectedTrack=-1,saveTrack=-1,exportScoreTrack=-1;
   private Uri storyFile;
   private String endpoint="",token="";
   private String noticeAfterImport="";
@@ -223,11 +223,22 @@ public final class ShowcaseActivity extends Activity {
       }catch(Exception e){say("분류표 적용 오류: "+e.getMessage());}
       return;
     }
-    if((req==COVER||req==SCORE)&&uri!=null&&selectedTrack>0){
+    if(req==SCORE&&uri!=null&&selectedTrack>0){
+      final long songId=selectedTrack;
       persist(uri);
-      db.update(selectedTrack,req==COVER?"cover_uri":"score_uri",uri.toString());
-      say(req==COVER?"앨범 표지를 저장했습니다.":"악보 파일을 연결했습니다.");
-      changed();return;
+      new Thread(()->{
+        try(InputStream in=getContentResolver().openInputStream(uri)){
+          String mime=ScoreFileValidator.validate(in);
+          if(db.get(songId)==null)throw new IOException("선택한 노래를 찾지 못했습니다.");
+          db.update(songId,"score_uri",uri.toString());
+          say("악보 연결 완료 · "+mime+" · 다른 노래나 사연은 변경하지 않았습니다.");
+          changed();
+        }catch(Exception ex){say("악보 등록 거부: "+ex.getMessage());}
+      },"maru-score-validate").start();return;
+    }
+    if(req==COVER&&uri!=null&&selectedTrack>0){
+      persist(uri);db.update(selectedTrack,"cover_uri",uri.toString());
+      say("앨범 표지를 저장했습니다.");changed();return;
     }
     if(req==STORY_FILE&&uri!=null){
       if(!allowedStoryAttachment(uri)){say("25MB 이하 사진·음성·MP4·PDF만 첨부할 수 있습니다.");return;}
@@ -235,7 +246,32 @@ public final class ShowcaseActivity extends Activity {
       callback("window.storyFileChosen&&window.storyFileChosen("+JSONObject.quote(uri.getLastPathSegment()==null?"첨부파일":uri.getLastPathSegment())+");");
       say("첨부파일 선택됨. 외부 공개 전 서버 보안 검사가 필요합니다.");return;
     }
+    if(req==EXPORT_SCORE&&uri!=null&&exportScoreTrack>0){
+      long current=exportScoreTrack;exportScoreTrack=-1;
+      new Thread(()->copyScoreOut(current,uri),"maru-score-export").start();return;
+    }
     if(req==SAVE_AUDIO&&uri!=null&&saveTrack>0)saveAudio(saveTrack,uri);
+  }
+  private String scoreMime(String link)throws IOException{
+    try(InputStream in=getContentResolver().openInputStream(Uri.parse(link))){
+      if(in==null)throw new IOException("악보 파일 접근 권한이 없습니다.");
+      String mime=ScoreFileValidator.validate(in);
+      return mime;
+    }
+  }
+  private void copyScoreOut(long trackId,Uri dest){
+    VaultDb.Track t=db.get(trackId);
+    if(t==null||t.scoreUri==null||t.scoreUri.isEmpty()){say("연결된 악보가 없습니다.");return;}
+    try(InputStream in=getContentResolver().openInputStream(Uri.parse(t.scoreUri));
+        OutputStream out=getContentResolver().openOutputStream(dest)){
+      if(in==null||out==null)throw new IOException("파일을 열 수 없습니다.");
+      byte[] buffer=new byte[65536];int n;long bytes=0;
+      while((n=in.read(buffer))!=-1){
+        bytes+=n;if(bytes>ScoreFileValidator.MAX_BYTES)throw new IOException("악보 40MB 제한 초과");
+        out.write(buffer,0,n);
+      }
+      out.flush();say("악보 파일 저장 완료 · "+t.title);
+    }catch(Exception ex){say("악보 저장 실패: "+ex.getMessage());}
   }
   private JSONObject trackJSON(VaultDb.Track t) throws Exception {
     JSONObject j=new JSONObject();
@@ -403,7 +439,31 @@ public final class ShowcaseActivity extends Activity {
     @JavascriptInterface public void restoreMetadata(){ui.post(()->launchPicker(RESTORE_METADATA,"application/json",null));}
     @JavascriptInterface public void chooseSong(){ui.post(()->launchPicker(UPLOAD_FILE,"*/*",new String[]{"audio/mpeg","audio/mp4","application/zip"}));}
     @JavascriptInterface public void pickArt(long id){selectedTrack=id;ui.post(()->launchPicker(COVER,"image/*",null));}
-    @JavascriptInterface public void pickScore(long id){selectedTrack=id;ui.post(()->launchPicker(SCORE,"application/pdf",null));}
+    @JavascriptInterface public void pickScore(long id){
+      if(db.get(id)==null){say("악보와 연결할 노래를 먼저 등록하세요.");return;}
+      selectedTrack=id;
+      ui.post(()->launchPicker(SCORE,"*/*",
+        new String[]{"application/pdf","image/jpeg","image/png","image/webp"}));
+    }
+    @JavascriptInterface public void exportScore(long id){
+      VaultDb.Track t=db.get(id);
+      if(t==null||t.scoreUri==null||t.scoreUri.isEmpty()){say("저장할 악보가 없습니다.");return;}
+      ui.post(()->{
+        try{
+          String mime=scoreMime(t.scoreUri);
+          String extension="application/pdf".equals(mime)?".pdf":"image/jpeg".equals(mime)?".jpg":
+                "image/png".equals(mime)?".png":".webp";
+          exportScoreTrack=id;
+          String name=t.title.replaceAll("[\\\\/:*?\\\"<>|\\p{Cntrl}]","_");
+          if(name.length()>80)name=name.substring(0,80);
+          Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+          save.addCategory(Intent.CATEGORY_OPENABLE);
+          save.setType(mime);
+          save.putExtra(Intent.EXTRA_TITLE,name+"_악보"+extension);
+          startActivityForResult(save,EXPORT_SCORE);
+        }catch(Exception ex){say("악보 파일 형식을 확인할 수 없습니다.");}
+      });
+    }
     @JavascriptInterface public void pickStoryFile(){ui.post(()->launchPicker(STORY_FILE,"*/*",new String[]{"image/jpeg","image/png","image/webp","audio/mpeg","audio/mp4","video/mp4","application/pdf"}));}
     @JavascriptInterface public String submitSong(long id,String title,String artist,String genre,String lang,boolean rights){
       VaultDb.Track t=db.get(id);if(t==null)return "음원을 먼저 선택해 주세요.";
@@ -540,12 +600,18 @@ public final class ShowcaseActivity extends Activity {
     @JavascriptInterface public void viewScore(long id){
       VaultDb.Track t=db.get(id);
       if(t==null||t.scoreUri==null||t.scoreUri.isEmpty()){say("등록된 악보가 없습니다. 먼저 악보를 첨부하세요.");return;}
-      ui.post(()->{
-        Intent i=new Intent(Intent.ACTION_VIEW);
-        i.setDataAndType(Uri.parse(t.scoreUri),"application/pdf");
-        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try{startActivity(i);}catch(Exception e){say("PDF 악보를 열 프로그램이 없습니다.");}
-      });
+      new Thread(()->{
+        try{
+          String mime=scoreMime(t.scoreUri);
+          ui.post(()->{
+            Intent show=new Intent(Intent.ACTION_VIEW);
+            show.setDataAndType(Uri.parse(t.scoreUri),mime);
+            show.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try{startActivity(Intent.createChooser(show,"악보 열기"));}
+            catch(Exception e){say("악보를 볼 PDF·이미지 앱이 없습니다.");}
+          });
+        }catch(Exception ex){say("악보 보기 실패: "+ex.getMessage());}
+      },"maru-score-view").start();
     }
     @JavascriptInterface public void logout(){
       token="";say("임시 서버 인증키를 비웠습니다. 이 앱은 아직 자체 로그인 기능이 없습니다.");
