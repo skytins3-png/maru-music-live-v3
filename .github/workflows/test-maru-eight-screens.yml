@@ -63,11 +63,13 @@ jobs:
             adb exec-out screencap -p > eight-screen-screenshots/home.png
             adb install -r media_vault/build/outputs/apk/androidTest/debug/media_vault-debug-androidTest.apk
             adb shell am instrument -w -r com.maru.media.privatevault.v20261108.test/androidx.test.runner.AndroidJUnitRunner | tee eight-screen-screenshots/instrumentation.txt
-            grep -q 'OK (' eight-screen-screenshots/instrumentation.txt
-            ! grep -q 'FAILURES!!!' eight-screen-screenshots/instrumentation.txt
             adb shell pm list packages | grep -F com.maru.media.privatevault.v20261108
+            # Always capture screenshots, even if an instrumentation assertion fails.
+            # That lets QA inspect the failure rather than guessing from the test log.
             for name in 01-home 02-songs 03-song-detail 04-upload 05-downloads 06-story-compose 07-stories 08-story-detail 09-profile; do adb exec-out run-as com.maru.media.privatevault.v20261108 cat "files/eight-screens/$name.png" > "eight-screen-screenshots/$name.png" && test -s "eight-screen-screenshots/$name.png" || exit 1; done
             python3 -c 'from pathlib import Path; p=list(Path("eight-screen-screenshots").glob("*.png")); assert len(p)>=9, len(p); assert all(x.read_bytes().startswith(bytes([137,80,78,71,13,10,26,10])) for x in p); print("Validated",len(p),"Android screenshots")'
+            grep -q 'OK (' eight-screen-screenshots/instrumentation.txt
+            ! grep -q 'FAILURES!!!' eight-screen-screenshots/instrumentation.txt
       - name: Signed APK and permission checks
         run: |
           set -euo pipefail
@@ -80,7 +82,7 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$APK" | tee permissions.txt
           ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|MANAGE_EXTERNAL_STORAGE' permissions.txt
           mkdir -p deliverables
-          cp "$APK" deliverables/MARU-RADIO-EIGHT-SCREENS-V1.1.0.apk
+          cp "$APK" deliverables/MARU-MEDIA-PRIVATE-VAULT-V1.1.1-QA.apk
           (cd deliverables && sha256sum *.apk > SHA256SUMS.txt)
           cp package-details.txt permissions.txt deliverables/
       - name: Upload APK and emulator screenshots/reports
