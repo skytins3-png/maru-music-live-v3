@@ -34,3 +34,10 @@ jobs:
       - name: Unit/integration HTTP tests
         working-directory: media_service
         run: npm test
+
+      - name: Capture site source for independent layout verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-MEDIA-WEB-UI-QA-FILES
+          if-no-files-found: error
+          path: media_service/public/**
