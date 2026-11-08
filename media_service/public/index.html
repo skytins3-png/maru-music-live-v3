@@ -47,8 +47,32 @@
       <label>사연 내용 <textarea name="body" maxlength="2800" placeholder="이야기를 남겨 주세요" required></textarea></label>
       <label>신청곡 (선택) <input name="songRequest" maxlength="130" placeholder="제목 또는 곡 링크"></label>
       <label>사진·음성·영상·악보 (선택) <input type="file" name="attachment" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/mp4,video/mp4,application/pdf"></label>
-      <label class="check"><input type="checkbox" id="storyConsent" required>사연 공개와 방송 소개에 동의하며 개인 정보를 공개하지 않았습니다.</label>
+      <label class="check"><input type="checkbox" id="storyConsent" name="publishConsent" value="true" required>사연 공개와 방송 소개에 동의하며 개인 정보를 공개하지 않았습니다.</label>
       <button type="submit">사연 접수</button>
+    </form>
+    <button id="browseStories" class="small" type="button">공개 승인된 사연 보기 · 댓글·좋아요</button>
+  </section>
+  <section class="panel hidden" id="publicStoriesPanel">
+    <button class="small" id="backStoryWrite">← 사연 쓰기</button>
+    <h2>공개된 사연</h2><p>운영자가 공개 승인한 사연만 표시합니다.</p>
+    <div class="songlist" id="publicStoryList"></div>
+  </section>
+  <section class="panel hidden" id="storyDetailPanel">
+    <button class="small" id="backStoryList">← 사연 목록</button>
+    <h2 id="publicStoryTitle">사연 미리보기</h2>
+    <p id="publicStoryBody"></p>
+    <p class="stats"><span id="storyViews">조회 0</span><span id="storyLikes">좋아요 0</span></p>
+    <div class="subactions">
+      <button id="storyLikeBtn">♡ 사연 좋아요</button>
+      <a id="storyDownload" href="#" download>↓ 사연 다운로드</a>
+      <button id="storyShare">↗ 공유</button>
+    </div>
+    <h3>댓글 · 답글</h3><div id="storyComments"></div>
+    <form id="storyCommentForm">
+      <input id="storyCommentAuthor" maxlength="32" placeholder="닉네임">
+      <textarea id="storyCommentBody" maxlength="700" required placeholder="댓글 또는 답글"></textarea>
+      <input type="hidden" id="storyReplyId">
+      <button type="submit">사연 댓글 접수 (검토 후 공개)</button>
     </form>
   </section>
   <section class="panel hidden" id="submitPanel">

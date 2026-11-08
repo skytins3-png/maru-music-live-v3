@@ -55,7 +55,10 @@ function fillStories(list){
   area.append(node('strong',s.author+' · '+s.status),
     node('p',s.body),node('small','신청곡: '+(s.requestTitle||'없음')+' / 첨부: '+(s.hasAttachment?'있음':'없음')+' / 검사: '+(s.scanClean?'통과':'미확인')));
   const actions=node('div');
-  button(actions,'승인',()=>api('/api/admin/stories/'+encodeURIComponent(s.id)+'/review','POST',{action:'approve'}));
+  const txtDownload=document.createElement('label');txtDownload.style.display='block';
+  const allow=document.createElement('input');allow.type='checkbox';allow.checked=false;allow.style.width='auto';
+  txtDownload.append(allow,node('span',' 사연 TXT 다운로드 허용'));actions.append(txtDownload);
+  button(actions,'승인',()=>api('/api/admin/stories/'+encodeURIComponent(s.id)+'/review','POST',{action:'approve',downloadAllowed:allow.checked}));
   button(actions,'거절',()=>api('/api/admin/stories/'+encodeURIComponent(s.id)+'/review','POST',{action:'reject'}));
   button(actions,'방송 완료',()=>api('/api/admin/stories/'+encodeURIComponent(s.id)+'/review','POST',{action:'broadcast'}));
   if(s.hasAttachment){
@@ -75,6 +78,18 @@ function fillStories(list){
  }
  if(!list.length)c.append(node('p','접수된 사연이 없습니다.'));
 }
+function fillStoryComments(list){
+ const c=$('storyComments');c.replaceChildren();
+ for(const item of list){
+  const card=node('div',undefined,'song'),area=node('div',undefined,'info');
+  area.append(node('strong',item.author),node('p',item.body));
+  const actions=node('div');
+  button(actions,'사연 댓글 승인',()=>api('/api/admin/story-comments/'+encodeURIComponent(item.id)+'/review','POST',{action:'approve'}));
+  button(actions,'거절',()=>api('/api/admin/story-comments/'+encodeURIComponent(item.id)+'/review','POST',{action:'reject'}));
+  card.append(area,actions);c.append(card);
+ }
+ if(!list.length)c.append(node('p','검토 대기 중인 사연 댓글이 없습니다.'));
+}
 function fillComments(list){
  const c=$('comments');c.replaceChildren();
  for(const item of list){
@@ -88,12 +103,15 @@ function fillComments(list){
  if(!list.length)c.append(node('p','검토 대기 댓글이 없습니다.'));
 }
 async function refresh(){
- const [t,s,c]=await Promise.all([
-   api('/api/admin/tracks'),api('/api/admin/stories'),api('/api/admin/comments')
+ const [t,s,c,sc]=await Promise.all([
+   api('/api/admin/tracks'),api('/api/admin/stories'),
+   api('/api/admin/comments'),api('/api/admin/story-comments')
  ]);
- fillTracks(t.tracks||[]);fillStories(s.stories||[]);fillComments(c.comments||[]);
+ fillTracks(t.tracks||[]);fillStories(s.stories||[]);
+ fillComments(c.comments||[]);fillStoryComments(sc.comments||[]);
  $('tracksPanel').classList.remove('hidden');$('storiesPanel').classList.remove('hidden');
  $('commentsPanel').classList.remove('hidden');
+ $('storyCommentsPanel').classList.remove('hidden');
  message('검토 자료 불러오기 완료 · 공개 전 검사 상태를 확인하세요.');
 }
 $('login').addEventListener('click',async()=>{

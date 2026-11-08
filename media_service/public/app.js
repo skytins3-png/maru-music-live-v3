@@ -1,7 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
-let tracks=[],selected=null;
-const pages=['songs','detail','story','submit','downloads'];
+let tracks=[],selected=null,selectedStory=null;
+const pages=['songs','detail','story','publicStories','storyDetail','submit','downloads'];
 function message(s){$('notice').textContent=s;}
 function view(name){
  for(const p of pages)$(p+'Panel').classList.toggle('hidden',p!==name);
@@ -76,6 +76,89 @@ $('search').addEventListener('input',renderList);
 $('language').addEventListener('change',renderList);
 $('backToSongs').addEventListener('click',()=>view('songs'));
 $('storyForm').addEventListener('submit',e=>{e.preventDefault();submitForm(e.currentTarget,'/api/stories');});
+$('browseStories').addEventListener('click',loadPublicStories);
+$('backStoryWrite').addEventListener('click',()=>view('story'));
+$('backStoryList').addEventListener('click',loadPublicStories);
+async function loadPublicStories(){
+ try{
+  const data=await api('/api/stories/public');
+  const area=$('publicStoryList');area.replaceChildren();
+  for(const s of data.stories||[]){
+   const card=document.createElement('div');card.className='song';
+   const info=document.createElement('div');info.className='info';
+   const name=document.createElement('strong');name.textContent=s.author+'님의 사연';
+   const summary=document.createElement('small');
+   summary.textContent=s.body.slice(0,85)+(s.body.length>85?'…':'');
+   info.append(name,summary);
+   const button=document.createElement('button');button.textContent='미리보기 · 댓글';
+   button.addEventListener('click',()=>openStory(s.id));
+   card.append(info,button);area.append(card);
+  }
+  if(!(data.stories||[]).length){
+    const empty=document.createElement('p');empty.textContent='승인된 공개 사연이 없습니다.';area.append(empty);
+  }
+  view('publicStories');
+ }catch(e){message('사연 불러오기 실패: '+e.message);}
+}
+async function openStory(id){
+ try{
+  selectedStory=await api('/api/stories/public/'+encodeURIComponent(id));
+  const s=selectedStory;
+  $('publicStoryTitle').textContent=s.author+'님의 사연';
+  $('publicStoryBody').textContent=s.body;
+  $('storyViews').textContent='조회 '+s.views;
+  $('storyLikes').textContent='좋아요 '+s.likes;
+  $('storyDownload').hidden=!s.downloadAllowed;
+  $('storyDownload').href='/api/story-download/'+encodeURIComponent(id);
+  $('storyReplyId').value='';
+  view('storyDetail');
+  await api('/api/story-view/'+encodeURIComponent(id),{method:'POST'})
+   .then(x=>$('storyViews').textContent='조회 '+x.views).catch(()=>{});
+  await refreshStoryComments();
+ }catch(e){message('사연 미리보기 오류: '+e.message);}
+}
+async function refreshStoryComments(){
+ const box=$('storyComments');box.replaceChildren();
+ if(!selectedStory)return;
+ const data=await api('/api/story-comments/'+encodeURIComponent(selectedStory.id));
+ for(const c of data.comments||[]){
+  const row=document.createElement('div');row.className='comment';
+  const name=document.createElement('strong');name.textContent=(c.parentId?'↳ ':'')+c.author;
+  const body=document.createElement('p');body.textContent=c.body;
+  const reply=document.createElement('button');reply.className='small';reply.textContent='답글';
+  reply.addEventListener('click',()=>{
+    $('storyReplyId').value=c.id;
+    $('storyCommentBody').focus();
+    message(c.author+'님의 댓글에 답글을 작성합니다.');
+  });
+  row.append(name,body,reply);box.append(row);
+ }
+}
+$('storyLikeBtn').addEventListener('click',async()=>{
+ if(!selectedStory)return;
+ try{
+   const d=await api('/api/story-like/'+encodeURIComponent(selectedStory.id),{method:'POST'});
+   $('storyLikes').textContent='좋아요 '+d.likes;
+ }catch(e){message(e.message);}
+});
+$('storyShare').addEventListener('click',()=>{
+ if(!selectedStory)return;
+ const url=location.origin+'/index.html#story-'+encodeURIComponent(selectedStory.id);
+ if(navigator.share)navigator.share({title:'MARU RADIO 사연',url}).catch(()=>{});
+ else navigator.clipboard?.writeText(url).then(()=>message('사연 주소를 복사했습니다.')).catch(()=>message(url));
+});
+$('storyCommentForm').addEventListener('submit',async e=>{
+ e.preventDefault();if(!selectedStory)return;
+ try{
+  await api('/api/story-comments/'+encodeURIComponent(selectedStory.id),{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({author:$('storyCommentAuthor').value,
+    body:$('storyCommentBody').value,parentId:$('storyReplyId').value})
+  });
+  $('storyCommentBody').value='';$('storyReplyId').value='';
+  message('댓글·답글이 접수됐습니다. 운영자 승인 후 공개됩니다.');
+ }catch(err){message(err.message);}
+});
 $('songForm').addEventListener('submit',e=>{e.preventDefault();submitForm(e.currentTarget,'/api/guest-upload');});
 $('likeBtn').addEventListener('click',async()=>{
  if(!selected)return;
@@ -109,4 +192,5 @@ function renderDownloads(){
 refresh().then(()=>{
  const id=location.hash.startsWith('#song-')?location.hash.slice(6):'';
  if(id)detail(id);
+ else if(location.hash.startsWith('#story-'))openStory(location.hash.slice(7));
 });
