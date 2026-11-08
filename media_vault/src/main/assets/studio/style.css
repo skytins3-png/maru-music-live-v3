@@ -184,3 +184,5 @@ select{appearance:auto}
 .song-art.art-d{background-position:75% 50%}
 .song-art.art-e{background-position:100% 50%}
 .song-art:not(.actual)>svg.icon{opacity:0}
+
+.detail-banner{background-image:url("sunset.webp");background-size:cover;background-position:center}
