@@ -32,7 +32,23 @@ public class ShowcaseEightScreensTest {
    assertTrue("JS response must return",latch.await(15,TimeUnit.SECONDS));
    return result.get();
  }
+ private void visualCommitted()throws Exception{
+   AtomicReference<WebView> webRef=new AtomicReference<>();
+   rule.getScenario().onActivity(a->{
+     ViewGroup root=a.findViewById(android.R.id.content);
+     webRef.set((WebView)root.getChildAt(0));
+   });
+   CountDownLatch painted=new CountDownLatch(1);
+   WebView web=webRef.get();
+   assertNotNull(web);
+   web.post(()->web.postVisualStateCallback(System.nanoTime(),new WebView.VisualStateCallback(){
+     @Override public void onComplete(long requestId){painted.countDown();}
+   }));
+   assertTrue("WebView compositor failed to draw changed screen",painted.await(12,TimeUnit.SECONDS));
+   Thread.sleep(380);
+ }
  private void screenshot(String name)throws Exception{
+   visualCommitted();
    Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
    File dir=new File(context.getFilesDir(),"eight-screens");
    assertTrue(dir.exists()||dir.mkdirs());
@@ -78,7 +94,7 @@ public class ShowcaseEightScreensTest {
   private void show(String target)throws Exception{
    String result=eval("window.go("+org.json.JSONObject.quote(target)+");document.querySelector('#page-"+target+"').classList.contains('active')");
    assertEquals("true",result);
-   Thread.sleep(450);
+   visualCommitted();
  }
  @Test public void allEightScreensHaveActiveUIAndAreCaptured()throws Exception{
    ready();
@@ -96,9 +112,9 @@ public class ShowcaseEightScreensTest {
    }
    // Demo data is clearly marked. It never writes fake statistics to local DB.
    assertEquals("true",eval("window.setDemo(true);window.go('songs');document.querySelector('.demo-flag')!==null"));
-   assertEquals("true",eval("window.go('detail',-1);document.querySelector('#page-detail').innerText.includes('그리운 사람')"));
+   assertEquals("true",eval("window.go('detail',-1);document.querySelector('#page-detail').classList.contains('active') && document.querySelector('#page-detail').innerText.includes('그리운 사람')"));
    screenshot("03-song-detail");
-   assertEquals("true",eval("window.go('story-detail',-1);document.querySelector('#page-story-detail').innerText.includes('바람소리')"));
+   assertEquals("true",eval("window.go('story-detail',-1);document.querySelector('#page-story-detail').classList.contains('active') && document.querySelector('#page-story-detail').innerText.includes('바람소리')"));
    screenshot("08-story-detail");
  }
  @Test public void nativeBridgePreservesActualPrivateData()throws Exception{
