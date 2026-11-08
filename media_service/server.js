@@ -276,7 +276,7 @@ app.post('/api/admin/comments/:id/review',admin,(req,res)=>{
 });
 app.get('/api/admin/attachment/:id',admin,(req,res)=>{
  const s=db.stories.find(x=>x.id===req.params.id);
- if(!s||!s.attachment)return res.sendStatus(404);
+ if(!s||!s.attachment||!s.attachment.scanned)return res.sendStatus(404);
  res.type('application/octet-stream');
  res.download(path.join(quarantine,s.attachment.file),s.attachment.originalName);
 });

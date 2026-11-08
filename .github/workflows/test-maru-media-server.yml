@@ -1,7 +1,7 @@
 name: Validate MARU private media server before deployment
 on:
   push:
-    branches: [maru-media-vault-20261108]
+    branches: [maru-media-vault-20261108, maru-media-qa-galaxy-20261108]
     paths:
       - 'media_service/**'
       - '.github/workflows/test-maru-media-server.yml'

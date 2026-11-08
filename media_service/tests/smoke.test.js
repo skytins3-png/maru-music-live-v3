@@ -58,3 +58,97 @@ test('guest song intake pending until antivirus and owner approval',async()=>{
   body:JSON.stringify({action:'publish',downloadAllowed:true})});
  assert.equal(review.status,409);
 });
+
+test('quarantined attachment cannot be downloaded or approved',async()=>{
+ const f=new FormData();f.set('author','검증중');
+ f.set('body','악성 파일 차단 여부를 검사하는 가상 사연입니다');
+ f.set('attachment',new Blob([Buffer.from('89504e470d0a1a0a00000000','hex')]),'sample.png');
+ const r=await get('/api/stories',{method:'POST',body:f});
+ assert.equal(r.status,201);
+ assert.equal(r.data.status,'pending');
+ const attachment=await get('/api/admin/attachment/'+r.data.receipt,
+   {headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN}});
+ assert.equal(attachment.status,404);
+ const review=await get('/api/admin/stories/'+r.data.receipt+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'approve'})
+ });
+ assert.equal(review.status,409);
+ const rejected=await get('/api/admin/stories/'+r.data.receipt+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'reject'})
+ });
+ assert.equal(rejected.status,200);
+ assert.equal(rejected.data.status,'rejected');
+});
+test('authorized upload: correct sha, approved after mocked CLEAN scan; private until then',async()=>{
+ process.env.CLAMSCAN_CMD='true'; // Test-only deterministic stub; NOT a production virus scanner.
+ const bytes=Buffer.from('ID3\x03\x00\x00\x00\x00\x00\x00this is a harmless dummy test fixture');
+ const sha=crypto.createHash('sha256').update(bytes).digest('hex');
+ const bad=new FormData();bad.set('title','QA 잘못된 해시');
+ bad.set('sha256','0'.repeat(64));bad.set('rights_confirmed','true');
+ bad.set('audio',new Blob([bytes]),'wrong.mp3');
+ const badAnswer=await get('/api/upload',{method:'POST',
+  headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN},body:bad});
+ assert.equal(badAnswer.status,400);
+ const f=new FormData();f.set('title','테스트 청취용 노래');
+ f.set('sha256',sha);f.set('language','한국노래');
+ f.set('genre','발라드');f.set('rights_confirmed','true');
+ f.set('audio',new Blob([bytes]),'good.mp3');
+ const upload=await get('/api/upload',{method:'POST',
+  headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN},body:f});
+ assert.equal(upload.status,201);
+ assert.equal(upload.data.status,'pending');
+ const id=upload.data.id;
+ assert.ok(id);
+ assert.equal((await get('/api/tracks')).data.tracks.length,0);
+ assert.equal((await get('/api/audio/'+id)).status,404);
+ assert.equal((await get('/api/download/'+id)).status,404);
+ const approval=await get('/api/admin/tracks/'+id+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'publish',downloadAllowed:false})
+ });
+ assert.equal(approval.status,200);
+ assert.equal(approval.data.status,'public');
+ assert.equal((await get('/api/tracks')).data.tracks.length,1);
+ assert.equal((await get('/api/audio/'+id)).status,200);
+ assert.equal((await get('/api/download/'+id)).status,404);
+ const firstView=await get('/api/view/'+id,{method:'POST'});
+ assert.equal(firstView.status,200);
+ const secondView=await get('/api/view/'+id,{method:'POST'});
+ assert.equal(secondView.data.views,firstView.data.views);
+ const like=await get('/api/like/'+id,{method:'POST'});
+ assert.equal(like.data.likes,1);
+ const unlike=await get('/api/like/'+id,{method:'POST'});
+ assert.equal(unlike.data.likes,0);
+ const comment=await get('/api/comments/'+id,{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({author:'시험',body:'좋은 곡입니다'})
+ });
+ assert.equal(comment.status,201);
+ assert.equal((await get('/api/comments/'+id)).data.comments.length,0);
+ const all=await get('/api/admin/comments',{headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN}});
+ assert.equal(all.status,200);
+ const item=all.data.comments.find(c=>c.body==='좋은 곡입니다');
+ assert.ok(item);
+ const answer=await get('/api/admin/comments/'+item.id+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'approve'})
+ });
+ assert.equal(answer.status,200);
+ assert.equal((await get('/api/comments/'+id)).data.comments.length,1);
+ const allow=await get('/api/admin/tracks/'+id+'/review',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN,'Content-Type':'application/json'},
+   body:JSON.stringify({action:'publish',downloadAllowed:true})
+ });
+ assert.equal(allow.status,200);
+ assert.equal((await get('/api/download/'+id)).status,200);
+ const score=new FormData();
+ score.set('score',new Blob([Buffer.from('%PDF-1.4\n%dummy test only')]),'score.pdf');
+ const uploadScore=await get('/api/admin/tracks/'+id+'/score',{
+   method:'POST',headers:{'X-MARU-ADMIN':process.env.MARU_ADMIN_TOKEN},body:score
+ });
+ assert.equal(uploadScore.status,200);
+ assert.equal((await get('/api/score/'+id)).status,200);
+ process.env.CLAMSCAN_CMD='not-installed-test-clamscan';
+});
