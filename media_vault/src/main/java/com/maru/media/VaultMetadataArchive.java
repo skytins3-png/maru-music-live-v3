@@ -78,8 +78,9 @@ public final class VaultMetadataArchive {
    String author=CatalogLogic.cleanText(r.optString("author",""),30);
    String body=CatalogLogic.cleanText(r.optString("body",""),700);
    long created=r.optLong("created_at",0);
-   String where=fk+"=? AND author=? AND body=? AND created_at=?";
-   String[] args={String.valueOf(newFk),author,body,String.valueOf(created)};
+   String where=fk+"=?"+(parent==null?"":" AND parent_id=?")+" AND author=? AND body=? AND created_at=?";
+   String[] args=parent==null?new String[]{String.valueOf(newFk),author,body,String.valueOf(created)}
+     :new String[]{String.valueOf(newFk),String.valueOf(parent),author,body,String.valueOf(created)};
    long old=find(d,table,where,args);
    if(old>0)return old;
    return d.insertWithOnConflict(table,null,cleanForComments(r,fk,newFk,parent),SQLiteDatabase.CONFLICT_IGNORE);
