@@ -316,6 +316,17 @@ public final class ShowcaseActivity extends Activity {
       db.update(id,"genre",genre);db.update(id,"language",lang);db.flag(id,"rights_ok",rights?1:0);
       changed();return "음원을 내 보관함에 등록했습니다. 서버 공개는 별도 승인과 연결이 필요합니다.";
     }
+    @JavascriptInterface public String editTrack(long id,String title,String artist,String genre,String language){
+      VaultDb.Track song=db.get(id);
+      if(song==null)return "수정할 노래가 없습니다.";
+      if(title==null||title.trim().isEmpty())return "곡 제목을 입력하세요.";
+      db.update(id,"title",title);
+      db.update(id,"artist",artist==null?"":artist);
+      db.update(id,"genre",genre==null?"미확인":genre);
+      if(language!=null&&java.util.Arrays.asList(CatalogLogic.LANGUAGES).contains(language))
+        db.update(id,"language",language);
+      changed();return "노래 정보를 저장했습니다.";
+    }
     @JavascriptInterface public String submitStory(String nick,String body,String request,String privacy){
       if(nick==null||nick.trim().length()<2)return "닉네임을 2자 이상 입력해 주세요.";
       if(body==null||body.trim().length()<5)return "사연을 5자 이상 작성해 주세요.";

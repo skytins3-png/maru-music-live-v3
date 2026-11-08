@@ -158,6 +158,7 @@ function detailContent(song,comments){
    +'<p>가수: '+escapeHTML(song.artist||"미등록")+'</p><p>장르: '+escapeHTML(song.genre||"미확인")+'</p>'
    +'<p>언어: '+escapeHTML(song.language||"미확인")+'</p>'
    +'<p>파일 크기: '+(Number(song.size||0)/1048576).toFixed(1)+'MB</p>'
+   +'<button class="secondary-btn" data-action="editSong" data-id="'+song.id+'">✎ 곡정보 수정</button>'
    +'<div class="status-note">조회수는 이 기기의 미리듣기 기록이며 공개 서버 조회수와 다릅니다.</div></section>';
  if(detailTab==="관련 노래"){
    let other=liveSongs().filter(t=>t.id!==song.id&&t.language===song.language).slice(0,8);
@@ -303,6 +304,16 @@ function renderProfile(){
  +'<button class="logout" data-action="logout">↪ 로그아웃 (임시 인증키 지우기)</button>'
  +'<p class="disclaimer">이 버전의 로컬 관리 앱에는 로그인 계정이 없습니다. 서버 접속은 인증키가 있을 때만 가능합니다. 모든 업로드·사연 데이터는 기본적으로 개인 기기에서 관리됩니다.</p>';
 }
+function editTrackInfo(id){
+ const s=getSong(id);
+ if(!s||demo(s)){notify("실제 등록된 노래만 수정할 수 있습니다.");return;}
+ const title=window.prompt("곡 제목",s.title);if(title===null)return;
+ const artist=window.prompt("가수",s.artist||"");if(artist===null)return;
+ const genre=window.prompt("장르",s.genre||"미확인");if(genre===null)return;
+ const lang=window.prompt("노래 분류: 한국노래 / 중국노래 / 서양노래 / 일본노래 / 검토필요",s.language||"검토필요");if(lang===null)return;
+ const msg=call("editTrack",Number(id),title,artist,genre,lang);
+ readData();renderDetail();notify(msg);
+}
 document.addEventListener("click",e=>{
  const b=e.target.closest("[data-go],[data-action]");if(!b)return;
  const target=b.dataset;
@@ -367,12 +378,14 @@ document.addEventListener("click",e=>{
    const when=$("scheduleAt")?.value||"";const msg=call("schedule",selectedStory,when);readData();renderStoryDetail();notify(msg);return;
  }
  if(act==="storyManage"){$("page-story-detail").scrollTop=99999;return;}
+ if(act==="editSong"){editTrackInfo(id);return;}
  if(act==="songOptions"){
    if(!selectedSong||demo(getSong(selectedSong))){notify("실제 곡을 등록하면 수정 가능합니다.");return;}
-   const option=window.prompt("곡 관리: 1 표지 첨부 / 2 악보 첨부 / 3 재생 정지","1");
+   const option=window.prompt("곡 관리: 1 표지 첨부 / 2 악보 첨부 / 3 곡정보 수정 / 4 재생 정지","3");
    if(option==="1")call("pickArt",selectedSong);
    else if(option==="2")call("pickScore",selectedSong);
-   else if(option==="3")call("stop");return;
+   else if(option==="3")editTrackInfo(selectedSong);
+   else if(option==="4")call("stop");return;
  }
  if(act==="exportMetadata"){call("exportMetadata");return;}
  if(act==="restoreMetadata"){call("restoreMetadata");return;}
