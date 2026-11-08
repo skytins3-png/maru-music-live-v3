@@ -52,6 +52,12 @@ public final class MediaVaultDeviceTest {
 
  @Rule public ActivityScenarioRule<MainActivity> activity=new ActivityScenarioRule<>(MainActivity.class);
 
+ @Test public void popularButtonIsVisibleAndInteractive(){
+   onView(withText("인기 노래 TOP 5")).check(matches(isDisplayed()));
+   onView(withText("인기 노래 TOP 5")).perform(click());
+   onView(withText("내 기기 인기 노래")).check(matches(isDisplayed()));
+   onView(withText("닫기")).perform(click());
+ }
  @Test public void homeHasAllFourMainTiles(){
    onView(withText("노래 보관함")).check(matches(isDisplayed()));
    onView(withText("사연 보내기")).check(matches(isDisplayed()));
