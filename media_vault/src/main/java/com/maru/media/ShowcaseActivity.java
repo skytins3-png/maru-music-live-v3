@@ -240,6 +240,10 @@ public final class ShowcaseActivity extends Activity {
   private JSONObject trackJSON(VaultDb.Track t) throws Exception {
     JSONObject j=new JSONObject();
     j.put("id",t.id);j.put("title",t.title);j.put("artist",t.artist);j.put("filename",t.filename);
+     j.put("lyricist",t.lyricist);j.put("composer",t.composer);
+     j.put("styleFinisher",t.styleFinisher);j.put("sunoAssist",t.sunoAssist);
+     j.put("isOriginal",t.isOriginal==1);j.put("artistGroupAuto",t.artistGroupAuto==1);
+     j.put("suggestedArtist",SingerGroupRules.suggest(t.language,t.genre,t.title,t.filename));
     j.put("language",t.language);j.put("genre",t.genre);j.put("size",t.size);j.put("sha",t.sha);
     j.put("views",t.views);j.put("liked",t.liked);j.put("uploadState",t.uploadState);
     j.put("hasScore",t.scoreUri!=null&&!t.scoreUri.isEmpty());
@@ -381,7 +385,7 @@ public final class ShowcaseActivity extends Activity {
     @JavascriptInterface public String submitSong(long id,String title,String artist,String genre,String lang,boolean rights){
       VaultDb.Track t=db.get(id);if(t==null)return "음원을 먼저 선택해 주세요.";
       if(title==null||title.trim().isEmpty())return "노래 제목을 입력해 주세요.";
-      db.update(id,"title",title);db.update(id,"artist",artist==null?"":artist);
+      db.update(id,"title",title);db.update(id,"artist",artist==null?"":artist);db.flag(id,"artist_group_auto",0);
       db.update(id,"genre",genre);db.update(id,"language",lang);db.flag(id,"rights_ok",rights?1:0);
       changed();return "음원을 내 보관함에 등록했습니다. 서버 공개는 별도 승인과 연결이 필요합니다.";
     }
@@ -391,10 +395,28 @@ public final class ShowcaseActivity extends Activity {
       if(title==null||title.trim().isEmpty())return "곡 제목을 입력하세요.";
       db.update(id,"title",title);
       db.update(id,"artist",artist==null?"":artist);
+      db.flag(id,"artist_group_auto",0);
       db.update(id,"genre",genre==null?"미확인":genre);
       if(language!=null&&java.util.Arrays.asList(CatalogLogic.LANGUAGES).contains(language))
         db.update(id,"language",language);
       changed();return "노래 정보를 저장했습니다.";
+    }
+
+    @JavascriptInterface public String setSongCredits(long id,boolean own){
+      if(db.get(id)==null)return "곡을 찾지 못했습니다.";
+      db.markOriginal(id,own);changed();
+      return own?"작사·작곡·스타일 완성: 박영환 / 제작 도움: Suno AI":"자작곡 크레딧 해제됨";
+    }
+    @JavascriptInterface public String setAllSongCredits(){
+      int updated=db.markAllOriginals();changed();return "자작곡 제작 표기를 적용한 곡: "+updated+"곡";
+    }
+    @JavascriptInterface public String fillSingerGroups(){
+      int updated=db.fillMissingArtists();changed();return "가수명이 비어 있던 "+updated+"곡에 추천 그룹을 적용했습니다.";
+    }
+    @JavascriptInterface public String chooseSingerGroup(long id,String group){
+      if(db.get(id)==null)return "곡을 찾지 못했습니다.";
+      if(!SingerGroupRules.isGroup(group))return "허용된 그룹을 선택하세요.";
+      db.setSingerGroup(id,group);changed();return "가수 그룹: "+group+" · 임시 분류로 저장";
     }
     @JavascriptInterface public String submitStory(String nick,String body,String request,String privacy){
       if(nick==null||nick.trim().length()<2)return "닉네임을 2자 이상 입력해 주세요.";
@@ -483,7 +505,7 @@ public final class ShowcaseActivity extends Activity {
         j.put("songCount",db.count());
         j.put("uploadedCount",db.uploaded());
         j.put("storyCount",db.stories().size());
-        j.put("appVersion","1.1.1 QA 보관함");
+        j.put("appVersion","1.1.3 곡 크레딧");
       }catch(Exception ignored){}
       return j.toString();
     }

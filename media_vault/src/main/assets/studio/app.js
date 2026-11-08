@@ -160,6 +160,16 @@ function detailContent(song,comments){
    +'<p>가수: '+escapeHTML(song.artist||"미등록")+'</p><p>장르: '+escapeHTML(song.genre||"미확인")+'</p>'
    +'<p>언어: '+escapeHTML(song.language||"미확인")+'</p>'
    +'<p>파일 크기: '+(Number(song.size||0)/1048576).toFixed(1)+'MB</p>'
+   +'<div class="credit-details"><h3>제작 정보</h3>'
+   +'<p><b>작사</b> '+escapeHTML(song.lyricist||"미확인")+'</p>'
+   +'<p><b>작곡</b> '+escapeHTML(song.composer||"미확인")+'</p>'
+   +'<p><b>스타일 완성</b> '+escapeHTML(song.styleFinisher||"미확인")+'</p>'
+   +'<p><b>제작 도움</b> '+escapeHTML(song.sunoAssist||"미확인")+'</p>'
+   +'<small class="tiny">'+(song.isOriginal?"직접 확인한 자작곡":"자작곡 확인 전 · 저작자 자동 표기 안 함")+'</small></div>'
+   +'<p class="tiny">가수 그룹 추천: '+escapeHTML(song.suggestedArtist||"아환의 친구들")+' · '+(song.artistGroupAuto?"임시 분류":"실제 가수와 별개")+'</p>'
+   +'<div class="row" style="flex-wrap:wrap;margin:9px 0">'
+   +'<button class="secondary-btn" data-action="ownCredits" data-id="'+song.id+'">'+(song.isOriginal?"자작곡 표기 해제":"내 자작곡으로 확인")+'</button>'
+   +'<button class="secondary-btn" data-action="chooseSingerGroup" data-id="'+song.id+'">가수 그룹 변경</button></div>'
    +'<button class="secondary-btn" data-action="editSong" data-id="'+song.id+'">✎ 곡정보 수정</button>'
    +'<div class="status-note">조회수는 이 기기의 미리듣기 기록이며 공개 서버 조회수와 다릅니다.</div></section>';
  if(detailTab==="관련 노래"){
@@ -299,6 +309,11 @@ function renderProfile(){
  +'<button class="secondary-btn" style="width:100%" data-action="saveServer">서버 연결 정보 저장</button></div>'
  +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.2</span> ❯</div>'
  +'<div class="profile-row" data-action="stop">'+icon("music")+'<span>음원 재생 정지</span> ❯</div></div>'
+ +'<div class="panel"><h3>곡정보·가수 분류</h3>'
+ +'<p class="tiny">작사·작곡·스타일 완성 박영환 · Suno AI 도움</p>'
+ +'<button class="secondary-btn" data-action="fillSingerGroups" style="width:100%;margin-bottom:7px">가수 미등록 곡 그룹 자동 정리</button>'
+ +'<button class="secondary-btn" data-action="allCredits" style="width:100%">자작곡 제작 크레딧 일괄 등록</button>'
+ +'<p class="disclaimer">그룹: 아환 / 아환의 친구들 / 후배들 / 중국친구 / 러시아친구. 기존 가수명은 유지합니다. 실제 자작곡만 제작자로 확인하세요.</p></div>'
  +'<div class="panel"><h3>노래·사연 목록 백업·복구</h3>'
  +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="exportMetadata">목록 백업(JSON)</button>'
  +'<button class="secondary-btn" data-action="restoreMetadata">목록 복구(JSON)</button></div>'
@@ -382,6 +397,31 @@ document.addEventListener("click",e=>{
    const when=$("scheduleAt")?.value||"";const msg=call("schedule",selectedStory,when);readData();renderStoryDetail();notify(msg);return;
  }
  if(act==="storyManage"){$("page-story-detail").scrollTop=99999;return;}
+ if(act==="ownCredits"){
+   const track=getSong(id);if(!track||demo(track))return;
+   const next=!track.isOriginal;
+   if(window.confirm(next?"이 노래를 형이 직접 작사·작곡했습니까? 박영환 제작 크레딧을 기록합니다.":"이 곡의 자작곡 크레딧을 해제할까요?")){
+     const msg=call("setSongCredits",id,next);readData();renderDetail();notify(msg);
+   }return;
+ }
+ if(act==="allCredits"){
+   if(window.confirm("선택한 보관함의 모든 크레딧 미등록 곡을 형의 자작곡으로 확인합니까? 타인 저작물이 있으면 반드시 취소하세요.")){
+     const msg=call("setAllSongCredits");readData();renderProfile();notify(msg);
+   }return;
+ }
+ if(act==="fillSingerGroups"){
+   if(window.confirm("가수명이 없는 곡에만 언어·장르별 추천 그룹을 넣을까요? 실제 보컬명 확인 후 수정 가능합니다.")){
+     const msg=call("fillSingerGroups");readData();renderProfile();notify(msg);
+   }return;
+ }
+ if(act==="chooseSingerGroup"){
+   const options=["아환","아환의 친구들","후배들","중국친구","러시아친구"];
+   const track=getSong(id);if(!track)return;
+   const selected=window.prompt("가수 그룹: "+options.join(" / "),track.suggestedArtist||options[1]);
+   if(selected===null)return;
+   if(!options.includes(selected)){notify("표시된 다섯 그룹 중 선택하세요.");return;}
+   const msg=call("chooseSingerGroup",id,selected);readData();renderDetail();notify(msg);return;
+ }
  if(act==="editSong"){editTrackInfo(id);return;}
  if(act==="songOptions"){
    if(!selectedSong||demo(getSong(selectedSong))){notify("실제 곡을 등록하면 수정 가능합니다.");return;}
