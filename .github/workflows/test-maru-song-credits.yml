@@ -62,7 +62,17 @@ jobs:
             mkdir -p eight-screen-screenshots
             adb exec-out screencap -p > eight-screen-screenshots/home.png
             adb install -r media_vault/build/outputs/apk/androidTest/debug/media_vault-debug-androidTest.apk
-            adb shell am instrument -w -r com.maru.media.previewscore20261109.test/androidx.test.runner.AndroidJUnitRunner | tee eight-screen-screenshots/instrumentation.txt
+            # Focus-sensitive legacy MainActivity Espresso suite runs independently,
+            # with no ShowcaseActivity sitting on top of its view hierarchy.
+            adb shell am force-stop com.maru.media.previewscore20261109
+            adb shell input keyevent HOME
+            adb shell am instrument -w -r -e class com.maru.media.MediaVaultDeviceTest com.maru.media.previewscore20261109.test/androidx.test.runner.AndroidJUnitRunner | tee eight-screen-screenshots/instrumentation-main.txt
+            grep -q 'OK (' eight-screen-screenshots/instrumentation-main.txt
+            ! grep -q 'FAILURES!!!' eight-screen-screenshots/instrumentation-main.txt
+            adb shell am force-stop com.maru.media.previewscore20261109
+            adb shell input keyevent HOME
+            # Score manager UI, actual WAV playback, offline import and metadata integrity.
+            adb shell am instrument -w -r -e class com.maru.media.DownloadPreviewPlaybackTest,com.maru.media.ShowcaseEightScreensTest,com.maru.media.VaultImport107SyntheticTest,com.maru.media.VaultOfflineDurabilityTest,com.maru.media.VaultMetadataRoundTripTest com.maru.media.previewscore20261109.test/androidx.test.runner.AndroidJUnitRunner | tee eight-screen-screenshots/instrumentation.txt
             adb shell pm list packages | grep -F com.maru.media.previewscore20261109
             # Always capture screenshots, even if an instrumentation assertion fails.
             # That lets QA inspect the failure rather than guessing from the test log.
