@@ -160,6 +160,23 @@ public class ShowcaseEightScreensTest {
   assertEquals("true",eval("typeof Maru.pickScore==='function' && typeof Maru.viewScore==='function' && typeof Maru.exportScore==='function'"));
   assertEquals("true",eval("window.go('home');document.querySelector('#page-home [data-go=\"scores\"]')!==null"));
  }
+ @Test public void downloadListOffersRealPreviewAndHonestScoreActions()throws Exception{
+   ready();
+   final String sha="abababababababababababababababababababababababababababababababab";
+   rule.getScenario().onActivity(a->{
+     VaultDb db=new VaultDb(a);
+     if(!db.bySha(sha))db.insertTrack("QA 다운로드 미리듣기","qa-preview.wav",
+       "file:///missing/qa-preview.wav",sha,2048,"한국노래");
+     db.close();
+   });
+   assertEquals("true",eval("window.syncNative();window.go('downloads');document.querySelectorAll('#page-downloads [data-action=\"preview\"]').length>=1"));
+   assertEquals("true",eval("document.querySelector('#page-downloads [data-action=\"togglePlayback\"]')!==null"));
+   assertEquals("true",eval("document.querySelector('#page-downloads [data-action=\"stop\"]')!==null"));
+   assertEquals("true",eval("document.querySelector('#page-downloads [data-action=\"scoreAttach\"]')!==null"));
+   assertEquals("true",eval("document.querySelector('#page-downloads').innerText.includes('악보 없음')"));
+   assertEquals("true",eval("typeof Maru.preview==='function'&&typeof Maru.togglePlayback==='function'&&typeof Maru.stop==='function'"));
+   assertEquals("true",eval("window.go('scores');document.querySelector('#page-scores').innerText.includes('MP3에서 자동으로 만들어지지 않습니다')"));
+ }
  @Test public void nativeBridgePreservesActualPrivateData()throws Exception{
    ready();
    assertEquals("true",eval("typeof window.Maru.tracks==='function'"));
