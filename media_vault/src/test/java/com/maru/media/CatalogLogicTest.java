@@ -13,6 +13,7 @@ public class CatalogLogicTest {
  @Test public void onlyAudioAndSupportedArchives(){
    assertTrue(CatalogLogic.audio("sample.MP3"));
    assertTrue(CatalogLogic.audio("sample.m4a"));
+   assertTrue(CatalogLogic.audio("sample.wav"));
    assertFalse(CatalogLogic.audio("secret.apk"));
    assertTrue(CatalogLogic.zip("album.zip"));
  }
