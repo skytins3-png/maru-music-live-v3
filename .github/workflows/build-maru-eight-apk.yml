@@ -1,0 +1,53 @@
+name: Build MARU eight-screen APK fast signed QA
+on:
+  push:
+    branches: [maru-eight-screen-20261108]
+    paths:
+      - '.github/workflows/build-maru-eight-apk.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install required SDKs
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Static JavaScript check
+        run: node --check media_vault/src/main/assets/studio/app.js
+      - name: Compile and run Java unit tests
+        run: gradle --no-daemon :media_vault:testDebugUnitTest :media_vault:assembleDebug
+      - name: Sign and inspect independent APK
+        run: |
+          set -euo pipefail
+          APK=media_vault/build/outputs/apk/debug/media_vault-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee app_badging.txt
+          grep "com.maru.media.privatevault.v20261108" app_badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$APK" | tee app_permissions.txt
+          ! grep -E 'RECORD_AUDIO|BIND_ACCESSIBILITY_SERVICE|READ_SMS|MANAGE_EXTERNAL_STORAGE' app_permissions.txt
+          mkdir -p output
+          cp "$APK" output/MARU-RADIO-8-SCREENS-V1.1.0-debug.apk
+          (cd output && sha256sum *.apk > SHA256SUMS.txt)
+          cp app_badging.txt app_permissions.txt output/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-EIGHT-SCREEN-SIGNED-APK
+          if-no-files-found: error
+          path: output/*
