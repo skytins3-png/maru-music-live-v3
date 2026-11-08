@@ -6,7 +6,7 @@ import org.json.*;
 import java.util.*;
 public final class VaultDb extends SQLiteOpenHelper {
  public static final String TRACK_FIELDS="_id,title,filename,uri,sha,size,language,genre,artist,score_uri,views,liked,rights_ok,upload_state,cover_uri,lyricist,composer,style_finisher,suno_assist,is_original,artist_group_auto";
- public VaultDb(Context ctx){super(ctx,"maru_media_private_v1.db",null,4);}
+ public VaultDb(Context ctx){super(ctx,"maru_media_private_v1.db",null,5);}
  @Override public void onCreate(SQLiteDatabase d){
    d.execSQL("CREATE TABLE tracks(_id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,filename TEXT,uri TEXT NOT NULL,sha TEXT NOT NULL UNIQUE,size INTEGER DEFAULT 0,language TEXT NOT NULL,genre TEXT NOT NULL DEFAULT '미확인',artist TEXT DEFAULT '',score_uri TEXT DEFAULT '',views INTEGER DEFAULT 0,liked INTEGER DEFAULT 0,rights_ok INTEGER DEFAULT 0,upload_state TEXT DEFAULT 'LOCAL',cover_uri TEXT DEFAULT '',lyricist TEXT DEFAULT '',composer TEXT DEFAULT '',style_finisher TEXT DEFAULT '',suno_assist TEXT DEFAULT '',is_original INTEGER DEFAULT 0,artist_group_auto INTEGER DEFAULT 0)");
    d.execSQL("CREATE INDEX idx_tracks_language ON tracks(language)");
@@ -15,6 +15,7 @@ public final class VaultDb extends SQLiteOpenHelper {
    d.execSQL("CREATE TABLE story_comments(_id INTEGER PRIMARY KEY AUTOINCREMENT,story_id INTEGER NOT NULL,parent_id INTEGER DEFAULT 0,author TEXT,body TEXT,created_at INTEGER)");
    d.execSQL("CREATE INDEX idx_story_comments_story ON story_comments(story_id)");
    d.execSQL("CREATE TABLE song_comment_replies(_id INTEGER PRIMARY KEY AUTOINCREMENT,track_id INTEGER NOT NULL,parent_id INTEGER NOT NULL,author TEXT,body TEXT,created_at INTEGER)");
+   d.execSQL("CREATE TABLE candidate_reviews(candidate_idx INTEGER PRIMARY KEY, rating_1 INTEGER NOT NULL DEFAULT 0, rating_2 INTEGER NOT NULL DEFAULT 0, chosen_version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0)");
  }
  @Override public void onUpgrade(SQLiteDatabase d,int oldVersion,int newVersion){
    if(oldVersion<2){
@@ -34,6 +35,47 @@ public final class VaultDb extends SQLiteOpenHelper {
      d.execSQL("ALTER TABLE tracks ADD COLUMN is_original INTEGER DEFAULT 0");
      d.execSQL("ALTER TABLE tracks ADD COLUMN artist_group_auto INTEGER DEFAULT 0");
    }
+  if(oldVersion<5)d.execSQL("CREATE TABLE IF NOT EXISTS candidate_reviews(candidate_idx INTEGER PRIMARY KEY, rating_1 INTEGER NOT NULL DEFAULT 0, rating_2 INTEGER NOT NULL DEFAULT 0, chosen_version INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0)");
+ }
+ /**
+  * Host-only comparison of two Suno candidate versions. Ratings are user's subjective
+  * audition results, NEVER audio analysis or proof of a Suno download. A tie is held.
+  * This table contains no user account secrets or external song audio.
+  */
+ public synchronized String rateCandidate(int idx,int version,int stars){
+   if(idx<0||idx>=9 || (version!=1&&version!=2) || stars<1||stars>5)
+     throw new IllegalArgumentException("잘못된 평가 값입니다.");
+   SQLiteDatabase d=getWritableDatabase();
+   d.execSQL("INSERT OR IGNORE INTO candidate_reviews(candidate_idx) VALUES(?)",new Object[]{idx});
+   ContentValues value=new ContentValues();
+   value.put(version==1?"rating_1":"rating_2",stars);
+   value.put("updated_at",System.currentTimeMillis());
+   d.update("candidate_reviews",value,"candidate_idx=?",new String[]{String.valueOf(idx)});
+   try(Cursor c=d.rawQuery("SELECT rating_1,rating_2 FROM candidate_reviews WHERE candidate_idx=?",
+       new String[]{String.valueOf(idx)})){
+     if(!c.moveToFirst())throw new IllegalStateException("평가 저장 실패");
+     int a=c.getInt(0),b=c.getInt(1);
+     int winner=a>0&&b>0?(a>b?1:b>a?2:0):0;
+     ContentValues chosen=new ContentValues();
+     chosen.put("chosen_version",winner);
+     d.update("candidate_reviews",chosen,"candidate_idx=?",new String[]{String.valueOf(idx)});
+     return winner==0?(a>0&&b>0?"평점 동점입니다. 어느 한 버전이 더 좋은지 다시 평가하세요.":"다른 버전도 평가하면 우수 버전을 표시합니다.")
+       :"두 버전 비교 완료 · 우선 선택: "+winner+"번";
+   }
+ }
+ public synchronized JSONObject candidateReviews(){
+   JSONObject reviews=new JSONObject();
+   try(Cursor c=getReadableDatabase().rawQuery(
+       "SELECT candidate_idx,rating_1,rating_2,chosen_version FROM candidate_reviews ORDER BY candidate_idx",null)){
+     while(c.moveToNext()){
+       try{
+         JSONObject item=new JSONObject();
+         item.put("v1",c.getInt(1));item.put("v2",c.getInt(2));item.put("winner",c.getInt(3));
+         reviews.put(String.valueOf(c.getInt(0)),item);
+       }catch(JSONException e){throw new IllegalStateException(e);}
+     }
+   }
+   return reviews;
  }
  public synchronized long insertTrack(String title,String fileName,String uri,String sha,long size,String language){
    if(!CatalogLogic.sha256(sha))throw new IllegalArgumentException("sha256");
