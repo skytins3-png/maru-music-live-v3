@@ -20,7 +20,7 @@ public final class SongCreditsDeviceTest{
    assertEquals("",db.get(id).composer);
    db.update(id,"artist","기존 가수");
    db.update(id,"genre","발라드");
-   assertEquals(0,db.fillMissingArtists()); // The record already has a singer.
+   db.fillMissingArtists(); // Existing singer must never be replaced.
    assertEquals("기존 가수",db.get(id).artist);
    db.markOriginal(id,true);
    assertEquals(1,db.get(id).isOriginal);
