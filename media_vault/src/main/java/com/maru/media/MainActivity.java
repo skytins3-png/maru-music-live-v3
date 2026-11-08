@@ -178,12 +178,36 @@ public final class MainActivity extends Activity {
    homeTap(imageScreen,"사연 보내기",.510f,.595f,1f,.848f,width,height,()->switchTab(2));
    homeTap(imageScreen,"인기 노래 TOP 5",.000f,.864f,1f,1f,width,height,this::topFive);
    main.addView(imageScreen,new LinearLayout.LayoutParams(-1,height));
+   // Home MUST fit above the fixed bottom tabs, regardless of Galaxy aspect ratio.
+   mainScroller.post(()->{
+     int actualHeight=mainScroller.getHeight()-dp(25);
+     if(actualHeight<dp(360))return;
+     LinearLayout.LayoutParams frameSize=(LinearLayout.LayoutParams)imageScreen.getLayoutParams();
+     frameSize.height=actualHeight;
+     imageScreen.setLayoutParams(frameSize);
+     imageScreen.post(()->{
+       int realWidth=imageScreen.getWidth(),realHeight=imageScreen.getHeight();
+       for(int i=1;i<imageScreen.getChildCount();i++){
+         View target=imageScreen.getChildAt(i);
+         Object tag=target.getTag();
+         if(!(tag instanceof float[]))continue;
+         float[] region=(float[])tag;
+         FrameLayout.LayoutParams hit=new FrameLayout.LayoutParams(
+           Math.max(dp(40),Math.round(realWidth*(region[2]-region[0]))),
+           Math.max(dp(38),Math.round(realHeight*(region[3]-region[1]))));
+         hit.leftMargin=Math.round(realWidth*region[0]);
+         hit.topMargin=Math.round(realHeight*region[1]);
+         target.setLayoutParams(hit);
+       }
+     });
+   });
  }
  private void homeTap(FrameLayout parent,String label,float left,float top,float right,float bottom,
                       int width,int height,Runnable action){
    TextView touch=new TextView(this);
    touch.setText(label);touch.setTextColor(Color.TRANSPARENT);
    touch.setContentDescription(label);
+   touch.setTag(new float[]{left,top,right,bottom});
    touch.setGravity(Gravity.CENTER);touch.setBackgroundColor(Color.TRANSPARENT);
    int l=Math.round(width*left),t=Math.round(height*top);
    FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(
