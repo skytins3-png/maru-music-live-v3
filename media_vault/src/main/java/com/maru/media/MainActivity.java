@@ -129,6 +129,8 @@ public final class MainActivity extends Activity {
    try(java.io.InputStream in=getAssets().open("studio_mic.jpg")){
      Bitmap bitmap=BitmapFactory.decodeStream(in);
      if(bitmap!=null){
+       if(bitmap.getHeight()>20)bitmap=Bitmap.createBitmap(bitmap,0,Math.min(10,bitmap.getHeight()-1),
+         bitmap.getWidth(),bitmap.getHeight()-Math.min(10,bitmap.getHeight()-1));
        ImageView photo=new ImageView(this);photo.setImageBitmap(bitmap);
        photo.setScaleType(ImageView.ScaleType.CENTER_CROP);photo.setAlpha(0.72f);
        FrameLayout.LayoutParams img=new FrameLayout.LayoutParams(dp(194),-1,Gravity.RIGHT);
