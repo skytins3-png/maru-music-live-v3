@@ -38,6 +38,12 @@ public class ShowcaseEightScreensTest {
    assertTrue(dir.exists()||dir.mkdirs());
    Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
    assertNotNull("Virtual Android screen capture required",shot);
+   {
+     File rawFile=new File(dir,name+".png");
+     try(FileOutputStream out=new FileOutputStream(rawFile)){
+       assertTrue(shot.compress(Bitmap.CompressFormat.PNG,100,out));
+     }
+   }
    if("01-home".equals(name)){
      int colorfulPixels=0;
      for(int yy=shot.getHeight()/6;yy<shot.getHeight()*4/5;yy+=Math.max(1,shot.getHeight()/28)){
@@ -49,16 +55,22 @@ public class ShowcaseEightScreensTest {
      }
      assertTrue("App home screenshot has no colored menu tiles: "+colorfulPixels,colorfulPixels>=9);
    }
-   try(FileOutputStream out=new FileOutputStream(new File(dir,name+".png"))){
-     assertTrue(shot.compress(Bitmap.CompressFormat.PNG,100,out));
-   }finally{shot.recycle();}
+   shot.recycle();
  }
  private void ready() throws Exception{
    String status="";
    for(int i=0;i<100;i++){
      status=eval("document.querySelectorAll('.screen').length+':'+document.querySelectorAll('#bottom-nav button').length+':'+Math.round(document.querySelector('.phone')?.getBoundingClientRect().height||0)");
      String[] p=status.replace("\"","").split(":");
-     if(p.length==3&&"9".equals(p[0])&&"4".equals(p[1])&&Integer.parseInt(p[2])>500)return;
+     if(p.length==3&&"9".equals(p[0])&&"4".equals(p[1])&&Integer.parseInt(p[2])>500){
+       // The photo asset is decoded asynchronously by WebView; DOM navigation alone is insufficient.
+       for(int w=0;w<40;w++){
+         if("true".equals(eval("document.querySelector('.exact-home img')?.complete && document.querySelector('.exact-home img')?.naturalWidth>150")))break;
+         Thread.sleep(120);
+       }
+       Thread.sleep(750);
+       return;
+     }
      Thread.sleep(200);
    }
    fail("Visible WebView UI failed to load on emulator: "+status);
