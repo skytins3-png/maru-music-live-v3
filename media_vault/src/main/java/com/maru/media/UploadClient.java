@@ -15,7 +15,7 @@ public final class UploadClient {
  }
  private static String headerFilename(String name){
    if(name==null)return "audio.mp3";
-   return name.replaceAll("[^A-Za-z0-9._-]","_").substring(0,Math.min(70,name.length()));
+   String safe=name.replaceAll("[^A-Za-z0-9._-]","_");return safe.substring(0,Math.min(70,safe.length()));
  }
  public static boolean upload(Context context,VaultDb.Track track,String baseUrl,String uploadToken)throws Exception{
    if(track==null||track.rightsOk!=1)throw new SecurityException("업로드 권한 미승인");
