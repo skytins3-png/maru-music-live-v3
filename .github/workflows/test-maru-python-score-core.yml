@@ -1,0 +1,54 @@
+name: Test MARU Python Score Engine
+on:
+  push:
+    branches: [maru-python-kivy-score-apk-20261109]
+    paths:
+      - 'python_score_apk/**'
+      - '.github/workflows/test-maru-python-score-core.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  score-unit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install 'numpy>=2,<3'
+      - name: Verify Python algorithm creates real score files
+        working-directory: python_score_apk
+        run: |
+          python - <<'PY'
+          import numpy as np
+          from score_engine import transcribe,pdf_bytes,xml_bytes,midi_bytes
+          sr=11025
+          melody=[60,62,64,65,67,69,67,64]
+          duration=.75
+          x=np.concatenate([.30*np.sin(2*np.pi*(440*2**((m-69)/12))*np.arange(int(sr*duration))/sr) for m in melody]).astype('float32')
+          notes=transcribe(x,80)
+          active=[x.midi for x in notes if x.midi is not None]
+          print('Actual notes:',active)
+          assert len(active)>=6
+          assert active[0] in (59,60,61)
+          assert active[-1] in (63,64,65)
+          pdf=pdf_bytes(notes,80,'MARU test')
+          xml=xml_bytes(notes,80,'MARU test')
+          midi=midi_bytes(notes,80)
+          assert pdf.startswith(b'%PDF-')
+          assert b'<score-partwise' in xml
+          assert midi.startswith(b'MThd')
+          open('test_score.pdf','wb').write(pdf)
+          open('test_score.musicxml','wb').write(xml)
+          open('test_score.mid','wb').write(midi)
+          print('PASS: vector PDF MusicXML MIDI and pitch detection')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-Python-Score-Engine-Test
+          path: |
+            python_score_apk/test_score.pdf
+            python_score_apk/test_score.musicxml
+            python_score_apk/test_score.mid

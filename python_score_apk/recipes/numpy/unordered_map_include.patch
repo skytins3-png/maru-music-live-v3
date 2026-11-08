@@ -1,0 +1,4 @@
+--- a/numpy/_core/src/multiarray/unique.cpp
++++ b/numpy/_core/src/multiarray/unique.cpp
+@@ -1,0 +1,1 @@
++#include <unordered_map>

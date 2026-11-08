@@ -1,0 +1,50 @@
+name: Build MARU Python Score APK (Chaquopy)
+on:
+  push:
+    branches: [maru-python-kivy-score-apk-20261109]
+    paths:
+      - 'python_score_chaquopy/**'
+      - '.github/workflows/build-maru-chaquopy-score.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Confirm preinstalled Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/platforms/android-35" || (yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35')
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Test Python source syntax
+        run: python -m py_compile python_score_chaquopy/app/src/main/python/*.py
+      - name: Compile actual Android APK with bundled Python and NumPy
+        working-directory: python_score_chaquopy
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify installable APK
+        working-directory: python_score_chaquopy
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          unzip -t app/build/outputs/apk/debug/app-debug.apk >/dev/null
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MARU-PYTHON-SCORE-CHAQUOPY-APK
+          path: |
+            python_score_chaquopy/app/build/outputs/apk/debug/*.apk
+            python_score_chaquopy/app/build/reports/**
+          retention-days: 15
+          if-no-files-found: warn
