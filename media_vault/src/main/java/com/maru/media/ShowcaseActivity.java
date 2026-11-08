@@ -29,7 +29,8 @@ import java.util.*;
 /** Eight-screen MARU UI. Local-only WebView, backed by the existing private media database. */
 public final class ShowcaseActivity extends Activity {
   private static final int IMPORT=701,FOLDER=702,MANIFEST=703,UPLOAD_FILE=704,
-          COVER=705,SCORE=706,STORY_FILE=707,SAVE_AUDIO=708,OPEN_STORY_FILE=709;
+          COVER=705,SCORE=706,STORY_FILE=707,SAVE_AUDIO=708,OPEN_STORY_FILE=709,
+          EXPORT_METADATA=710,RESTORE_METADATA=711;
   private final Handler ui=new Handler(Looper.getMainLooper());
   private WebView web; private VaultDb db; private MediaPlayer player;
   private long uploadId=-1,selectedTrack=-1,saveTrack=-1;
@@ -153,6 +154,31 @@ public final class ShowcaseActivity extends Activity {
     super.onActivityResult(req,result,data);
     if(result!=RESULT_OK||data==null)return;
     Uri uri=data.getData();
+    if(req==EXPORT_METADATA&&uri!=null){
+      new Thread(()->{
+        try(OutputStream out=getContentResolver().openOutputStream(uri)){
+          if(out==null)throw new IOException("백업 파일 저장 실패");
+          byte[] contents=VaultMetadataArchive.exportData(db).getBytes(StandardCharsets.UTF_8);
+          out.write(contents);out.flush();
+          say("노래 목록·사연·댓글 백업 완료. 실제 음원·사진은 포함되지 않습니다.");
+        }catch(Exception e){say("목록 백업 실패: "+e.getMessage());}
+      },"maru-metadata-export").start();return;
+    }
+    if(req==RESTORE_METADATA&&uri!=null){
+      new Thread(()->{
+        try(InputStream in=getContentResolver().openInputStream(uri);
+            ByteArrayOutputStream buffer=new ByteArrayOutputStream()){
+          if(in==null)throw new IOException("백업 파일 열기 실패");
+          byte[] part=new byte[8192];int k;
+          while((k=in.read(part))!=-1){
+            buffer.write(part,0,k);
+            if(buffer.size()>6_000_000)throw new IOException("백업 파일은 6MB 이하만 가능합니다");
+          }
+          VaultMetadataArchive.Result result=VaultMetadataArchive.importData(db,buffer.toString("UTF-8"));
+          say("목록 복구 완료: "+result.toString());changed();
+        }catch(Exception e){say("목록 복구 실패: "+e.getMessage());}
+      },"maru-metadata-restore").start();return;
+    }
     if(req==FOLDER&&uri!=null){
       persist(uri);say("폴더의 음원을 검사하고 있습니다...");
       new Thread(()->{
@@ -272,6 +298,13 @@ public final class ShowcaseActivity extends Activity {
       try{startActivityForResult(i,FOLDER);}catch(Exception e){say("폴더 선택을 열 수 없습니다.");}
     });}
     @JavascriptInterface public void getManifest(){ui.post(()->launchPicker(MANIFEST,"application/json",null));}
+    @JavascriptInterface public void exportMetadata(){ui.post(()->{
+      Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+      i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/json");
+      i.putExtra(Intent.EXTRA_TITLE,"MARU_노래사연_목록백업.json");
+      try{startActivityForResult(i,EXPORT_METADATA);}catch(Exception e){say("목록 백업 저장 화면을 열 수 없습니다.");}
+    });}
+    @JavascriptInterface public void restoreMetadata(){ui.post(()->launchPicker(RESTORE_METADATA,"application/json",null));}
     @JavascriptInterface public void chooseSong(){ui.post(()->launchPicker(UPLOAD_FILE,"*/*",new String[]{"audio/mpeg","audio/mp4","application/zip"}));}
     @JavascriptInterface public void pickArt(long id){selectedTrack=id;ui.post(()->launchPicker(COVER,"image/*",null));}
     @JavascriptInterface public void pickScore(long id){selectedTrack=id;ui.post(()->launchPicker(SCORE,"application/pdf",null));}

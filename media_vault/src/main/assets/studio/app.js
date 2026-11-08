@@ -296,6 +296,10 @@ function renderProfile(){
  +'<button class="secondary-btn" style="width:100%" data-action="saveServer">서버 연결 정보 저장</button></div>'
  +'<div class="panel"><div class="profile-row" data-action="about">'+icon("settings")+'<span>앱 설정·버전</span><span class="hint">V1.1.0</span> ❯</div>'
  +'<div class="profile-row" data-action="stop">'+icon("music")+'<span>음원 재생 정지</span> ❯</div></div>'
+ +'<div class="panel"><h3>노래·사연 목록 백업·복구</h3>'
+ +'<div class="row" style="flex-wrap:wrap"><button class="secondary-btn" data-action="exportMetadata">목록 백업(JSON)</button>'
+ +'<button class="secondary-btn" data-action="restoreMetadata">목록 복구(JSON)</button></div>'
+ +'<p class="disclaimer">곡 이름·분류·사연·댓글·답글을 보존합니다. 실제 MP3·ZIP, 앨범 표지, 첨부·악보 원본은 포함되지 않으므로 별도로 보관하고, 복구 시 원곡을 먼저 가져오세요.</p></div>'
  +'<button class="logout" data-action="logout">↪ 로그아웃 (임시 인증키 지우기)</button>'
  +'<p class="disclaimer">이 버전의 로컬 관리 앱에는 로그인 계정이 없습니다. 서버 접속은 인증키가 있을 때만 가능합니다. 모든 업로드·사연 데이터는 기본적으로 개인 기기에서 관리됩니다.</p>';
 }
@@ -370,6 +374,8 @@ document.addEventListener("click",e=>{
    else if(option==="2")call("pickScore",selectedSong);
    else if(option==="3")call("stop");return;
  }
+ if(act==="exportMetadata"){call("exportMetadata");return;}
+ if(act==="restoreMetadata"){call("restoreMetadata");return;}
  if(act==="saveServer"){notify(call("setServer",$("serverUrl").value,$("serverToken").value));return;}
  if(act==="toggleDemo"){demoMode=!demoMode;notify(demoMode?"디자인 시연 켜짐: 실제 데이터가 아닙니다.":"디자인 시연 꺼짐");renderProfile();return;}
  if(act==="about"){notify("MARU RADIO V1.1.0 · 8화면 · 개인 보관함 · 외부 송출 별도");return;}
