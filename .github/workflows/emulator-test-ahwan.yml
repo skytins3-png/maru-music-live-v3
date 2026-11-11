@@ -1,0 +1,84 @@
+name: Emulator test AHwan voice studio and MARU audio-only bridge
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ahwan_voice/**'
+      - 'app/**'
+      - 'scripts/test_ahwan_android_emulator.py'
+      - '.github/workflows/emulator-test-ahwan.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Android SDK 36
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Static tests and both deliverable ARM64 APK builds
+        run: |
+          set -euo pipefail
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_voice_policy.py
+          gradle --no-daemon :app:testDebugUnitTest
+          gradle --no-daemon :ahwan_voice:assembleRelease :app:assembleRelease -PmaruClipOnly=1
+          mkdir -p verified-arm64
+          cp ahwan_voice/build/outputs/apk/release/ahwan_voice-release.apk verified-arm64/AHWAN-REAL-VOICE-NO-TTS-V0.2.apk
+          cp app/build/outputs/apk/release/app-release.apk verified-arm64/MARU-REAL-VOICE-ONLY-BRIDGE-V3.2.25.apk
+          for a in verified-arm64/*.apk; do "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$a"; done
+      - name: Build equivalent x86_64 emulator APK, no changes to user release
+        run: |
+          set -euo pipefail
+          gradle --no-daemon :app:assembleDebug -PmaruClipOnly=1 -PmaruEmulatorTest=1
+          mkdir -p deliverables
+          cp verified-arm64/AHWAN-REAL-VOICE-NO-TTS-V0.2.apk deliverables/
+          cp app/build/outputs/apk/debug/app-debug.apk deliverables/MARU-REAL-VOICE-ONLY-BRIDGE-V3.2.25.apk
+      - name: Enable nested KVM on GitHub runner for reliable UI
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+            ls -l /dev/kvm
+          else
+            echo "::warning::No KVM device on this runner, emulator will be slower"
+          fi
+      - name: Start virtual Android 35 and perform recording / playback / MARU handoff
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          disable-animations: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          script: python3 scripts/test_ahwan_android_emulator.py
+      - name: Upload virtual device screenshots and test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ahwan-virtual-phone-results
+          if-no-files-found: warn
+          path: |
+            emulator-results/**
+            verified-arm64/*.apk
