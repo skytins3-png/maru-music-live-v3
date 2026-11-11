@@ -39,6 +39,17 @@ public final class RadioProgram {
     public static boolean showEnabled(Context context) {return pref(context).getBoolean("show_hosts", false);}
     public static void setShowEnabled(Context context, boolean enabled) {pref(context).edit().putBoolean("show_hosts", enabled).apply();}
 
+    /**
+     * Never enable a music stop timer implicitly. Older versions stored a
+     * 60-minute duration without recording an explicit user choice.
+     */
+    public static boolean autoStopEnabled(Context context) {
+        return pref(context).getBoolean("auto_stop_enabled", false);
+    }
+    public static void setAutoStopEnabled(Context context, boolean enabled) {
+        pref(context).edit().putBoolean("auto_stop_enabled", enabled).apply();
+    }
+
     public static int durationMinutes(Context context) {
         return Math.max(5, Math.min(720, pref(context).getInt("duration", 60)));
     }
