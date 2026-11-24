@@ -13,6 +13,11 @@ android {
         if (project.hasProperty('maruStandalone')) {
             applicationId 'com.maru.musiclive.one'
         }
+        // New side-by-side auto-library scanner build. Keep every already
+        // installed MARU package and its private database untouched.
+        if (project.hasProperty('maruAutoScan')) {
+            applicationId 'com.maru.musiclive.autoscan.v20261124'
+        }
         // Safety fallback for Android INSTALL_FAILED_UPDATE_INCOMPATIBLE:
         // new unique package, no overwrite and no private-data migration.
         // Cannot upgrade differently signed existing MARU apps.
@@ -49,6 +54,8 @@ android {
                 ? 'MARU 3언어 새설치'
                 : project.hasProperty('maruLibraryPreview')
                 ? 'MARU 노래 보관함 시험판'
+                : project.hasProperty('maruAutoScan')
+                ? 'MARU 음악 자동등록'
                 : project.hasProperty('maruStandalone')
                 ? 'MARU 통합 라디오'
                 : 'MARU RADIO EN'
@@ -65,6 +72,9 @@ android {
         versionName '3.2.25'
         if (project.hasProperty('maruLibraryPreview')) {
             versionName '3.2.25-library-preview'
+        }
+        if (project.hasProperty('maruAutoScan')) {
+            versionName '3.2.25-auto-scan'
         }
     }
 
