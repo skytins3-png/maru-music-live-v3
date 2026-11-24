@@ -1239,6 +1239,20 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         root.addView(text("7명 역할의 자동검사와 10명 전문가·에이전시의 건별 보고서를 구분합니다. "
                 + "독립 AI 모델의 상시 실행과 BIGO 실송출은 검증되지 않았습니다.", 12, false));
 
+        if (BuildConfig.MARU_DIRECT_RTMP) {
+            root.addView(text("★ OBS 없이 휴대폰에서 직접 송출", 19, true));
+            root.addView(text("BIGO 계정에서 외부 송출을 허용하고 제공한 RTMP(S)"
+                    + " 서버 주소와 스트림 키가 있어야 합니다. 이 방식은 BIGO 앱의"
+                    + " 오디오 LIVE 버튼을 자동으로 누르는 방식과 다릅니다.", 12, false));
+            root.addView(button("▶ 휴대폰 자체 송출 시작 · OBS 필요 없음", v ->
+                    startNativeRtmpFromSaved()));
+            root.addView(button("공식 BIGO 서버·스트림 키 안전 저장", v ->
+                    showNativeRtmpCredentials()));
+            root.addView(button("■ 휴대폰 직접 송출 중지", v -> stopNativeRtmp()));
+            root.addView(button("송출 연결 상태 확인 · 청취자 검증 별도", v ->
+                    showNativeRtmpStatus()));
+        }
+
         root.addView(text("★ BIGO 오디오 LIVE · 실전 방송 연결", 18, true));
         root.addView(button("▶ BIGO 오디오 LIVE 연결 · 음악·송출 검사", v ->
                 showBigoDeliveryPanel()));
@@ -1448,6 +1462,142 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                        .show())
                 .setNegativeButton("취소",null)
                 .show();
+    }
+
+    /** Device-only external encoder. No PC, no OBS software, no Accessibility. */
+    private void showNativeRtmpCredentials() {
+        if(!BuildConfig.MARU_DIRECT_RTMP)return;
+        LinearLayout form=new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(16),dp(10),dp(16),0);
+        form.addView(text("BIGO 계정에서 외부 스트리밍이 허용된 경우에만"
+            + " 서버 URL과 스트림 키가 표시됩니다. 키는 GitHub나 이 채팅에"
+            + " 보내지 말고 휴대폰에만 입력하세요.",13,false));
+        EditText serverField=new EditText(this);
+        serverField.setSingleLine(true);
+        serverField.setText(BigoRtmpCredentialVault.server(this));
+        serverField.setHint("rtmps://서버.example/live");
+        serverField.setTextSize(14f);
+        form.addView(serverField);
+        EditText secretField=new EditText(this);
+        secretField.setSingleLine(true);
+        secretField.setHint("BIGO 계정 전용 스트림 키 (입력시 가림)");
+        secretField.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+              | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        form.addView(secretField);
+        CheckBox consent=new CheckBox(this);
+        consent.setText("내 BIGO 계정에서 외부 송출이 허용되었고, 공개 방송을 시작하는 데 동의");
+        consent.setTextSize(13f);
+        form.addView(consent);
+        new AlertDialog.Builder(this)
+          .setTitle("OBS 없는 MARU 송출 · 공식 키 설정")
+          .setView(form)
+          .setPositiveButton("암호화 저장",(dialog,which)->{
+              try{
+                  String server=serverField.getText().toString().trim();
+                  String key=secretField.getText().toString().trim();
+                  if(!BigoRtmpEndpointPolicy.validServer(server)
+                       || !BigoRtmpEndpointPolicy.validStreamKey(key)){
+                      toast("공식 RTMP 서버 주소와 방송 키를 둘 다 입력해 주세요.");
+                      return;
+                  }
+                  BigoRtmpCredentialVault.save(this,server,key);
+                  toast("방송 키를 휴대폰 보안 저장소에 암호화했습니다.");
+              }catch(Exception error){
+                  toast("암호화 저장 실패 · 다른 정보로 다시 시도해 주세요.");
+              }
+          })
+          .setNeutralButton("저장 후 직접 송출",(dialog,which)->{
+              if(!consent.isChecked()){
+                  toast("공개 방송에 동의해야 시작할 수 있습니다.");
+                  return;
+              }
+              try{
+                  String server=serverField.getText().toString().trim();
+                  String secret=secretField.getText().toString().trim();
+                  if(!BigoRtmpEndpointPolicy.validServer(server)
+                       || !BigoRtmpEndpointPolicy.validStreamKey(secret)){
+                      toast("계정에서 받은 서버 URL과 스트림 키를 입력해야 합니다.");
+                      return;
+                  }
+                  BigoRtmpCredentialVault.save(this,server,secret);
+                  startNativeRtmpFromSaved();
+              }catch(Exception error){
+                  toast("안전 저장 실패 · 방송을 시작하지 않았습니다.");
+              }
+          })
+          .setNegativeButton("닫기",null).show();
+    }
+
+    private void startNativeRtmpFromSaved(){
+        if(!BuildConfig.MARU_DIRECT_RTMP)return;
+        if(songs.isEmpty()){
+            new AlertDialog.Builder(this).setTitle("송출할 음악이 없습니다")
+              .setMessage("휴대폰에 내려받은 자작곡을 먼저 검색해야 합니다.")
+              .setPositiveButton("자동 음악 검색",(d,w)->scanDeviceMusic(true))
+              .setNegativeButton("닫기",null).show();
+            return;
+        }
+        try{
+            String key=BigoRtmpCredentialVault.loadKey(this);
+            String url=BigoRtmpCredentialVault.server(this);
+            if(!BigoRtmpEndpointPolicy.validServer(url)
+                    || !BigoRtmpEndpointPolicy.validStreamKey(key)){
+                showNativeRtmpCredentials();
+                return;
+            }
+            new AlertDialog.Builder(this)
+                .setTitle("MARU → BIGO 외부 송출 시작")
+                .setMessage("OBS는 사용하지 않습니다. 휴대폰 MARU가 원곡과"
+                      + " 고정 커버 이미지를 직접 인코딩해 BIGO 계정에서"
+                      + " 허용한 서버로 송출을 시도합니다."
+                      + "\n\n공개 방송으로 연결될 수 있습니다."
+                      + " 이 방법은 BIGO 앱의 오디오 LIVE 방을 자동 조작하지 않습니다."
+                      + "\n\n실제 청취 확인은 별도로 해야 합니다.")
+                .setPositiveButton("공개 송출 시작",(d,w)->{
+                    Intent action=new Intent();
+                    action.setClassName(this,"com.maru.musiclive.BigoDirectRtmpService");
+                    action.setAction("com.maru.musiclive.rtmp.START");
+                    ArrayList<String> queue=new ArrayList<>(songs);
+                    if(queue.size()>200)queue=new ArrayList<>(queue.subList(0,200));
+                    action.putStringArrayListExtra("songs",queue);
+                    try{
+                        ContextCompat.startForegroundService(this,action);
+                        toast("네이티브 RTMP 연결 요청 · 연결 상태를 확인하세요.");
+                    }catch(Exception error){
+                        toast("송출 서비스 시작 실패 · 장치 설정과 앱 권한 확인");
+                    }
+                })
+                .setNegativeButton("취소",null).show();
+        }catch(Exception error){
+            toast("저장된 스트림 키를 읽지 못했습니다. 다시 설정하세요.");
+        }
+    }
+
+    private void stopNativeRtmp(){
+        if(!BuildConfig.MARU_DIRECT_RTMP)return;
+        Intent stop=new Intent();
+        stop.setClassName(this,"com.maru.musiclive.BigoDirectRtmpService");
+        stop.setAction("com.maru.musiclive.rtmp.STOP");
+        try{startService(stop);toast("직접송출 종료 요청을 전송했습니다.");}
+        catch(Exception error){toast("송출 종료 오류 · 앱 알림에서 방송 서비스를 중지하세요.");}
+    }
+
+    private void showNativeRtmpStatus(){
+        if(!BuildConfig.MARU_DIRECT_RTMP)return;
+        android.content.SharedPreferences prefs=getSharedPreferences(
+                "maru_rtmp_connection_status",MODE_PRIVATE);
+        String status=prefs.getString("status","아직 RTMP 서버 연결을 실행하지 않음");
+        long last=prefs.getLong("updated",0L);
+        if(last<=0 || System.currentTimeMillis()-last>15*60*1000L)
+            status+="\n\n이전 실행 기록입니다. 현재 방송 상태를 증명하지 않습니다.";
+        new AlertDialog.Builder(this)
+            .setTitle("MARU RTMP 연결 상태")
+            .setMessage(status+"\n\n서버 연결 상태와 BIGO 실제 방 개설·청취자"
+                    +" 수신 성공은 서로 다릅니다. 다른 청취자의 확인이 필요합니다.")
+            .setPositiveButton("BIGO 열기",(d,w)->openBigoChat())
+            .setNeutralButton("청취 결과 기록",(d,w)->showBigoListenerTest())
+            .setNegativeButton("닫기",null).show();
     }
 
     private void openMaruHubPage(String relativePath, String name) {
