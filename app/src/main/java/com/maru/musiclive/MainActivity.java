@@ -301,8 +301,10 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         startAndBindPlayback();
         showHomePlayer();
         requestNotificationPermission();
-        // Avoid expensive SHA-256 scanning of every media file on startup.
-        // Existing saved songs remain; user may scan explicitly when needed.
+        // Scan Android's indexed audio on app start once permission has been
+        // granted. The permission prompt is owned by Android, not by a web page.
+        // Scanning is on a worker thread and never deletes existing song URIs.
+        scanDeviceMusic(false);
         importSharedOriginals(getIntent());
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() {
@@ -3592,13 +3594,21 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         deviceMusicScanRunning = false;
         if (isFinishing() || isDestroyed()) return;
 
+        // Incremental, non-destructive import. Never silently drop a song
+        // previously saved by the user when Android re-indexes, permission is
+        // temporarily revoked, or the scan returns an empty result.
         List<String> merged = new ArrayList<>();
         for (String existing : songs) {
-            if (existing == null || existing.startsWith("content://media/")) continue;
-            if (!merged.contains(existing)) merged.add(existing);
+            if (existing != null && !existing.isEmpty()
+                    && !merged.contains(existing)) merged.add(existing);
         }
+        int added = 0;
         for (SongItem item : result.songs) {
-            if (!merged.contains(item.uri)) merged.add(item.uri);
+            if (item.uri != null && !item.uri.isEmpty()
+                    && !merged.contains(item.uri)) {
+                merged.add(item.uri);
+                added++;
+            }
         }
 
         boolean changed = !merged.equals(songs);
@@ -3612,8 +3622,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             loadLyricsForCurrentSong();
         }
         if (userInitiated || changed) {
-            toast(result.songs.size() + "곡 불러옴 · 동일 파일 "
-                    + result.duplicates + "개 제외");
+            toast("휴대폰 음악 " + result.songs.size() + "곡 확인 · 신규 "
+                    + added + "곡 추가 · 중복 " + result.duplicates
+                    + "곡 제외 · 기존 목록 보존");
         }
     }
 
