@@ -40,6 +40,12 @@
                 <data android:mimeType="audio/*" />
             </intent-filter>
         </activity>
+        <!-- Dedicated owner-authorized RTMP service is disabled in every older
+             MARU build; only -PmaruDirectRtmp=1 includes its native encoder. -->
+        <service android:name=".BigoDirectRtmpService"
+            android:enabled="${maruRtmpEnabled}"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
         <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".AutoGreetingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".SunoTalkCompanionService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
