@@ -1,0 +1,76 @@
+name: Build MARU BIGO one-phone audio live bridge
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-maru-bigo-bridge.yml'
+      - 'app/build.gradle'
+      - 'app/src/main/java/com/maru/musiclive/MainActivity.java'
+      - 'app/src/main/java/com/maru/musiclive/BigoMusicExportPlan.java'
+      - 'app/src/main/java/com/maru/musiclive/BigoMusicExporter.java'
+      - 'app/src/main/java/com/maru/musiclive/BigoListenerEvidence.java'
+      - 'app/src/test/java/com/maru/musiclive/BigoBroadcastBridgeTest.java'
+      - 'scripts/test_bigo_ready_contract.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Android 36 SDK
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify broadcaster handoff contract and local resources
+        run: |
+          python3 scripts/test_bigo_ready_contract.py
+          python3 scripts/test_maru_full_hub_contract.py
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_required_media.py
+      - name: Unit tests, lint and compile BIGO bridge APK
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease -PmaruBigoReady=1
+      - name: Check signed APK package and permitted audio storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          unzip -t "$APK" > /dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/maru-bigo-bridge.txt
+          grep -F "name='com.maru.musiclive.bigo.ready20261124'" /tmp/maru-bigo-bridge.txt
+          grep -F "versionName='3.2.26-bigo-ready'" /tmp/maru-bigo-bridge.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/maru-bigo-bridge-manifest.txt
+          grep -F "READ_MEDIA_AUDIO" /tmp/maru-bigo-bridge-manifest.txt
+          if grep -E "BIND_ACCESSIBILITY_SERVICE|MANAGE_EXTERNAL_STORAGE|CAPTURE_AUDIO_OUTPUT|READ_SMS|RECEIVE_SMS" /tmp/maru-bigo-bridge-manifest.txt; then
+            echo 'Unexpected sensitive permission in APK'; exit 1
+          fi
+          cp "$APK" MARU-BIGO-AUDIO-READY-20261124.apk
+          sha256sum MARU-BIGO-AUDIO-READY-20261124.apk > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > SIGNER.txt
+      - name: Upload signed standalone installer and checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-BIGO-ONE-PHONE-AUDIO-READY-APK
+          path: |
+            MARU-BIGO-AUDIO-READY-20261124.apk
+            SHA256SUMS.txt
+            SIGNER.txt
+          retention-days: 90
+          if-no-files-found: error
