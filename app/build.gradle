@@ -23,6 +23,11 @@ android {
         if (project.hasProperty('maruFullHub')) {
             applicationId 'com.maru.musiclive.fullhub.v20261124'
         }
+        // Distinct BIGO-ready build, separate from every previous MARU install.
+        // Cannot silently launch BIGO's live room or hijack its microphone.
+        if (project.hasProperty('maruBigoReady')) {
+            applicationId 'com.maru.musiclive.bigo.ready20261124'
+        }
         // Safety fallback for Android INSTALL_FAILED_UPDATE_INCOMPATIBLE:
         // new unique package, no overwrite and no private-data migration.
         // Cannot upgrade differently signed existing MARU apps.
@@ -40,7 +45,7 @@ android {
         buildConfigField 'boolean', 'AHWAN_CLIP_ONLY',
                 project.hasProperty('maruClipOnly') ? 'true' : 'false'
         buildConfigField 'boolean', 'MARU_FULL_HUB',
-                project.hasProperty('maruFullHub') ? 'true' : 'false'
+                (project.hasProperty('maruFullHub') || project.hasProperty('maruBigoReady')) ? 'true' : 'false'
         // Dedicated MARU voice-bridge APK installs beside earlier differently signed
         // MARU installations. No access to existing apps' saved private data.
         if (project.hasProperty('maruVoiceBridge')) {
@@ -61,6 +66,8 @@ android {
                 ? 'MARU 3언어 새설치'
                 : project.hasProperty('maruLibraryPreview')
                 ? 'MARU 노래 보관함 시험판'
+                : project.hasProperty('maruBigoReady')
+                ? 'MARU BIGO 방송연결'
                 : project.hasProperty('maruFullHub')
                 ? 'MARU ONE 통합 조종실'
                 : project.hasProperty('maruAutoScan')
@@ -87,6 +94,9 @@ android {
         }
         if (project.hasProperty('maruFullHub')) {
             versionName '3.2.25-full-hub-20261124'
+        }
+        if (project.hasProperty('maruBigoReady')) {
+            versionName '3.2.26-bigo-ready'
         }
     }
 
