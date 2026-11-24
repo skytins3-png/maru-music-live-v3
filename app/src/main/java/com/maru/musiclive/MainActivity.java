@@ -1239,6 +1239,12 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         root.addView(text("7명 역할의 자동검사와 10명 전문가·에이전시의 건별 보고서를 구분합니다. "
                 + "독립 AI 모델의 상시 실행과 BIGO 실송출은 검증되지 않았습니다.", 12, false));
 
+        root.addView(text("★ BIGO 오디오 LIVE · 실전 방송 연결", 18, true));
+        root.addView(button("▶ BIGO 오디오 LIVE 연결 · 음악·송출 검사", v ->
+                showBigoDeliveryPanel()));
+        root.addView(text("BIGO 앱 열기·원곡 공유·청취 결과 확인. "
+                + "BIGO 안의 방송 시작 버튼과 음악 믹서는 공식 앱에서 조작해야 합니다.", 12, false));
+
         root.addView(text("① 휴대폰 내부 음악 · 실제 Android 기능", 17, true));
         root.addView(button("휴대폰 전체 노래 자동 검색·등록", v -> {
             scanDeviceMusic(true);
@@ -1302,6 +1308,146 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 + " 앱 전환 중 음악이 BIGO 청취자에게 실제 전달되는지는 아직 미검증입니다.",
                 12, false));
         setContentView(scroll);
+    }
+
+    /** Public BIGO flow. This is a preparation tool, not an undocumented
+     * BIGO login/Start Live API and not an audio-microphone injection service. */
+    private void showBigoDeliveryPanel() {
+        boolean installed=getPackageManager()
+                .getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE)!=null;
+        String availability=installed ? "설치 확인" : "설치되지 않았거나 실행 불가";
+        String message="BIGO 앱: "+availability
+                +"\\nMARU 음악 목록: "+songs.size()+"곡"
+                +"\\n방송 상태: BIGO 서버 확인 권한 없음"
+                +"\\n\\n오디오 LIVE는 BIGO에서 방송 버튼 → 오디오 LIVE → 방송 시작을 직접 눌러야 합니다."
+                +"\\nMARU 백그라운드 음악은 BIGO 마이크로 자동 송출되지 않습니다."
+                +"\\nBIGO 자체 음악/믹서가 있을 때 공유 음악 폴더의 곡을 선택해야 실제 송출을 기대할 수 있습니다."
+                +"\\n\\n접근성·화면 자동 클릭·숨겨진 비밀번호 사용 없음.";
+        String[] actions={
+                "① MARU 음악 켜고 BIGO 열기 · 송출 검증 필요",
+                "② BIGO 내장 음악 사용 · 앱 열기 (권장)",
+                "③ BIGO용 음악 폴더로 원곡 내보내기",
+                "④ 청취자에게 실제 들리는지 확인",
+                "⑤ 오디오 LIVE·믹서 사용 순서",
+                "⑥ 휴대폰 전체 음악 자동 검색"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("MARU → BIGO 실전 방송 연결")
+                .setMessage(message)
+                .setItems(actions,(dialog,which)->{
+                    if(which==0)startCommunityLive("오디오 LIVE");
+                    else if(which==1) {
+                        if(playback!=null) playback.pause();
+                        if(!installed)toast("BIGO LIVE 앱을 설치해야 합니다.");
+                        else openBigoChat();
+                    }
+                    else if(which==2)showBigoMusicExportPrompt();
+                    else if(which==3)showBigoListenerTest();
+                    else if(which==4)showBigoOfficialSteps();
+                    else scanDeviceMusic(true);
+                })
+                .setNegativeButton("닫기",null)
+                .show();
+    }
+
+    private void showBigoMusicExportPrompt() {
+        if(songs.isEmpty()){
+            new AlertDialog.Builder(this)
+                    .setTitle("음악이 아직 없습니다")
+                    .setMessage("휴대폰에 다운로드한 자작곡을 먼저 검색하세요. "
+                            +"Suno 계정에만 있는 비공개 곡은 이 앱이 직접 다운로드할 수 없습니다.")
+                    .setPositiveButton("휴대폰 음악 찾기",(d,w)->scanDeviceMusic(true))
+                    .setNegativeButton("취소",null).show();
+            return;
+        }
+        String[] choices={
+            "현재 재생 목록에서 선택한 곡 1개",
+            "저장된 원곡 최대 250개 (추가 저장 공간 필요)"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO 음악 선택용 파일 내보내기")
+                .setMessage("복사 위치: 내 파일 → 내장 저장공간 → Music → MARU_BIGO\\n"
+                    +"원곡은 삭제·변환하지 않으며 같은 곡은 재복사하지 않습니다. "
+                    +"BIGO 안에서 음악 파일 선택 기능이 제공될 때만 가져올 수 있습니다. "
+                    +"공유 폴더에 넣는 것만으로 송출이 시작되지는 않습니다.")
+                .setItems(choices,(d,which)->exportBigoMusic(which==0))
+                .setNegativeButton("취소",null)
+                .show();
+    }
+
+    private void exportBigoMusic(boolean currentOnly) {
+        if(songs.isEmpty()){toast("먼저 휴대폰에서 음악을 검색하세요.");return;}
+        List<String> sources=new ArrayList<>();
+        if(currentOnly){
+            int i=playback==null?0:playback.currentIndex();
+            if(i<0||i>=songs.size())i=0;
+            sources.add(songs.get(i));
+        } else sources.addAll(songs);
+        int limit=currentOnly?1:250;
+        toast("원곡을 보존하고 BIGO용 공유 폴더에 복사합니다.");
+        musicScanExecutor.execute(()->{
+            BigoMusicExporter.Result result=BigoMusicExporter.export(this,sources,limit);
+            handler.post(()->{
+                if(isFinishing()||isDestroyed())return;
+                new AlertDialog.Builder(this)
+                        .setTitle("BIGO용 음악 파일 준비 결과")
+                        .setMessage("공유 폴더 Music/MARU_BIGO\\n"
+                           +"새로 복사: "+result.copied+"곡"
+                           +"기존 파일 재사용: "+result.alreadyPresent+"곡"
+                           +"열기 실패: "+result.failed+"곡"
+                           +"지원하지 않는 확장자: "+result.unsupported+"곡"
+                           +"\\nBIGO 앱 오디오 LIVE → 도구/믹서 → 음악/배경음악에서"
+                           +" 파일을 선택할 수 있는지 확인하세요."
+                           +"\\n중요: 파일 준비와 실제 청취 송출은 별개입니다.")
+                        .setPositiveButton("BIGO 앱 열기",(d,w)->openBigoChat())
+                        .setNeutralButton("사용 순서",(d,w)->showBigoOfficialSteps())
+                        .setNegativeButton("닫기",null).show();
+            });
+        });
+    }
+
+    private void showBigoOfficialSteps() {
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO 오디오 LIVE 실제 송출 순서")
+                .setMessage("1. MARU에서 음악을 검색하고 필요하면 Music/MARU_BIGO 폴더로 복사합니다.\\n"
+                +"2. BIGO를 열어 로그인된 계정을 확인합니다.\\n"
+                +"3. BIGO 하단 방송 버튼 → 오디오 LIVE를 선택하고"
+                +" 방송 제목·표지를 확인한 후 방송 시작을 직접 누릅니다.\\n"
+                +"4. 방송 내 도구/믹서에 음악·배경음악 메뉴가 있다면"
+                +" Music/MARU_BIGO 원곡을 선택합니다. 메뉴가 없다면 지원되지 않는 경우입니다.\\n"
+                +"5. 채팅의 실제 청취자에게 진행자 목소리·첫 곡·다음곡이"
+                +" 모두 들리는지 물어보세요. 휴대폰 한 대만으로는 독립 청취 시험을 할 수 없습니다.\\n"
+                +"6. MARU로 돌아와 청취 결과 점검을 실행합니다.\\n\\n"
+                +"참고: BIGO가 다른 앱에서 재생되는 음악을 마이크 입력으로 받아주는 것은 보장되지 않습니다.")
+                .setPositiveButton("BIGO 열기",(d,w)->openBigoChat())
+                .setNeutralButton("청취 점검",(d,w)->showBigoListenerTest())
+                .setNegativeButton("닫기",null).show();
+    }
+
+    private void showBigoListenerTest() {
+        String[] labels={
+            "BIGO 오디오 LIVE의 방송 시작을 직접 확인함",
+            "실제 청취자가 진행자의 목소리를 들었다고 답함",
+            "실제 청취자가 노래를 들었다고 답함",
+            "실제 청취자가 다음 곡도 들었다고 답함"
+        };
+        boolean[] flags=new boolean[BigoListenerEvidence.COUNT];
+        new AlertDialog.Builder(this)
+                .setTitle("BIGO 실청취 확인 · 사용자 증언")
+                .setMessage("이 체크는 형이 실제 청취자에게 받은 답변을 기록합니다. "
+                    +"체크하지 않은 기능은 성공으로 표시되지 않습니다. "
+                    +"BIGO 서버에 직접 조회하는 기능은 아닙니다.")
+                .setMultiChoiceItems(labels,flags,(d,index,checked)->flags[index]=checked)
+                .setPositiveButton("검사 결과 보기",(d,w)->
+                    new AlertDialog.Builder(this)
+                       .setTitle(BigoListenerEvidence.complete(flags)
+                              ?"사용자 확인 4/4 · 서버 인증 아님":"BIGO 송출 미검증")
+                       .setMessage(BigoListenerEvidence.diagnosis(flags))
+                       .setPositiveButton("확인",null)
+                       .setNeutralButton("BIGO로 돌아가기",(a,b)->openBigoChat())
+                       .show())
+                .setNegativeButton("취소",null)
+                .show();
     }
 
     private void openMaruHubPage(String relativePath, String name) {
