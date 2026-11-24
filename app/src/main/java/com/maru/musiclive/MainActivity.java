@@ -319,7 +319,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 } else if (broadcastVisible) {
                     showBroadcastEndMenu();
                 } else {
-                    showHomePlayer();
+                    if (BuildConfig.MARU_FULL_HUB) showMaruUnifiedHome();
+                    else showHomePlayer();
                 }
             }
         });
@@ -1277,6 +1278,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                         "MUSIC SHARE")));
 
         root.addView(text("④ 기존 프로그램 · 외부 실행/자료 상태", 17, true));
+        root.addView(button("2025~2026 원본 프로그램 보존 목록", v ->
+                openMaruHubPage("mobile-hub/legacy.html",
+                        "MARU · 역대 프로그램 복구 상태")));
         root.addView(button("마루 AI 코드 생성 · 기존 웹 서비스", v -> {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW,
