@@ -47,7 +47,7 @@ jobs:
           python3 scripts/test_bigo_ready_contract.py
           python3 scripts/check_maru_clean.py
           python3 scripts/check_required_media.py
-          grep -q 'com.maru.musiclive.directrtmp.v20261124' app/build.gradle
+          grep -q 'com.maru.musiclive.directrtmp.rev2v20261124' app/build.gradle
           grep -q 'BigoRtmpCredentialVault.save' app/src/main/java/com/maru/musiclive/MainActivity.java
           grep -q 'new BitmapSource(makeCover())' app/src/rtmp/java/com/maru/musiclive/BigoDirectRtmpService.java
           grep -q 'new AudioFileSource' app/src/rtmp/java/com/maru/musiclive/BigoDirectRtmpService.java
@@ -64,8 +64,8 @@ jobs:
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/maru-rtmp.txt
-          grep -F "name='com.maru.musiclive.directrtmp.v20261124'" /tmp/maru-rtmp.txt
-          grep -F "versionName='3.2.27-obs-free-rtmp'" /tmp/maru-rtmp.txt
+          grep -F "name='com.maru.musiclive.directrtmp.rev2v20261124'" /tmp/maru-rtmp.txt
+          grep -F "versionName='3.2.27b-obs-free-rtmp'" /tmp/maru-rtmp.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/rtmp-manifest.txt
           grep -F 'BigoDirectRtmpService' /tmp/rtmp-manifest.txt
           grep -F 'READ_MEDIA_AUDIO' /tmp/rtmp-manifest.txt
