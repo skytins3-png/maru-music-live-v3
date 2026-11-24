@@ -28,6 +28,11 @@ android {
         if (project.hasProperty('maruBigoReady')) {
             applicationId 'com.maru.musiclive.bigo.ready20261124'
         }
+        // Native Android encoder; no PC OBS, no Accessibility automation.
+        // Different package protects every previously installed MARU app.
+        if (project.hasProperty('maruDirectRtmp')) {
+            applicationId 'com.maru.musiclive.directrtmp.v20261124'
+        }
         // Safety fallback for Android INSTALL_FAILED_UPDATE_INCOMPATIBLE:
         // new unique package, no overwrite and no private-data migration.
         // Cannot upgrade differently signed existing MARU apps.
@@ -45,7 +50,9 @@ android {
         buildConfigField 'boolean', 'AHWAN_CLIP_ONLY',
                 project.hasProperty('maruClipOnly') ? 'true' : 'false'
         buildConfigField 'boolean', 'MARU_FULL_HUB',
-                (project.hasProperty('maruFullHub') || project.hasProperty('maruBigoReady')) ? 'true' : 'false'
+                (project.hasProperty('maruFullHub') || project.hasProperty('maruBigoReady') || project.hasProperty('maruDirectRtmp')) ? 'true' : 'false'
+        buildConfigField 'boolean', 'MARU_DIRECT_RTMP',
+                project.hasProperty('maruDirectRtmp') ? 'true' : 'false'
         // Dedicated MARU voice-bridge APK installs beside earlier differently signed
         // MARU installations. No access to existing apps' saved private data.
         if (project.hasProperty('maruVoiceBridge')) {
@@ -56,6 +63,7 @@ android {
             applicationId 'com.maru.musiclive.librarypreview'
         }
         manifestPlaceholders = [
+            maruRtmpEnabled: project.hasProperty('maruDirectRtmp') ? 'true' : 'false',
             maruAppLabel: project.hasProperty('maruClipOnly')
                 ? 'MARU 아환 실제음성 연결'
                 : project.hasProperty('maruVoiceBridge')
@@ -66,6 +74,8 @@ android {
                 ? 'MARU 3언어 새설치'
                 : project.hasProperty('maruLibraryPreview')
                 ? 'MARU 노래 보관함 시험판'
+                : project.hasProperty('maruDirectRtmp')
+                ? 'MARU OBS없는 직접송출'
                 : project.hasProperty('maruBigoReady')
                 ? 'MARU BIGO 방송연결'
                 : project.hasProperty('maruFullHub')
@@ -98,6 +108,9 @@ android {
         if (project.hasProperty('maruBigoReady')) {
             versionName '3.2.26-bigo-ready'
         }
+        if (project.hasProperty('maruDirectRtmp')) {
+            versionName '3.2.27-obs-free-rtmp'
+        }
     }
 
     buildTypes {
@@ -121,6 +134,9 @@ android {
     sourceSets {
         main {
             res.srcDirs = ['src/main/res']
+            if (project.hasProperty('maruDirectRtmp')) {
+                java.srcDirs += ['src/rtmp/java']
+            }
         }
     }
 
@@ -148,4 +164,8 @@ dependencies {
     implementation 'com.google.mlkit:text-recognition-korean:16.0.1'
     implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
     testImplementation 'junit:junit:4.13.2'
+    // A separate APK variant only: existing MARU packages stay dependency-free.
+    if (project.hasProperty('maruDirectRtmp')) {
+        implementation 'com.github.pedroSG94.RootEncoder:library:2.8.2'
+    }
 }
