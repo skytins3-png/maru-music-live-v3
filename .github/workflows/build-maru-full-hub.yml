@@ -1,0 +1,75 @@
+name: MARU ONE unified native hub separate installable APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/maru/musiclive/MainActivity.java'
+      - 'app/build.gradle'
+      - 'scripts/test_maru_full_hub_contract.py'
+      - '.github/workflows/build-maru-full-hub.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android 36 and tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Full-hub role and persistence audit
+        run: |
+          python3 scripts/test_maru_full_hub_contract.py
+          python3 scripts/check_required_media.py
+          python3 scripts/check_maru_clean.py
+      - name: Compile Android, unit-test and lint real full-hub variant
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease -PmaruFullHub=1
+      - name: Inspect verified standalone full-hub APK package and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/maru-fullhub-badging.txt
+          grep -F "name='com.maru.musiclive.fullhub.v20261124'" /tmp/maru-fullhub-badging.txt
+          grep -F "application-label:'MARU ONE 통합 조종실'" /tmp/maru-fullhub-badging.txt
+          grep -F "versionName='3.2.25-full-hub-20261124'" /tmp/maru-fullhub-badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml >/tmp/maru-fullhub-manifest.txt
+          if grep -E 'BIND_ACCESSIBILITY_SERVICE|MANAGE_EXTERNAL_STORAGE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS|android.accessibilityservice.AccessibilityService' /tmp/maru-fullhub-manifest.txt; then
+            echo "Disallowed sensitive permission in built APK"
+            exit 1
+          fi
+          grep -F 'READ_MEDIA_AUDIO' /tmp/maru-fullhub-manifest.txt
+          cp "$APK" MARU-ONE-ALL-SYSTEMS-20261124.apk
+          sha256sum MARU-ONE-ALL-SYSTEMS-20261124.apk > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > SIGNER.txt
+          echo "Full-hub installer signed; prior MARU packages and data are untouched."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-ONE-ALL-SYSTEMS-ANDROID-APK
+          path: |
+            MARU-ONE-ALL-SYSTEMS-20261124.apk
+            SHA256SUMS.txt
+            SIGNER.txt
+          if-no-files-found: error
+          retention-days: 90
