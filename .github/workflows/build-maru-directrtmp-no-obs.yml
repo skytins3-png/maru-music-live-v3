@@ -1,0 +1,83 @@
+name: MARU OBS-free phone native RTMP streaming build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-maru-directrtmp-no-obs.yml'
+      - 'app/src/main/java/com/maru/musiclive/MainActivity.java'
+      - 'app/src/main/java/com/maru/musiclive/BigoRtmpEndpointPolicy.java'
+      - 'app/src/main/java/com/maru/musiclive/BigoRtmpCredentialVault.java'
+      - 'app/src/rtmp/java/com/maru/musiclive/BigoDirectRtmpService.java'
+      - 'app/src/test/java/com/maru/musiclive/BigoRtmpEndpointPolicyTest.java'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/build.gradle'
+      - 'settings.gradle'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 36
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Source contracts for no-OBS, no-Accessibility real RTMP endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/test_maru_full_hub_contract.py
+          python3 scripts/test_bigo_ready_contract.py
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_required_media.py
+          grep -q 'com.maru.musiclive.directrtmp.v20261124' app/build.gradle
+          grep -q 'BigoRtmpCredentialVault.save' app/src/main/java/com/maru/musiclive/MainActivity.java
+          grep -q 'new BitmapSource(makeCover())' app/src/rtmp/java/com/maru/musiclive/BigoDirectRtmpService.java
+          grep -q 'new AudioFileSource' app/src/rtmp/java/com/maru/musiclive/BigoDirectRtmpService.java
+          grep -q 'BigoRtmpEndpointPolicy.join' app/src/rtmp/java/com/maru/musiclive/BigoDirectRtmpService.java
+          ! grep -R -E 'BIND_ACCESSIBILITY_SERVICE|MANAGE_EXTERNAL_STORAGE' app/src/main/AndroidManifest.xml
+      - name: Build and unit-test optional native RTMP encoder on Java 17
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease -PmaruDirectRtmp=1
+      - name: Verify signed Android installer, package and stream security
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/maru-rtmp.txt
+          grep -F "name='com.maru.musiclive.directrtmp.v20261124'" /tmp/maru-rtmp.txt
+          grep -F "versionName='3.2.27-obs-free-rtmp'" /tmp/maru-rtmp.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/rtmp-manifest.txt
+          grep -F 'BigoDirectRtmpService' /tmp/rtmp-manifest.txt
+          grep -F 'READ_MEDIA_AUDIO' /tmp/rtmp-manifest.txt
+          if grep -E 'BIND_ACCESSIBILITY_SERVICE|MANAGE_EXTERNAL_STORAGE|CAMERA|CAPTURE_AUDIO_OUTPUT|RECORD_AUDIO' /tmp/rtmp-manifest.txt; then
+            echo 'Unexpected sensitive permission'; exit 1
+          fi
+          cp "$APK" MARU-OBS-FREE-DIRECT-RTMP-20261124.apk
+          sha256sum MARU-OBS-FREE-DIRECT-RTMP-20261124.apk > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > SIGNER.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-OBS-FREE-DIRECT-RTMP-ANDROID-APK
+          path: |
+            MARU-OBS-FREE-DIRECT-RTMP-20261124.apk
+            SHA256SUMS.txt
+            SIGNER.txt
+          retention-days: 90
+          if-no-files-found: error
