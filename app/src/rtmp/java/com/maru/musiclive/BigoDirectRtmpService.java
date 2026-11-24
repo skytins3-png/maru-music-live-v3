@@ -165,7 +165,8 @@ public final class BigoDirectRtmpService extends Service implements ConnectCheck
     }
 
     private AudioFileSource audioSource(Uri uri) {
-        return new AudioFileSource(this,uri,false,new Function1<Boolean, Unit>(){
+        // A single compatible song must loop rather than leave a silent RTMP feed.
+        return new AudioFileSource(this,uri,songUris.size()==1,new Function1<Boolean, Unit>(){
             @Override public Unit invoke(Boolean didLoop) {
                 if(!stopped)main.post(()->advanceTrack());
                 return Unit.INSTANCE;
@@ -179,8 +180,28 @@ public final class BigoDirectRtmpService extends Service implements ConnectCheck
             String key=BigoRtmpCredentialVault.loadKey(this);
             // Never persist/log/send credentials to any third party.
             String endpoint=BigoRtmpEndpointPolicy.join(server,key);
-            AudioInfo info=inspect(songUris.get(0));
-            sampleRate=info.hz;stereo=info.stereo;
+            // Play only locally readable tracks with a compatible PCM format.
+            // Switching an AudioFileSource cannot change sample rate/channels
+            // while the AAC encoder is live. Drop unsupported tracks *before*
+            // streaming rather than becoming silently stuck after the first song.
+            ArrayList<Uri> compatible=new ArrayList<>();
+            int rejected=0;
+            AudioInfo first=null;
+            for(Uri song: songUris) {
+                try {
+                    AudioInfo candidateInfo=inspect(song);
+                    if(first==null)first=candidateInfo;
+                    if(candidateInfo.hz==first.hz && candidateInfo.stereo==first.stereo)
+                        compatible.add(song);
+                    else rejected++;
+                }catch(Exception exception){ rejected++; }
+            }
+            if(compatible.isEmpty() || first==null)
+                throw new IllegalStateException("No readable audio songs");
+            songUris.clear();
+            songUris.addAll(compatible);
+            sampleRate=first.hz;stereo=first.stereo;
+            record("인코더 준비 · 사용 가능 "+compatible.size()+"곡 · 형식 제외 "+rejected+"곡 · BIGO 송출 미확인");
             RtmpStream candidate=new RtmpStream(this,this,
                     new BitmapSource(makeCover()),audioSource(songUris.get(0)));
             if(!candidate.prepareVideo(360,640,480_000,15,2,0))
