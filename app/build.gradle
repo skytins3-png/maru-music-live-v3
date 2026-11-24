@@ -31,7 +31,7 @@ android {
         // Native Android encoder; no PC OBS, no Accessibility automation.
         // Different package protects every previously installed MARU app.
         if (project.hasProperty('maruDirectRtmp')) {
-            applicationId 'com.maru.musiclive.directrtmp.v20261124'
+            applicationId 'com.maru.musiclive.directrtmp.rev2v20261124'
         }
         // Safety fallback for Android INSTALL_FAILED_UPDATE_INCOMPATIBLE:
         // new unique package, no overwrite and no private-data migration.
@@ -109,7 +109,7 @@ android {
             versionName '3.2.26-bigo-ready'
         }
         if (project.hasProperty('maruDirectRtmp')) {
-            versionName '3.2.27-obs-free-rtmp'
+            versionName '3.2.27b-obs-free-rtmp'
         }
     }
 
