@@ -299,7 +299,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         ensureDefaultMedia();
         buildSetupScreen();
         startAndBindPlayback();
-        showHomePlayer();
+        if (BuildConfig.MARU_FULL_HUB) showMaruUnifiedHome();
+        else showHomePlayer();
         requestNotificationPermission();
         // Scan Android's indexed audio on app start once permission has been
         // granted. The permission prompt is owned by Android, not by a web page.
@@ -313,7 +314,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                 } else if (miniPlayerMode) {
                     openSetupFromMini();
                 } else if (homePlayerMode) {
-                    showHomePlayerMenu();
+                    if (BuildConfig.MARU_FULL_HUB) showMaruUnifiedHome();
+                    else showHomePlayerMenu();
                 } else if (broadcastVisible) {
                     showBroadcastEndMenu();
                 } else {
@@ -843,6 +845,9 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         column.setPadding(dp(20), dp(24), dp(20), dp(40));
         setupScreen.addView(column);
 
+        if (BuildConfig.MARU_FULL_HUB) {
+            column.addView(button("← MARU ONE 통합 조종실", v -> showMaruUnifiedHome()));
+        }
         TextView heading = text("MARU MUSIC LIVE", 28, true);
         heading.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
         column.addView(heading);
@@ -1199,8 +1204,121 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         return url != null && TrustedWebStudio.mayNavigateInside(url.toString());
     }
 
+    /**
+     * Offline-capable native entrypoint for the new distinct MARU full-hub APK.
+     * The seven roles and agency are NOT represented as currently running AI.
+     * The detailed screens below are existing web applications; native audio
+     * library and their browser storage are deliberately separate.
+     */
+    private void showMaruUnifiedHome() {
+        if (!BuildConfig.MARU_FULL_HUB) {
+            setContentView(appRoot);
+            return;
+        }
+        if (broadcastVisible) leavePlayerScreen(false);
+        webStudioMode = false;
+        homePlayerMode = false;
+        miniPlayerMode = false;
+        showSystemBars();
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(ContextCompat.getColor(this, R.color.maru_bg));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(17), dp(18), dp(17), dp(30));
+        scroll.addView(root);
+
+        TextView title = text("MARU ONE · 통합 조종실", 25, true);
+        title.setTextColor(ContextCompat.getColor(this, R.color.maru_accent));
+        root.addView(title);
+        root.addView(text("휴대폰 하나에서 음악 · RADIO · AI 업무 · 에이전시 · SUNO",
+                13, false));
+        root.addView(text("7명 역할의 자동검사와 10명 전문가·에이전시의 건별 보고서를 구분합니다. "
+                + "독립 AI 모델의 상시 실행과 BIGO 실송출은 검증되지 않았습니다.", 12, false));
+
+        root.addView(text("① 휴대폰 내부 음악 · 실제 Android 기능", 17, true));
+        root.addView(button("휴대폰 전체 노래 자동 검색·등록", v -> {
+            scanDeviceMusic(true);
+        }));
+        root.addView(button("등록곡 목록 · 재생·사진·방송 설정", v -> {
+            setContentView(appRoot);
+        }));
+        root.addView(button("원곡 라디오 재생 화면", v -> showHomePlayer()));
+
+        root.addView(text("② AI 총괄 · 검사 기록과 미연결 상태", 17, true));
+        root.addView(text("MARU · LEO · TOTO · MIMI · HAPPY · TORI · NURI "
+                + "(자동 점검 역할, 독립 AI 실행은 확인되지 않음)", 12, false));
+        root.addView(button("MARU AI 7개 역할 · 실제 실행 로그", v ->
+                openMaruHubPage("mobile-hub/agents.html",
+                        "MARU AI 7명 · 실행 상태")));
+        root.addView(button("MARU 에이전시 · 건별 보고서", v ->
+                openMaruHubPage("mobile-hub/agency.html",
+                        "MARU 에이전시 · 11건 검사")));
+        root.addView(button("방송 전문가 10명 · 설계 및 임무 현황", v ->
+                openMaruHubPage("music-share/experts.html",
+                        "방송 전문가 10명")));
+        root.addView(button("MARU ONE 웹 통합 조종실", v ->
+                openMaruHubPage("mobile-hub/",
+                        "MARU ONE 웹 조종실")));
+
+        root.addView(text("③ Suno · 음악 · 30명 가수", 17, true));
+        root.addView(button("Suno 다운로드 음원 · 30명 가수 연결", v ->
+                openMaruHubPage("vocal-studio/mobile-suno.html",
+                        "30명 가수 · 오디오 보관함")));
+        root.addView(button("MARU RADIO SHOW · 녹음 멘트·미리듣기", v ->
+                openMaruHubPage("vocal-studio/radio-show.html",
+                        "RADIO SHOW · 실제 음원")));
+        root.addView(button("MARU STUDIO · 작곡·가사·방송", v ->
+                openEmbeddedWebStudio()));
+        root.addView(button("MUSIC SHARE · 신청곡·사연·보관함", v ->
+                openMaruHubPage("music-share/index.html",
+                        "MUSIC SHARE")));
+
+        root.addView(text("④ 기존 프로그램 · 외부 실행/자료 상태", 17, true));
+        root.addView(button("마루 AI 코드 생성 · 기존 웹 서비스", v -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://maru-ai-code-maker.streamlit.app")));
+            } catch (RuntimeException e) { toast("코드 생성 웹 서비스가 열리지 않습니다."); }
+        }));
+        root.addView(button("2025 원본 · MARU AI V5.13/V5.14·ZELMO 현황", v ->
+                new AlertDialog.Builder(this)
+                    .setTitle("2025 MARU · 원본 확인 상태")
+                    .setMessage("옛 MARU·LEO·TOTO·MIMI·HAPPY·TORI·NURI의 역할 기록은"
+                        + " 남아 있습니다. 2025년 마루.py, 마루총괄.py,"
+                        + " 마루총괄SUP_ALL_IN_ONE.py, V5.13·V5.14,"
+                        + " ZELMO의 원래 실행 소스는 아직 확보하지 못했습니다."
+                        + " 기존 프로그램을 복원했다고 표시하지 않습니다.")
+                    .setPositiveButton("확인", null).show()));
+        root.addView(text("이 앱의 음악은 Android MediaStore와 네이티브 저장소를,"
+                + " 웹 보관함은 별도 웹 저장소를 사용합니다."
+                + " 두 보관함이 자동으로 완전 동기화되지는 않습니다."
+                + " 앱 전환 중 음악이 BIGO 청취자에게 실제 전달되는지는 아직 미검증입니다.",
+                12, false));
+        setContentView(scroll);
+    }
+
+    private void openMaruHubPage(String relativePath, String name) {
+        String url = TRUSTED_STUDIO_URL + relativePath;
+        if (!TrustedWebStudio.mayNavigateInside(url)) {
+            toast("MARU 사이트 주소 확인에 실패했습니다.");
+            return;
+        }
+        openEmbeddedWebStudio(url, name);
+    }
+
     private void openEmbeddedWebStudio() {
+        openEmbeddedWebStudio(TRUSTED_STUDIO_URL, "MARU STUDIO · 원곡");
+    }
+
+    private void openEmbeddedWebStudio(String targetUrl, String displayTitle) {
         if (webStudioMode) return;
+        if (!TrustedWebStudio.mayNavigateInside(targetUrl)) {
+            toast("허용되지 않은 MARU 사이트 주소입니다.");
+            return;
+        }
         // Avoid overlapping native music/Suno voice with web audio.
         if (playback != null) playback.pause();
         stopSunoCompanion();
@@ -1217,14 +1335,17 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(smallButton("← MARU", v -> closeEmbeddedWebStudio()));
+        header.addView(smallButton(BuildConfig.MARU_FULL_HUB
+                ? "← 통합 조종실" : "← MARU",
+                v -> closeEmbeddedWebStudio()));
         header.addView(smallButton("브라우저로 열기", v -> {
             try { startActivity(new Intent(Intent.ACTION_VIEW,
-                    Uri.parse(TRUSTED_STUDIO_URL))); }
+                    Uri.parse(targetUrl))); }
             catch (RuntimeException e) { toast("브라우저를 열 수 없습니다."); }
         }));
         layout.addView(header);
-        TextView help = text("왼쪽 고정 목록 · 원곡은 이 화면에서 별도로 추가", 11, false);
+        TextView help = text(displayTitle
+                + " · 웹 자료는 인터넷 연결 필요 · 휴대폰 로컬 오디오와 별도 저장", 11, false);
         layout.addView(help);
 
         WebView web = new WebView(this);
@@ -1255,6 +1376,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 if (!isTrustedStudioUrl(Uri.parse(url))) return;
+                if (!TRUSTED_STUDIO_URL.equals(url)) return;
                 // Open the broadcast panel directly rather than requiring the
                 // user to scroll past the large music-composer landing page.
                 view.evaluateJavascript(
@@ -1297,7 +1419,7 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         layout.addView(web, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         setContentView(layout);
-        web.loadUrl(TRUSTED_STUDIO_URL);
+        web.loadUrl(targetUrl);
     }
 
     private void closeEmbeddedWebStudio() {
@@ -1316,7 +1438,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
         homePlayerMode = false;
         miniPlayerMode = false;
         showSystemBars();
-        setContentView(appRoot);
+        if (BuildConfig.MARU_FULL_HUB) showMaruUnifiedHome();
+        else setContentView(appRoot);
     }
 
     /** Official Suno playlist links are for browsing; media import uses Android's
