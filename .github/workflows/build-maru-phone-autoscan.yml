@@ -1,0 +1,108 @@
+name: MARU phone music auto-scan safe separate Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/main/java/com/maru/musiclive/MainActivity.java'
+      - 'app/src/main/java/com/maru/musiclive/DeviceMusicScanner.java'
+      - 'app/build.gradle'
+      - '.github/workflows/build-maru-phone-autoscan.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install Android platform 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Validate existing audio and app tests
+        run: |
+          python3 scripts/check_maru_clean.py
+          python3 scripts/check_required_media.py
+          gradle --no-daemon :app:testDebugUnitTest
+      - name: Build side-by-side auto-scanner package
+        run: gradle --no-daemon :app:assembleRelease -PmaruAutoScan=1
+      - name: Verify real APK signer and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" > /tmp/maru-autoscan-badging.txt
+          grep -F "name='com.maru.musiclive.autoscan.v20261124'" /tmp/maru-autoscan-badging.txt
+          grep -F "application-label:'MARU 음악 자동등록'" /tmp/maru-autoscan-badging.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/maru-autoscan-manifest.txt
+          if grep -E 'BIND_ACCESSIBILITY_SERVICE|MANAGE_EXTERNAL_STORAGE|BIND_NOTIFICATION_LISTENER_SERVICE|READ_SMS|RECEIVE_SMS' /tmp/maru-autoscan-manifest.txt; then
+            echo "Unsupported high-risk permission or accessibility service" >&2
+            exit 1
+          fi
+          grep -F 'READ_MEDIA_AUDIO' /tmp/maru-autoscan-manifest.txt
+          cp "$APK" MARU-PHONE-AUTO-MUSIC-SCAN.apk
+          sha256sum MARU-PHONE-AUTO-MUSIC-SCAN.apk > MARU-PHONE-AUTO-SCAN-SHA256.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$APK" > MARU-PHONE-AUTO-SCAN-SIGNER.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MARU-PHONE-AUTO-MUSIC-SCAN-APK
+          path: |
+            MARU-PHONE-AUTO-MUSIC-SCAN.apk
+            MARU-PHONE-AUTO-SCAN-SHA256.txt
+            MARU-PHONE-AUTO-SCAN-SIGNER.txt
+          if-no-files-found: error
+          retention-days: 90
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: MARU-PHONE-AUTO-MUSIC-SCAN-APK
+      - name: Publish only verified side-by-side APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check MARU-PHONE-AUTO-SCAN-SHA256.txt
+          test -s MARU-PHONE-AUTO-MUSIC-SCAN.apk
+          if gh release view v3.2.25-autoscan-20261124 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists. Do not overwrite its APK."
+            exit 0
+          fi
+          cat > release-notes.txt <<'EOF'
+          MARU 음악 자동등록 · 별도 설치 시험용
+          기존 MARU RADIO 앱과 설정을 덮어쓰거나 삭제하지 않습니다.
+          설치 후 앱을 열면 Android에서 음원 READ_MEDIA_AUDIO 권한 승인을 요청할 수 있습니다.
+          허용하면 Android MediaStore에 색인된 휴대폰 음악을 앱 안으로 등록합니다.
+          기존 노래 재생 목록은 자동 검색 시 삭제하지 않습니다. 원본 MP3 자체도 수정하지 않습니다.
+          MediaStore에 색인되지 않은 Suno 음원과 Suno 계정 보관함은 읽을 수 없습니다.
+          BIGO 실제 송출과 다른 앱 음성 합성 모델은 검증되지 않았습니다.
+          Android 설치는 기기 소유자가 직접 승인해야 합니다.
+          이 APK는 독립 패키지이며 다른 기기에 설치된 앱 내부 기록을 이전하지 않습니다.
+          EOF
+          gh release create v3.2.25-autoscan-20261124 \
+            MARU-PHONE-AUTO-MUSIC-SCAN.apk MARU-PHONE-AUTO-SCAN-SHA256.txt MARU-PHONE-AUTO-SCAN-SIGNER.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "MARU 음악 자동등록 · 별도 설치 (2026-11-24)" \
+            --notes-file release-notes.txt --prerelease
