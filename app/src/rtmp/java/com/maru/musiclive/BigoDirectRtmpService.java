@@ -14,6 +14,7 @@ import android.graphics.Paint;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -88,8 +89,12 @@ public final class BigoDirectRtmpService extends Service implements ConnectCheck
             record("시작 실패 · 공유 권한이 있는 휴대폰 음원 없음");
             stopped=true;stopSelf();return START_NOT_STICKY;
         }
-        startForeground(NOTICE_ID,notification("외부 송출 준비 중"),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q){
+            startForeground(NOTICE_ID,notification("외부 송출 준비 중"),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        }else{
+            startForeground(NOTICE_ID,notification("외부 송출 준비 중"));
+        }
         record("휴대폰 직접송출 준비 중 · BIGO 실제 수신 미확인");
         worker.execute(this::startEncoder);
         return START_NOT_STICKY;
