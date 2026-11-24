@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
@@ -45,7 +46,8 @@
         <service android:name=".BigoDirectRtmpService"
             android:enabled="${maruRtmpEnabled}"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:foregroundServiceType="mediaPlayback"
+            tools:ignore="MissingClass" />
         <service android:name=".PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".AutoGreetingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".SunoTalkCompanionService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
