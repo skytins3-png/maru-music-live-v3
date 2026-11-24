@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Needed only by optional -PmaruDirectRtmp=1 native Android encoder.
+        maven { url 'https://jitpack.io' }
     }
 }
 rootProject.name = 'MARU-MUSIC-LIVE'
