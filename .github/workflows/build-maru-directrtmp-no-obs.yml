@@ -38,6 +38,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      # Live-only stream credentials must come from the user's authorized BIGO account.
       - name: Source contracts for no-OBS, no-Accessibility real RTMP endpoint
         shell: bash
         run: |
