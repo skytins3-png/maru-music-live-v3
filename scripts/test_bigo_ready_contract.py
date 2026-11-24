@@ -12,7 +12,7 @@ gradle=(root/"app/build.gradle").read_text(encoding="utf8")
 manifest=(root/"app/src/main/AndroidManifest.xml").read_text(encoding="utf8")
 checks={
 "unique non-overwriting Android package": "com.maru.musiclive.bigo.ready20261124" in gradle,
-"BIGO edition opens unified home": "project.hasProperty('maruBigoReady')) ? 'true' : 'false'" in gradle,
+"BIGO edition opens unified home": "'MARU_FULL_HUB'" in gradle and "project.hasProperty('maruBigoReady')" in gradle and "project.hasProperty('maruDirectRtmp')" in gradle,
 "real BIGO panel at app home": "showBigoDeliveryPanel()" in main and "BIGO 오디오 LIVE 연결" in main,
 "official audio live handoff": 'startCommunityLive("오디오 LIVE")' in main,
 "native BIGO app launch": 'getLaunchIntentForPackage(OneClickBroadcastPlan.BIGO_PACKAGE)' in main,
