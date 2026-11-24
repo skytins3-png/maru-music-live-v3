@@ -18,6 +18,11 @@ android {
         if (project.hasProperty('maruAutoScan')) {
             applicationId 'com.maru.musiclive.autoscan.v20261124'
         }
+        // Full-hub edition is a distinct package. Never overwrite earlier
+        // radio, scanner or standalone apps or silently migrate app-private files.
+        if (project.hasProperty('maruFullHub')) {
+            applicationId 'com.maru.musiclive.fullhub.v20261124'
+        }
         // Safety fallback for Android INSTALL_FAILED_UPDATE_INCOMPATIBLE:
         // new unique package, no overwrite and no private-data migration.
         // Cannot upgrade differently signed existing MARU apps.
@@ -34,6 +39,8 @@ android {
         }
         buildConfigField 'boolean', 'AHWAN_CLIP_ONLY',
                 project.hasProperty('maruClipOnly') ? 'true' : 'false'
+        buildConfigField 'boolean', 'MARU_FULL_HUB',
+                project.hasProperty('maruFullHub') ? 'true' : 'false'
         // Dedicated MARU voice-bridge APK installs beside earlier differently signed
         // MARU installations. No access to existing apps' saved private data.
         if (project.hasProperty('maruVoiceBridge')) {
@@ -54,6 +61,8 @@ android {
                 ? 'MARU 3언어 새설치'
                 : project.hasProperty('maruLibraryPreview')
                 ? 'MARU 노래 보관함 시험판'
+                : project.hasProperty('maruFullHub')
+                ? 'MARU ONE 통합 조종실'
                 : project.hasProperty('maruAutoScan')
                 ? 'MARU 음악 자동등록'
                 : project.hasProperty('maruStandalone')
@@ -75,6 +84,9 @@ android {
         }
         if (project.hasProperty('maruAutoScan')) {
             versionName '3.2.25-auto-scan'
+        }
+        if (project.hasProperty('maruFullHub')) {
+            versionName '3.2.25-full-hub-20261124'
         }
     }
 
