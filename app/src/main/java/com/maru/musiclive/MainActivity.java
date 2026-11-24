@@ -1246,6 +1246,8 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                     + " 오디오 LIVE 버튼을 자동으로 누르는 방식과 다릅니다.", 12, false));
             root.addView(button("▶ 휴대폰 자체 송출 시작 · OBS 필요 없음", v ->
                     startNativeRtmpFromSaved()));
+            root.addView(button("BIGO 공식 외부 송출 권한·방송 키 확인", v ->
+                    openBigoOfficialStreamSettings()));
             root.addView(button("공식 BIGO 서버·스트림 키 안전 저장", v ->
                     showNativeRtmpCredentials()));
             root.addView(button("■ 휴대폰 직접 송출 중지", v -> stopNativeRtmp()));
@@ -1462,6 +1464,17 @@ public final class MainActivity extends ComponentActivity implements PlaybackSer
                        .show())
                 .setNegativeButton("취소",null)
                 .show();
+    }
+
+    /** Official BIGO account settings. No user credentials or stream key cross this intent. */
+    private void openBigoOfficialStreamSettings() {
+        try {
+            Intent official=new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://www.bigo.tv/userCenter/setting"));
+            startActivity(official);
+        } catch (RuntimeException error) {
+            toast("BIGO 공식 설정을 열지 못했습니다. Chrome에서 bigo.tv/userCenter/setting을 여세요.");
+        }
     }
 
     /** Device-only external encoder. No PC, no OBS software, no Accessibility. */
